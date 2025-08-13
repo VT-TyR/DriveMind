@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 95%; /* Light Gray #F0F0F0 */
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 222 65% 32%; /* Deep Blue #1E3A8A */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 90%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 90%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 35 83% 56%; /* Soft Orange #E99A2F */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 89%;
+    --input: 240 6% 89%;
+    --ring: 222 65% 32%; /* Deep Blue */
+    --chart-1: 222 65% 32%; /* Deep Blue */
+    --chart-2: 193 72% 48%;
+    --chart-3: 165 72% 48%;
+    --chart-4: 35 83% 56%; /* Soft Orange */
+    --chart-5: 4 80% 61%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 6% 10%;
+    --sidebar-primary: 222 65% 32%; /* Deep Blue */
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 10% 95%; /* Light Gray */
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 240 6% 89%;
+    --sidebar-ring: 222 65% 32%; /* Deep Blue */
+  }
+  .dark {
+    --background: 240 6% 10%;
+    --foreground: 0 0% 98%;
+    --card: 240 6% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 222 65% 32%; /* Deep Blue */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 4% 56%;
+    --accent: 35 83% 56%; /* Soft Orange */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 222 65% 32%; /* Deep Blue */
+    --chart-1: 222 65% 32%; /* Deep Blue */
+    --chart-2: 193 72% 48%;
+    --chart-3: 165 72% 48%;
+    --chart-4: 35 83% 56%; /* Soft Orange */
+    --chart-5: 4 80% 61%;
+    --sidebar-background: 240 6% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 222 65% 32%; /* Deep Blue */
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 5% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 5% 15%;
+    --sidebar-ring: 222 65% 32%; /* Deep Blue */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

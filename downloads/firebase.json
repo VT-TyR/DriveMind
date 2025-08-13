@@ -1,0 +1,10 @@
+
+{
+  "projects": {
+    "default": "draftcore-os"
+  },
+  "app": {
+    "base_dir": ".",
+    "source": "."
+  }
+}
