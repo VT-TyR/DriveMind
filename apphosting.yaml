@@ -16,6 +16,13 @@ env:
       - BUILD
       - RUNTIME
   
+  # Complete Firebase Config as JSON
+  - variable: NEXT_PUBLIC_FIREBASE_CONFIG
+    value: '{"projectId":"drivemind-q69b7","authDomain":"drivemind-q69b7.firebaseapp.com","apiKey":"AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX","appId":"1:687330755440:web:xxxxxxxxxxxxx","messagingSenderId":"687330755440"}'
+    availability:
+      - BUILD
+      - RUNTIME
+  
   # Enable production logging
   - variable: NODE_ENV
     value: production
