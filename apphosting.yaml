@@ -42,7 +42,8 @@ env:
       - BUILD
       - RUNTIME
       
+  # Use Firebase secrets for OAuth credentials
   - variable: GOOGLE_OAUTH_CLIENT_ID
-    value: 687330755440-1ebgu9smaba5fkhgplqdard2nuaofnt6.apps.googleusercontent.com
-    availability:
-      - RUNTIME
+    secret: GOOGLE_OAUTH_CLIENT_ID
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
