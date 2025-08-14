@@ -35,3 +35,14 @@ env:
     value: info
     availability:
       - RUNTIME
+      
+  - variable: NEXT_PUBLIC_BASE_URL
+    value: https://studio--drivemind-q69b7.us-central1.hosted.app
+    availability:
+      - BUILD
+      - RUNTIME
+      
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    value: 687330755440-1ebgu9smaba5fkhgplqdard2nuaofnt6.apps.googleusercontent.com
+    availability:
+      - RUNTIME
