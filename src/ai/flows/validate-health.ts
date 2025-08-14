@@ -9,7 +9,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { driveFor } from '@/lib/google-drive';
 import { getOAuthClient } from '@/lib/google-auth';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { ValidateHealthInputSchema, ValidateHealthInput } from '@/lib/ai-types';
 
 
@@ -85,7 +85,7 @@ const validateHealthFlow = ai.defineFlow(
     outputSchema: HealthValidationOutputSchema,
   },
   async (input) => {
-    const user = getAuthenticatedUser(input.auth);
+    const user = getAuthenticatedUserSync(input.auth);
     const [envVars, driveApi, writeScope] = await Promise.all([
         checkEnvVars(),
         checkDriveApi(user.uid),

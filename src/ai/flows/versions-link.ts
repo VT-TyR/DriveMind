@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { VersionsLinkInputSchema, VersionsLinkInput, VersionsLinkOutputSchema, VersionsLinkOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
 
@@ -27,7 +27,7 @@ const versionsLinkFlow = ai.defineFlow(
     outputSchema: VersionsLinkOutputSchema,
   },
   async ({ files, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     const buckets: Record<string, any[]> = {};
     
     function base(name:string) { 

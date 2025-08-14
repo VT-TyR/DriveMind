@@ -19,10 +19,13 @@ export function getOAuthClient() {
         throw new Error("Missing Google OAuth credentials. Ensure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are set in your environment.");
     }
     
-    // IMPORTANT: For this to work, you MUST add 'http://localhost:3000' to your
-    // "Authorized redirect URIs" in the Google Cloud Console for your OAuth Client ID.
-    const redirectUrl = 'http://localhost:3000/ai';
-
+    // Determine redirect URL based on environment
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const baseUrl = isDevelopment 
+        ? 'http://localhost:3000' 
+        : process.env.NEXT_PUBLIC_BASE_URL || 'https://your-domain.com';
+    
+    const redirectUrl = `${baseUrl}/ai`;
 
     return new google.auth.OAuth2(
         clientId,

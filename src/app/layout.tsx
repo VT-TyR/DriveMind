@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { OperatingModeProvider } from '@/contexts/operating-mode-context';
+import { AuthProvider } from '@/contexts/auth-context';
+import { FileOperationsProvider } from '@/contexts/file-operations-context';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { setupGlobalErrorHandling } from '@/lib/error-handler';
 
 export const metadata: Metadata = {
   title: 'DriveMind',
@@ -28,10 +32,21 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <OperatingModeProvider>
-          {children}
-          <Toaster />
-        </OperatingModeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(${setupGlobalErrorHandling.toString()})()`
+          }}
+        />
+        <ErrorBoundary>
+          <AuthProvider>
+            <FileOperationsProvider>
+              <OperatingModeProvider>
+                {children}
+                <Toaster />
+              </OperatingModeProvider>
+            </FileOperationsProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

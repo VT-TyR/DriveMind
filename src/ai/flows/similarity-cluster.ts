@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { SimilarityClusterInputSchema, SimilarityClusterInput, SimilarityClusterOutputSchema, SimilarityClusterOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
 
@@ -27,7 +27,7 @@ const similarityClusterFlow = ai.defineFlow(
     outputSchema: SimilarityClusterOutputSchema,
   },
   async ({ files, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     const byFuzzy: Record<string, any[]> = {};
     
     files.forEach(f => {

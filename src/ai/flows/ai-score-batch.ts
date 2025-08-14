@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser, FlowAuthSchema } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync, FlowAuthSchema } from '@/lib/flow-auth';
 import { ActionBatchSchema, ActionPreflightSchema } from '@/lib/ai-types';
 
 // In a real app, this would be defined in a shared types file.
@@ -75,7 +75,7 @@ const scoreBatchFlow = ai.defineFlow(
     outputSchema: ScoreBatchOutputSchema,
   },
   async ({ batchId, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     const batch = await getActionBatch(batchId, user.uid);
 
     if (!batch.preflight) {

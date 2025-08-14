@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser, FlowAuthSchema } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync, FlowAuthSchema } from '@/lib/flow-auth';
 
 // In a real app, this would be defined in a shared types file.
 const RecommendationSchema = z.object({
@@ -48,7 +48,7 @@ const recommendFlow = ai.defineFlow(
     outputSchema: RecommendOutputSchema,
   },
   async ({ auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     console.log(`STUB: Running recommendations for user ${user.uid}`);
     
     // In a real app, you would:

@@ -14,7 +14,7 @@ import {
     ProposeRulesOutputSchema,
     ProposeRulesOutputSchema as CompiledRuleSchema
 } from '@/lib/ai-types';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 
 
 const proposeRulesFlow = ai.defineFlow(
@@ -24,7 +24,7 @@ const proposeRulesFlow = ai.defineFlow(
     outputSchema: ProposeRulesOutputSchema,
   },
   async (input) => {
-    const user = getAuthenticatedUser(input.auth);
+    const user = getAuthenticatedUserSync(input.auth);
     // In a real scenario, you would first check user settings for aiMode.
     const prompt = ai.definePrompt({
       name: 'proposeRulesPrompt',

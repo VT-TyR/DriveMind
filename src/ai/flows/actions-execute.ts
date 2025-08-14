@@ -8,7 +8,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { driveFor } from '@/lib/google-drive';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { requireFreshAuth, checkWriteScope, reserveIdempotency, completeIdempotency } from '@/lib/guards';
 import {
   ExecuteActionsInputSchema,
@@ -43,7 +43,7 @@ const executeActionsFlow = ai.defineFlow(
     outputSchema: ExecuteActionsOutputSchema,
   },
   async ({ batchId, idempotencyKey, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth);
 
     const idempRef = await reserveIdempotency(idempotencyKey, 'executeActionsFlow');

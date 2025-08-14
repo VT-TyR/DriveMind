@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { BuildAnalyticsInputSchema, BuildAnalyticsOutputSchema, BuildAnalyticsInput, BuildAnalyticsOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
 
@@ -38,7 +38,7 @@ const buildAnalyticsFlow = ai.defineFlow(
     outputSchema: BuildAnalyticsOutputSchema,
   },
   async ({ files, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     
     const byMime:any = {}, byDepth:any = {}, byMonth:any = {};
     files.forEach(f => {

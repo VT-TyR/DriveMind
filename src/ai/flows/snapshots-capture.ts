@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { SnapshotCaptureInputSchema, SnapshotCaptureInput, SnapshotCaptureOutputSchema, SnapshotCaptureOutput } from '@/lib/ai-types';
 
 
@@ -22,7 +22,7 @@ const snapshotCaptureFlow = ai.defineFlow(
     outputSchema: SnapshotCaptureOutputSchema,
   },
   async ({ fileId, batchId, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     console.log(`STUB: Capturing snapshot for file ${fileId} in batch ${batchId} for user ${user.uid}`);
     
     // In a real implementation, this would:

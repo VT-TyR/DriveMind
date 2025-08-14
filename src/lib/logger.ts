@@ -1,0 +1,205 @@
+/**
+ * Centralized logging system for DriveMind
+ * Provides structured logging with different levels and contexts
+ */
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LogContext {
+  userId?: string;
+  fileId?: string;
+  fileName?: string;
+  operation?: string;
+  component?: string;
+  api?: string;
+  [key: string]: any;
+}
+
+export interface LogEntry {
+  timestamp: Date;
+  level: LogLevel;
+  message: string;
+  context?: LogContext;
+  error?: Error;
+  stack?: string;
+}
+
+class Logger {
+  private isDevelopment = process.env.NODE_ENV === 'development';
+  private logLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info';
+
+  private shouldLog(level: LogLevel): boolean {
+    const levels: Record<LogLevel, number> = {
+      debug: 0,
+      info: 1,
+      warn: 2,
+      error: 3,
+    };
+    return levels[level] >= levels[this.logLevel];
+  }
+
+  private formatLogEntry(entry: LogEntry): string {
+    const { timestamp, level, message, context, error } = entry;
+    const time = timestamp.toISOString();
+    const ctx = context ? ` [${JSON.stringify(context)}]` : '';
+    const err = error ? ` Error: ${error.message}` : '';
+    return `[${time}] ${level.toUpperCase()}: ${message}${ctx}${err}`;
+  }
+
+  private createLogEntry(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+    error?: Error
+  ): LogEntry {
+    return {
+      timestamp: new Date(),
+      level,
+      message,
+      context,
+      error,
+      stack: error?.stack,
+    };
+  }
+
+  private writeLog(entry: LogEntry): void {
+    if (!this.shouldLog(entry.level)) return;
+
+    const formatted = this.formatLogEntry(entry);
+
+    // Console output for development
+    if (this.isDevelopment) {
+      switch (entry.level) {
+        case 'debug':
+          console.debug(formatted);
+          break;
+        case 'info':
+          console.info(formatted);
+          break;
+        case 'warn':
+          console.warn(formatted);
+          break;
+        case 'error':
+          console.error(formatted);
+          if (entry.error) {
+            console.error(entry.error.stack);
+          }
+          break;
+      }
+    }
+
+    // In production, you might want to send logs to a service like:
+    // - Firebase Cloud Logging
+    // - Sentry
+    // - LogRocket
+    // - Custom logging endpoint
+    if (!this.isDevelopment && entry.level === 'error') {
+      this.sendToErrorTracking(entry);
+    }
+  }
+
+  private async sendToErrorTracking(entry: LogEntry): Promise<void> {
+    // Placeholder for production error tracking
+    // Example: Sentry, Firebase Crashlytics, etc.
+    try {
+      // await sentryClient.captureException(entry.error, { contexts: entry.context });
+    } catch (error) {
+      console.error('Failed to send error to tracking service:', error);
+    }
+  }
+
+  debug(message: string, context?: LogContext): void {
+    this.writeLog(this.createLogEntry('debug', message, context));
+  }
+
+  info(message: string, context?: LogContext): void {
+    this.writeLog(this.createLogEntry('info', message, context));
+  }
+
+  warn(message: string, context?: LogContext, error?: Error): void {
+    this.writeLog(this.createLogEntry('warn', message, context, error));
+  }
+
+  error(message: string, error?: Error, context?: LogContext): void {
+    this.writeLog(this.createLogEntry('error', message, context, error));
+  }
+
+  // Specialized methods for common operations
+  apiRequest(method: string, endpoint: string, context?: LogContext): void {
+    this.info(`API ${method} ${endpoint}`, { ...context, api: endpoint });
+  }
+
+  apiError(method: string, endpoint: string, error: Error, context?: LogContext): void {
+    this.error(`API ${method} ${endpoint} failed`, error, { ...context, api: endpoint });
+  }
+
+  fileOperation(operation: string, fileId: string, fileName?: string, context?: LogContext): void {
+    this.info(`File operation: ${operation}`, {
+      ...context,
+      operation,
+      fileId,
+      fileName,
+    });
+  }
+
+  fileOperationError(
+    operation: string,
+    fileId: string,
+    error: Error,
+    fileName?: string,
+    context?: LogContext
+  ): void {
+    this.error(`File operation failed: ${operation}`, error, {
+      ...context,
+      operation,
+      fileId,
+      fileName,
+    });
+  }
+
+  authEvent(event: string, userId?: string, context?: LogContext): void {
+    this.info(`Auth event: ${event}`, { ...context, userId, component: 'auth' });
+  }
+
+  authError(event: string, error: Error, userId?: string, context?: LogContext): void {
+    this.error(`Auth error: ${event}`, error, { ...context, userId, component: 'auth' });
+  }
+
+  // Performance tracking
+  performanceLog(operation: string, duration: number, context?: LogContext): void {
+    this.info(`Performance: ${operation} took ${duration}ms`, {
+      ...context,
+      performance: { operation, duration },
+    });
+  }
+}
+
+export const logger = new Logger();
+
+// Utility function for timing operations
+export async function withTiming<T>(
+  operation: string,
+  fn: () => Promise<T>,
+  context?: LogContext
+): Promise<T> {
+  const start = Date.now();
+  try {
+    logger.debug(`Starting operation: ${operation}`, context);
+    const result = await fn();
+    const duration = Date.now() - start;
+    logger.performanceLog(operation, duration, context);
+    return result;
+  } catch (error) {
+    const duration = Date.now() - start;
+    logger.error(`Operation failed: ${operation} (${duration}ms)`, error as Error, context);
+    throw error;
+  }
+}
+
+// Error boundary helper
+export function logErrorBoundary(error: Error, errorInfo: any, component?: string): void {
+  logger.error('React Error Boundary caught error', error, {
+    component,
+    errorInfo: errorInfo.componentStack,
+  });
+}

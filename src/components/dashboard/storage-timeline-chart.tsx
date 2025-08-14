@@ -3,23 +3,52 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
+import { DashboardStats, generateStorageTimelineData } from '@/lib/dashboard-service';
 
-const data = [
-  { month: 'Jan', total: 10.5 },
-  { month: 'Feb', total: 11.2 },
-  { month: 'Mar', total: 11.8 },
-  { month: 'Apr', total: 12.5 },
-  { month: 'May', total: 13.2 },
-  { month: 'Jun', total: 14.1 },
-  { month: 'Jul', total: 14.9 },
-  { month: 'Aug', total: 15.5, predicted: 15.5 },
-  { month: 'Sep', predicted: 16.2 },
-  { month: 'Oct', predicted: 16.9 },
-  { month: 'Nov', predicted: 17.6 },
-  { month: 'Dec', predicted: 18.3 },
-];
+interface StorageTimelineChartProps {
+  stats: DashboardStats | null;
+  isLoading?: boolean;
+}
 
-export default function StorageTimelineChart() {
+export default function StorageTimelineChart({ stats, isLoading = false }: StorageTimelineChartProps) {
+  // Generate timeline data based on current stats
+  const data = stats ? generateStorageTimelineData([]) : [];
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">Storage Growth Timeline</CardTitle>
+          <CardDescription>
+            Your storage usage over time and projected growth.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[300px]">
+            <div className="text-muted-foreground">Loading timeline...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data.length) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">Storage Growth Timeline</CardTitle>
+          <CardDescription>
+            Your storage usage over time and projected growth.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[300px]">
+            <div className="text-muted-foreground">No data available</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card>
         <CardHeader>

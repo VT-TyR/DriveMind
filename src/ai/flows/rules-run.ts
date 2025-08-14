@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { 
     FileSchema, 
     ProposeRulesOutputSchema, 
@@ -65,7 +65,7 @@ const rulesRunFlow = ai.defineFlow(
     outputSchema: RulesRunOutputSchema,
   },
   async ({ ruleId, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
 
     const r = await getRule(ruleId, user.uid);
     const rule = r.compiledRule;

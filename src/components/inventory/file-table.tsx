@@ -39,6 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { FileActions } from '@/components/shared/file-actions';
 
 type SortKey = keyof File | 'name' | 'size' | 'lastModified';
 
@@ -68,6 +69,7 @@ type FileTableProps = {
   onCleanupSuggestion: (file: File) => void;
   isAiEnabled: boolean;
   isProcessing: boolean;
+  onRefresh?: () => void;
 };
 
 export default function FileTable({
@@ -76,6 +78,7 @@ export default function FileTable({
   onCleanupSuggestion,
   isAiEnabled,
   isProcessing,
+  onRefresh,
 }: FileTableProps) {
   const [filter, setFilter] = React.useState('');
   const [sortConfig, setSortConfig] = React.useState<{
@@ -217,36 +220,35 @@ export default function FileTable({
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                       <AiMenuItem
-                          onClick={onCleanupSuggestion}
-                          file={file}
-                          disabled={isProcessing}
-                          tooltipText="Enable AI Mode to get cleanup suggestions."
-                        >
-                          <Sparkles className="mr-2 h-4 w-4" /> Suggest Cleanup
-                       </AiMenuItem>
-                       <AiMenuItem
-                          onClick={onScoreFile}
-                          file={file}
-                          disabled={isProcessing}
-                          tooltipText="Enable AI Mode to score files."
-                        >
-                          <BrainCircuit className="mr-2 h-4 w-4" /> Score Candidacy
-                        </AiMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center justify-end gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">AI Actions</span>
+                          <Sparkles className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                         <AiMenuItem
+                            onClick={onCleanupSuggestion}
+                            file={file}
+                            disabled={isProcessing}
+                            tooltipText="Enable AI Mode to get cleanup suggestions."
+                          >
+                            <Sparkles className="mr-2 h-4 w-4" /> Suggest Cleanup
+                         </AiMenuItem>
+                         <AiMenuItem
+                            onClick={onScoreFile}
+                            file={file}
+                            disabled={isProcessing}
+                            tooltipText="Enable AI Mode to score files."
+                          >
+                            <BrainCircuit className="mr-2 h-4 w-4" /> Score Candidacy
+                          </AiMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <FileActions file={file} onRefresh={onRefresh} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

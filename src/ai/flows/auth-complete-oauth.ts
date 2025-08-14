@@ -9,7 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { saveRefreshToken } from '@/lib/google-drive';
 import { getOAuthClient } from '@/lib/google-auth';
-import { getAuthenticatedUser } from '@/lib/flow-auth';
+import { getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { 
     CompleteOAuthInputSchema,
     CompleteOAuthOutputSchema,
@@ -32,7 +32,7 @@ const completeOAuthFlow = ai.defineFlow(
     
     // In a real app, you would validate that `state` matches the user who
     // initiated the flow. The UID is passed in the state parameter.
-    const user = getAuthenticatedUser({ uid: state });
+    const user = getAuthenticatedUserSync({ uid: state });
     
     const client = getOAuthClient();
     try {

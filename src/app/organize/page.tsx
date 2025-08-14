@@ -8,22 +8,25 @@ import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { proposeFolders } from '@/ai/flows/ai-propose-folders';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { useFileOperations } from '@/contexts/file-operations-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FolderSync, MoveRight, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { z } from 'zod';
+import { BatchOperationsPanel } from '@/components/shared/file-actions';
 
-
-// This is a temporary mock authentication object.
-const mockAuth = { uid: 'user-1234' };
 
 export default function OrganizePage() {
   const [suggestions, setSuggestions] = React.useState<ProposeFoldersOutput['suggestions']>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isCreatingBatch, setIsCreatingBatch] = React.useState(false);
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { addToBatch, createFolderOperation, isProcessing } = useFileOperations();
 
   const handleProposeFolders = async () => {
     if (!isAiEnabled) {
@@ -34,11 +37,22 @@ export default function OrganizePage() {
       });
       return;
     }
+
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Sign in Required',
+        description: 'Please sign in to analyze your files.',
+      });
+      return;
+    }
+
     setIsLoading(true);
     setSuggestions([]);
     try {
       // First, get a list of files to analyze.
-      const { files: driveFiles } = await listSampleFiles({ auth: mockAuth });
+      const authData = { uid: user.uid, email: user.email || undefined };
+      const { files: driveFiles } = await listSampleFiles({ auth: authData });
       const mappedFiles: z.infer<typeof AiFileSchema>[] = driveFiles.map((f: any) => ({
           id: f.id,
           name: f.name,
@@ -67,6 +81,58 @@ export default function OrganizePage() {
     }
   };
 
+  const handleCreateBatch = async () => {
+    if (!user || suggestions.length === 0) return;
+
+    setIsCreatingBatch(true);
+    try {
+      // Create folders for unique suggested paths first
+      const uniquePaths = [...new Set(suggestions.map(s => s.suggestedPath))];
+      const folderMap = new Map<string, string>();
+
+      for (const path of uniquePaths) {
+        try {
+          // For demo purposes, we'll create folders in the root
+          // In a real implementation, you'd parse the path and create nested folders
+          const folderId = await createFolderOperation(path);
+          folderMap.set(path, folderId);
+        } catch (error) {
+          console.error(`Failed to create folder ${path}:`, error);
+        }
+      }
+
+      // Add move operations to batch
+      let addedCount = 0;
+      suggestions.forEach((suggestion) => {
+        const targetFolderId = folderMap.get(suggestion.suggestedPath);
+        if (targetFolderId) {
+          addToBatch('move', suggestion.fileId, suggestion.fileName, {
+            newParentId: targetFolderId,
+            reason: suggestion.reason
+          });
+          addedCount++;
+        }
+      });
+
+      toast({
+        title: 'Batch Created',
+        description: `Added ${addedCount} move operations to batch. Review and execute when ready.`,
+      });
+
+      // Clear suggestions after creating batch
+      setSuggestions([]);
+
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to create batch',
+        description: error instanceof Error ? error.message : 'An error occurred',
+      });
+    } finally {
+      setIsCreatingBatch(false);
+    }
+  };
+
 
   return (
     <MainLayout>
@@ -88,12 +154,15 @@ export default function OrganizePage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={handleProposeFolders} disabled={isLoading || !isAiEnabled}>
+                <Button onClick={handleProposeFolders} disabled={isLoading || !isAiEnabled || !user}>
                     <FolderSync className="mr-2"/>
                     {isLoading ? 'Analyzing...' : 'Generate Smart Folder Plan'}
                 </Button>
                 {!isAiEnabled && (
                     <p className="text-sm text-destructive mt-4">Enable AI-Assisted mode to use this feature.</p>
+                )}
+                {!user && (
+                    <p className="text-sm text-destructive mt-4">Sign in to analyze your Google Drive files.</p>
                 )}
             </CardContent>
         </Card>
@@ -131,13 +200,26 @@ export default function OrganizePage() {
                             </TableBody>
                         </Table>
                     </div>
-                    <Button className="mt-4">
-                        Create Action Batch
-                    </Button>
+                    <div className="flex gap-2 mt-4">
+                        <Button 
+                            onClick={handleCreateBatch}
+                            disabled={isCreatingBatch || isProcessing}
+                        >
+                            {isCreatingBatch ? 'Creating...' : 'Create Action Batch'}
+                        </Button>
+                        <Button 
+                            variant="outline"
+                            onClick={() => setSuggestions([])}
+                            disabled={isCreatingBatch}
+                        >
+                            Clear Suggestions
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
         )}
 
+        <BatchOperationsPanel />
       </div>
     </MainLayout>
   );

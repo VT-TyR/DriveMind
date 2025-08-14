@@ -8,7 +8,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { driveFor } from '@/lib/google-drive';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import {
   PreflightActionsInputSchema,
   PreflightActionsOutputSchema,
@@ -30,7 +30,7 @@ const preflightActionsFlow = ai.defineFlow(
     outputSchema: PreflightActionsOutputSchema,
   },
   async ({ batchId, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     const batch = await getActionBatch(batchId, user.uid);
 
     if (batch.status !== 'simulated') {

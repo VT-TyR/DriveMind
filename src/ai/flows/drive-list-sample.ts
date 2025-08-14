@@ -9,7 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { driveFor } from '@/lib/google-drive';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { ListSampleFilesOutput, ListSampleFilesOutputSchema, ListSampleFilesInputSchema, ListSampleFilesInput } from '@/lib/ai-types';
 
 export async function listSampleFiles(input: ListSampleFilesInput): Promise<ListSampleFilesOutput> {
@@ -23,7 +23,7 @@ const listSampleFilesFlow = ai.defineFlow(
     outputSchema: ListSampleFilesOutputSchema,
   },
   async (input) => {
-    const user = getAuthenticatedUser(input.auth);
+    const user = getAuthenticatedUserSync(input.auth);
     const drive = await driveFor(user.uid);
     const resp = await drive.files.list({
       pageSize: 10,

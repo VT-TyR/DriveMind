@@ -9,7 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { WRITE_SCOPES, saveRefreshToken } from '@/lib/google-drive';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { 
     BeginOAuthInputSchema,
     BeginOAuthOutputSchema,
@@ -29,7 +29,7 @@ const beginOAuthFlow = ai.defineFlow(
     outputSchema: BeginOAuthOutputSchema,
   },
   async (input) => {
-    const user = getAuthenticatedUser(input.auth);
+    const user = getAuthenticatedUserSync(input.auth);
     
     // Create a new OAuth2 client with the correct redirect URI for this specific request.
     const client = getOAuthClient();

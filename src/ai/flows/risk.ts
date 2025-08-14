@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { FileSchema } from '@/lib/ai-types';
 import { 
     RiskSensitiveInputSchema,
@@ -47,7 +47,7 @@ const riskSensitiveFlow = ai.defineFlow(
     outputSchema: RiskSensitiveOutputSchema,
   },
   async ({ files, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     let flagged = 0;
     
     // Convert files to JSON string for the prompt
@@ -86,7 +86,7 @@ const riskScanSharesFlow = ai.defineFlow(
       outputSchema: ScanSharesOutputSchema,
     },
     async ({ auth }) => {
-      getAuthenticatedUser(auth);
+      getAuthenticatedUserSync(auth);
       // Placeholder: integrate Drive permissions list if needed; here we just stub zero
       return { risks: 0 };
     }

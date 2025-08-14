@@ -8,7 +8,7 @@
 // for use within Genkit flows. In a real Firebase Functions project,
 // you would use the official firebase-functions SDK.
 
-import { FlowAuth, getAuthenticatedUser } from './flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from './flow-auth';
 import { driveFor } from './google-drive';
 
 // This is a mock DB for idempotency. In a real app, use Firestore.
@@ -20,7 +20,7 @@ const idempotencyStore: Record<string, { status: string; endpoint: string; ts: D
  * @returns The user's UID.
  */
 export function requireUid(auth: FlowAuth): string {
-  const user = getAuthenticatedUser(auth);
+  const user = getAuthenticatedUserSync(auth);
   if (!user?.uid) {
     throw new Error('Unauthenticated: Missing user UID.');
   }

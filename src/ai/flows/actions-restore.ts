@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { driveFor } from '@/lib/google-drive';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { requireFreshAuth } from '@/lib/guards';
 import {
   RestoreActionsInputSchema,
@@ -33,7 +33,7 @@ const restoreActionsFlow = ai.defineFlow(
     outputSchema: RestoreActionsOutputSchema,
   },
   async ({ batchId, fileIds, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth);
     
     const batch = await getActionBatch(batchId, user.uid);

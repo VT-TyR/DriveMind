@@ -4,7 +4,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart2, Files, ListChecks, ShieldAlert, GitMerge, FolderSync, Copy, Activity, TestTube2 } from 'lucide-react';
+import { BarChart2, Files, ListChecks, ShieldAlert, GitMerge, FolderSync, Copy, Activity, TestTube2, Archive } from 'lucide-react';
 
 import {
   SidebarProvider,
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/shared/logo';
 import OperatingModeSwitch from './operating-mode-switch';
+import { AuthSection } from './auth-section';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -135,6 +136,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
              <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
+                isActive={pathname.startsWith('/vault')}
+                tooltip={{ children: 'Data Vault' }}
+              >
+                <Link href="/vault">
+                  <Archive />
+                  <span>Vault</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
                 isActive={pathname.startsWith('/ai')}
                 tooltip={{ children: 'AI/Dev' }}
               >
@@ -147,6 +160,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
+          <AuthSection />
           <OperatingModeSwitch />
         </SidebarFooter>
       </Sidebar>

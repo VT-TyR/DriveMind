@@ -10,6 +10,7 @@ import { proposeCleanupActions } from '@/ai/flows/propose-cleanup-actions';
 import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,10 +26,19 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import FileTable from '@/components/inventory/file-table';
 import { Button } from '@/components/ui/button';
+import { markDuplicates } from '@/lib/duplicate-detection';
+import { BatchOperationsPanel } from '@/components/shared/file-actions';
 
-// This is a temporary mock authentication object.
-// In a real app, you would get this from your auth context after login.
-const mockAuth = { uid: 'user-1234' };
+function mapMimeTypeToFileType(mimeType: string): File['type'] {
+  if (mimeType === 'application/vnd.google-apps.folder') return 'Folder';
+  if (mimeType === 'application/vnd.google-apps.document') return 'Document';
+  if (mimeType === 'application/vnd.google-apps.spreadsheet') return 'Spreadsheet';
+  if (mimeType === 'application/vnd.google-apps.presentation') return 'Presentation';
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType.startsWith('image/')) return 'Image';
+  if (mimeType.startsWith('video/')) return 'Video';
+  return 'Other';
+}
 
 type AiSuggestion = {
   action: 'trash' | 'move' | 'archive' | 'no_action';
@@ -46,22 +56,33 @@ export default function InventoryPage() {
   );
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchFiles = React.useCallback(async () => {
+    if (!user) {
+      setFiles([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { files: driveFiles } = await listSampleFiles({ auth: mockAuth });
+      const authData = { uid: user.uid, email: user.email || undefined };
+      const { files: driveFiles } = await listSampleFiles({ auth: authData });
       const mappedFiles: File[] = driveFiles.map((f, i) => ({
           id: f.id,
           name: f.name,
-          type: 'Other', // In a real app, you would map mimeType to your File['type']
+          type: mapMimeTypeToFileType(f.mimeType || ''),
           size: Number(f.size || 0),
           lastModified: f.modifiedTime ? new Date(f.modifiedTime) : new Date(),
           isDuplicate: false,
           path: [],
           vaultScore: null,
       }));
-      setFiles(mappedFiles);
+
+      // Mark duplicates
+      const filesWithDuplicates = markDuplicates(mappedFiles);
+      setFiles(filesWithDuplicates);
     } catch (error: any) {
         toast({
             variant: 'destructive',
@@ -72,7 +93,7 @@ export default function InventoryPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   React.useEffect(() => {
     fetchFiles();
@@ -162,6 +183,27 @@ export default function InventoryPage() {
     }
   };
 
+  if (!user) {
+    return (
+      <MainLayout>
+        <div className="flex-1 space-y-4 p-4 pt-6 sm:p-8">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="md:hidden" />
+            <h2 className="text-3xl font-bold tracking-tight font-headline">
+              File Inventory
+            </h2>
+          </div>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <h3 className="text-lg font-medium mb-2">Sign in Required</h3>
+            <p className="text-muted-foreground mb-4">
+              Please sign in with your Google account to view your Drive files.
+            </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 sm:p-8">
@@ -182,7 +224,9 @@ export default function InventoryPage() {
           onCleanupSuggestion={handleCleanupSuggestion}
           isAiEnabled={isAiEnabled}
           isProcessing={isProcessing || isLoading}
+          onRefresh={fetchFiles}
         />
+        <BatchOperationsPanel onRefresh={fetchFiles} />
       </div>
 
       <AlertDialog open={!!suggestion} onOpenChange={() => setSuggestion(null)}>

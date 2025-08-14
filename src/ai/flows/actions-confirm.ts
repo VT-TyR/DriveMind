@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FlowAuth, getAuthenticatedUser } from '@/lib/flow-auth';
+import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { requireFreshAuth } from '@/lib/guards';
 import {
   ConfirmActionsInputSchema,
@@ -29,7 +29,7 @@ const confirmActionsFlow = ai.defineFlow(
     outputSchema: ConfirmActionsOutputSchema,
   },
   async ({ batchId, challengeResponse, auth }) => {
-    const user = getAuthenticatedUser(auth);
+    const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth); // Ensure user has recently authenticated
 
     const batch = await getActionBatch(batchId, user.uid);
