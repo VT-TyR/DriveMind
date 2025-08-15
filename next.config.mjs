@@ -5,6 +5,20 @@ const nextConfig = {
     GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
   },
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups'
+          }
+        ],
+      },
+    ];
+  },
   // Ensure TypeScript path mapping works properly
   webpack: (config) => {
     config.resolve.alias = {
@@ -12,10 +26,6 @@ const nextConfig = {
       '@': new URL('./src', import.meta.url).pathname,
     };
     return config;
-  },
-  // Exclude Firebase Functions directories from build
-  experimental: {
-    serverComponentsExternalPackages: ['firebase-functions'],
   },
 }
 

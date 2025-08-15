@@ -5,7 +5,6 @@ import { OperatingModeProvider } from '@/contexts/operating-mode-context';
 import { AuthProvider } from '@/contexts/auth-context';
 import { FileOperationsProvider } from '@/contexts/file-operations-context';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { setupGlobalErrorHandling } from '@/lib/error-handler';
 
 export const metadata: Metadata = {
   title: 'DriveMind',
@@ -34,7 +33,24 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(${setupGlobalErrorHandling.toString()})()`
+            __html: `(function() {
+              if (typeof window !== 'undefined') {
+                window.addEventListener('unhandledrejection', function(event) {
+                  console.error('Unhandled promise rejection:', event.reason);
+                });
+                window.addEventListener('error', function(event) {
+                  console.error('Unhandled error:', event.message);
+                });
+              } else if (typeof process !== 'undefined') {
+                process.on('unhandledRejection', function(reason, promise) {
+                  console.error('Unhandled promise rejection:', reason);
+                });
+                process.on('uncaughtException', function(error) {
+                  console.error('Uncaught exception:', error);
+                  process.exit(1);
+                });
+              }
+            })()`
           }}
         />
         <ErrorBoundary>

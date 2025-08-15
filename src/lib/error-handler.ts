@@ -192,7 +192,7 @@ export function setupGlobalErrorHandling() {
         colno: event.colno,
       });
     });
-  } else {
+  } else if (typeof process !== 'undefined') {
     // Node.js environment
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Unhandled promise rejection', reason as Error, {

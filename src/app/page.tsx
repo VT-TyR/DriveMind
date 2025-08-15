@@ -30,12 +30,14 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = React.useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [needsDriveConnection, setNeedsDriveConnection] = React.useState(false);
 
   React.useEffect(() => {
     async function fetchDashboardData() {
       if (!user) {
         setStats(null);
         setIsLoading(false);
+        setNeedsDriveConnection(false);
         return;
       }
 
@@ -57,8 +59,14 @@ export default function DashboardPage() {
         const filesWithDuplicates = markDuplicates(mappedFiles);
         const dashboardStats = calculateDashboardStats(filesWithDuplicates);
         setStats(dashboardStats);
+        setNeedsDriveConnection(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Check if this is a Drive connection error
+        if (error instanceof Error && error.message.includes('No Google Drive connection')) {
+          console.log('User needs to connect Google Drive first');
+          setNeedsDriveConnection(true);
+        }
         setStats(null);
       } finally {
         setIsLoading(false);
@@ -77,6 +85,22 @@ export default function DashboardPage() {
             <h3 className="text-lg font-medium mb-2">Sign in Required</h3>
             <p className="text-muted-foreground mb-4">
               Please sign in with your Google account to view your Drive dashboard.
+            </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (needsDriveConnection) {
+    return (
+      <MainLayout>
+        <div className="flex-1 space-y-4 p-4 pt-6 sm:p-8">
+          <DashboardHeader />
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <h3 className="text-lg font-medium mb-2">Connect Google Drive</h3>
+            <p className="text-muted-foreground mb-4">
+              To view your dashboard, please connect your Google Drive account in the AI/Dev section.
             </p>
           </div>
         </div>
