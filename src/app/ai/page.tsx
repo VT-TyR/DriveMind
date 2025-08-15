@@ -204,12 +204,34 @@ export default function AIPage() {
     setStatus('Redirecting to Google...');
     try {
       console.log('Starting OAuth flow...');
-      const { url } = await beginOAuth({ auth: mockAuth });
+      console.log('Mock auth object:', mockAuth);
+      
+      // Use API route instead of Genkit flow to avoid server component issues
+      const response = await fetch('/api/oauth/begin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: mockAuth.uid })
+      });
+      
+      console.log('API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start OAuth');
+      }
+      
+      const { url } = await response.json();
       console.log('Generated OAuth URL:', url);
+      
       // Redirect the current window to the consent screen
       window.location.href = url;
     } catch (error: any) {
-      console.error('OAuth error:', error);
+      console.error('OAuth error details:', {
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause,
+        digest: error.digest
+      });
       setStatus(`Error: ${error.message}`);
       toast({ variant: 'destructive', title: 'Failed to connect Drive', description: error.message });
     }
