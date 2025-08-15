@@ -20,10 +20,16 @@ export function getOAuthClient() {
     }
     
     // Determine redirect URL based on environment
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const redirectUrl = isDevelopment 
-        ? 'http://localhost:3000' 
-        : 'https://studio--drivemind-q69b7.us-central1.hosted.app';
+    // Check multiple conditions to ensure we're truly in development
+    const isDevelopment = process.env.NODE_ENV === 'development' || 
+                         process.env.VERCEL_ENV === 'development' ||
+                         !process.env.NODE_ENV; // fallback for undefined NODE_ENV
+    
+    // Use base URL from environment if available, otherwise determine from NODE_ENV
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                   (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
+    
+    const redirectUrl = baseUrl;
 
     return new google.auth.OAuth2(
         clientId,
