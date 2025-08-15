@@ -203,10 +203,13 @@ export default function AIPage() {
   async function handleConnectDrive() {
     setStatus('Redirecting to Google...');
     try {
+      console.log('Starting OAuth flow...');
       const { url } = await beginOAuth({ auth: mockAuth });
+      console.log('Generated OAuth URL:', url);
       // Redirect the current window to the consent screen
       window.location.href = url;
     } catch (error: any) {
+      console.error('OAuth error:', error);
       setStatus(`Error: ${error.message}`);
       toast({ variant: 'destructive', title: 'Failed to connect Drive', description: error.message });
     }
