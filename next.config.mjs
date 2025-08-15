@@ -13,6 +13,10 @@ const nextConfig = {
     };
     return config;
   },
+  // Exclude Firebase Functions directories from build
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-functions'],
+  },
 }
 
 export default nextConfig;
