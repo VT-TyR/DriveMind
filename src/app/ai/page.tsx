@@ -54,13 +54,19 @@ export default function AIPage() {
 
     if (code && state) {
       setStatus('Completing authentication...');
-      completeOAuth({ code, state, auth: { uid: state } })
+      
+      fetch('/api/oauth/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, state })
+      })
+        .then(response => response.json())
         .then(result => {
           if (result.ok) {
             setStatus('Drive connected successfully!');
             toast({ title: 'Success', description: 'Your Google Drive is now connected.' });
           } else {
-            throw new Error(result.message);
+            throw new Error(result.error || 'Failed to complete OAuth');
           }
         })
         .catch(e => {

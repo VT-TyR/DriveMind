@@ -9,7 +9,6 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { logger } from '@/lib/logger';
 import { mapFirebaseError, AuthenticationError } from '@/lib/error-handler';
 
 interface AuthContextType {
