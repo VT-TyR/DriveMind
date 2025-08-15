@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { classifyFiles } from '@/ai/flows/ai-classify';
 import { proposeRules } from '@/ai/flows/ai-propose-rules';
 import { simulateActions } from '@/ai/flows/ai-simulate-actions';
+import { beginOAuth } from '@/ai/flows/auth-begin-oauth';
+import { completeOAuth } from '@/ai/flows/auth-complete-oauth';
 import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { preflightActions } from '@/ai/flows/actions-preflight';
 import { confirmActions } from '@/ai/flows/actions-confirm';
@@ -45,7 +47,33 @@ export default function AIPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const { toast } = useToast();
 
-  // No longer needed - OAuth is handled by Firebase Auth
+  // Effect to handle the OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+
+    if (code && state) {
+      setStatus('Completing authentication...');
+      completeOAuth({ code, state, auth: { uid: state } })
+        .then(result => {
+          if (result.ok) {
+            setStatus('Drive connected successfully!');
+            toast({ title: 'Success', description: 'Your Google Drive is now connected.' });
+          } else {
+            throw new Error(result.message);
+          }
+        })
+        .catch(e => {
+          setStatus(`Error: ${e.message}`);
+          toast({ variant: 'destructive', title: 'Failed to connect Drive', description: e.message });
+        })
+        .finally(() => {
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
+  }, [toast]);
 
 
   function resetFlow() {
@@ -172,7 +200,16 @@ export default function AIPage() {
     }
   }
 
-  // No longer needed - Drive access is granted through Firebase Auth
+  async function handleConnectDrive() {
+    setStatus('Redirecting to Google...');
+    try {
+      const result = await beginOAuth({ auth: mockAuth });
+      window.location.href = result.url;
+    } catch (error: any) {
+      setStatus(`Error: ${error.message}`);
+      toast({ variant: 'destructive', title: 'Failed to connect Drive', description: error.message });
+    }
+  }
 
   return (
     <MainLayout>
@@ -190,10 +227,11 @@ export default function AIPage() {
         <Card>
           <CardHeader>
             <CardTitle>Google Drive Integration</CardTitle>
-            <CardDescription>Drive access is automatically granted when you sign in with Google in the sidebar.</CardDescription>
+            <CardDescription>Connect your Google Drive to enable AI-powered file management.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3">
+              <Button onClick={handleConnectDrive}>Connect Google Drive</Button>
               <Button onClick={() => listSampleFiles({ auth: mockAuth }).then(res => console.log(res.files)).catch(err => console.error(err))}>Log Sample Files to Console</Button>
             </div>
           </CardContent>

@@ -1,17 +1,31 @@
 
 /**
- * Google Drive API integration using Firebase Auth tokens.
- * Access tokens are automatically handled by Firebase Auth.
+ * Google Drive API integration with proper refresh token management.
+ * Uses OAuth refresh tokens to maintain persistent Drive access.
  */
-import { createDriveClient } from '@/lib/drive-client';
-import { getStoredAccessToken } from '@/lib/drive-auth';
+import { google } from 'googleapis';
+import { getOAuthClient } from '@/lib/google-auth';
 import { File } from '@/lib/types';
 
-/** Create an authenticated Drive client using Firebase Auth token. */
+const userRefreshTokens: Record<string, string> = {};
+
+/** Persist user's Drive refresh token */
+export async function saveRefreshToken(uid: string, refresh: string | null | undefined) {
+    if (refresh) {
+        userRefreshTokens[uid] = refresh;
+        console.log(`Saved refresh token for user ${uid}`);
+    }
+}
+
+/** Create an authenticated Drive client for a given uid (requires stored refresh token). */
 export async function driveFor(uid: string) {
-  // Get stored access token and create server-side client
-  const accessToken = getStoredAccessToken(uid);
-  return createDriveClient(accessToken);
+  const refresh = userRefreshTokens[uid];
+  if (!refresh) {
+    throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
+  }
+  const oauth = getOAuthClient();
+  oauth.setCredentials({ refresh_token: refresh });
+  return google.drive({ version: "v3", auth: oauth });
 }
 
 /** Get file type based on MIME type */
