@@ -50,29 +50,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const provider = new GoogleAuthProvider();
     
     try {
-      logger.authEvent('sign_in_start');
+      console.log('Starting Google sign-in...');
       
       const result = await signInWithPopup(auth, provider);
       
-      logger.authEvent('sign_in_success', result.user.uid, {
+      console.log('Google sign-in successful:', {
+        uid: result.user.uid,
         email: result.user.email,
         displayName: result.user.displayName
       });
     } catch (error) {
-      logger.authError('sign_in_failed', error as Error);
+      console.error('Google sign-in failed:', error);
       throw mapFirebaseError(error);
     }
   };
 
   const signOut = async () => {
     try {
-      logger.authEvent('sign_out_start', user?.uid);
+      console.log('Starting sign out...');
       
       await firebaseSignOut(auth);
       
-      logger.authEvent('sign_out_success');
+      console.log('Sign out successful');
     } catch (error) {
-      logger.authError('sign_out_failed', error as Error, user?.uid);
+      console.error('Sign out failed:', error);
       throw mapFirebaseError(error);
     }
   };
