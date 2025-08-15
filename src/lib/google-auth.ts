@@ -16,6 +16,10 @@ export function getOAuthClient() {
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
     if (!clientId || !clientSecret) {
+        console.error("Missing Google OAuth credentials:", { 
+            hasClientId: !!clientId, 
+            hasClientSecret: !!clientSecret 
+        });
         throw new Error("Missing Google OAuth credentials. Ensure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are set in your environment.");
     }
     
@@ -24,7 +28,7 @@ export function getOAuthClient() {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
                    (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
     
-    const redirectUrl = baseUrl;
+    const redirectUrl = `${baseUrl}/ai`;
     
     // Debug logging (server-side only)
     console.log('OAuth Debug (Server):', {

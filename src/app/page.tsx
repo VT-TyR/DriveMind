@@ -62,10 +62,13 @@ export default function DashboardPage() {
         setNeedsDriveConnection(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        // Check if this is a Drive connection error
-        if (error instanceof Error && error.message.includes('No Google Drive connection')) {
-          console.log('User needs to connect Google Drive first');
-          setNeedsDriveConnection(true);
+        // Check if this is a Drive connection error or OAuth credentials error
+        if (error instanceof Error) {
+          if (error.message.includes('No Google Drive connection') || 
+              error.message.includes('Missing Google OAuth credentials')) {
+            console.log('User needs to connect Google Drive first');
+            setNeedsDriveConnection(true);
+          }
         }
         setStats(null);
       } finally {
