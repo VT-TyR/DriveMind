@@ -3,14 +3,15 @@
  * Google Drive API integration using Firebase Auth tokens.
  * Access tokens are automatically handled by Firebase Auth.
  */
-import { google } from 'googleapis';
-import { getDriveClient } from '@/lib/drive-auth';
+import { createDriveClient } from '@/lib/drive-client';
+import { getStoredAccessToken } from '@/lib/drive-auth';
 import { File } from '@/lib/types';
 
 /** Create an authenticated Drive client using Firebase Auth token. */
 export async function driveFor(uid: string) {
-  // Use Firebase Auth stored token
-  return getDriveClient(uid);
+  // Get stored access token and create server-side client
+  const accessToken = getStoredAccessToken(uid);
+  return createDriveClient(accessToken);
 }
 
 /** Get file type based on MIME type */

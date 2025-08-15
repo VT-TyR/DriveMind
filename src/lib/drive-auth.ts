@@ -1,6 +1,4 @@
-import { auth } from '@/lib/firebase';
-import { GoogleAuthProvider, getAdditionalUserInfo } from 'firebase/auth';
-import { google } from 'googleapis';
+import { GoogleAuthProvider } from 'firebase/auth';
 
 // Store access tokens temporarily (in production, use secure storage)
 const userTokens: Record<string, string> = {};
@@ -25,13 +23,9 @@ export function getDriveAccessToken(uid: string): string {
 }
 
 /**
- * Creates a Google Drive API client using stored access token.
+ * Gets the stored access token for server-side use.
+ * The actual Drive client creation should happen server-side only.
  */
-export function getDriveClient(uid: string) {
-  const accessToken = getDriveAccessToken(uid);
-  
-  const oauth = new google.auth.OAuth2();
-  oauth.setCredentials({ access_token: accessToken });
-  
-  return google.drive({ version: 'v3', auth: oauth });
+export function getStoredAccessToken(uid: string): string {
+  return getDriveAccessToken(uid);
 }
