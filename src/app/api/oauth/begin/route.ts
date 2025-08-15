@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
     
-    // Use the correct OAuth client ID that exists in Google Cloud Console
-    const clientId = '687330755440-jtlosqanl7ks6ir40crstcrarbcua8jv.apps.googleusercontent.com';
+    // Use the DriveMind OAuth client for Drive access
+    const clientId = '687330755440-1ebgu9smaba5fkhgplqdard2nuaofnt6.apps.googleusercontent.com';
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
     if (!clientSecret) {
