@@ -30,6 +30,15 @@ export function getOAuthClient() {
                    (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
     
     const redirectUrl = baseUrl;
+    
+    // Debug logging
+    console.log('OAuth Debug:', {
+        NODE_ENV: process.env.NODE_ENV,
+        NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+        isDevelopment,
+        baseUrl,
+        redirectUrl
+    });
 
     return new google.auth.OAuth2(
         clientId,
