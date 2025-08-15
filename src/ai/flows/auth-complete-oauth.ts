@@ -35,6 +35,14 @@ const completeOAuthFlow = ai.defineFlow(
       };
     } catch (error) {
       console.error('OAuth completion error:', error);
+      
+      if (error instanceof Error && error.message.includes('Missing Google OAuth credentials')) {
+        return {
+          ok: false,
+          message: 'OAuth configuration not available. Please check server configuration.'
+        };
+      }
+      
       return {
         ok: false,
         message: error instanceof Error ? error.message : 'Failed to complete OAuth'

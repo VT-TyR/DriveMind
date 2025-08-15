@@ -24,18 +24,23 @@ const beginOAuthFlow = ai.defineFlow(
   },
   async (input) => {
     const user = getAuthenticatedUserSync(input.auth);
-    const client = getOAuthClient();
     
-    const url = client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: [
-        'https://www.googleapis.com/auth/drive.readonly',
-        'https://www.googleapis.com/auth/drive.file'
-      ],
-      state: user.uid, // Pass user ID as state
-    });
-    
-    return { url };
+    try {
+      const client = getOAuthClient();
+      
+      const url = client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: [
+          'https://www.googleapis.com/auth/drive.readonly',
+          'https://www.googleapis.com/auth/drive.file'
+        ],
+        state: user.uid, // Pass user ID as state
+      });
+      
+      return { url };
+    } catch (error) {
+      throw new Error('OAuth configuration not available. Please check server configuration.');
+    }
   }
 );

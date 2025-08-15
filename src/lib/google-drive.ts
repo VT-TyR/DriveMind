@@ -23,9 +23,15 @@ export async function driveFor(uid: string) {
   if (!refresh) {
     throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
   }
-  const oauth = getOAuthClient();
-  oauth.setCredentials({ refresh_token: refresh });
-  return google.drive({ version: "v3", auth: oauth });
+  
+  try {
+    const oauth = getOAuthClient();
+    oauth.setCredentials({ refresh_token: refresh });
+    return google.drive({ version: "v3", auth: oauth });
+  } catch (error) {
+    // If OAuth credentials are missing, treat as no connection
+    throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
+  }
 }
 
 /** Get file type based on MIME type */
