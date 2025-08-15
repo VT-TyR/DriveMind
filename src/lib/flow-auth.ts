@@ -26,8 +26,8 @@ export interface AuthenticatedUser {
  */
 export async function getAuthenticatedUser(auth?: FlowAuth): Promise<AuthenticatedUser> {
   if (!auth?.uid) {
-    // For development/testing only
-    if (process.env.NODE_ENV === 'development') {
+    // For development/testing only - check if we're on server side
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.warn("Auth object not provided to flow, using mock user. This is development-only.");
       return { uid: 'mock-user-id-for-testing' };
     }
@@ -36,7 +36,7 @@ export async function getAuthenticatedUser(auth?: FlowAuth): Promise<Authenticat
 
   // TODO: In production, verify the ID token with Firebase Admin SDK
   // For now, we'll implement basic validation
-  if (auth.idToken && process.env.NODE_ENV === 'production') {
+  if (auth.idToken && typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
     // This should be implemented with proper Firebase Admin SDK
     console.log('ID token verification not yet implemented');
   }
@@ -51,7 +51,7 @@ export async function getAuthenticatedUser(auth?: FlowAuth): Promise<Authenticat
  */
 export function getAuthenticatedUserSync(auth?: FlowAuth): AuthenticatedUser {
   if (!auth?.uid) {
-    if (process.env.NODE_ENV === 'development') {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.warn("Auth object not provided to flow, using mock user. This is development-only.");
       return { uid: 'mock-user-id-for-testing' };
     }
