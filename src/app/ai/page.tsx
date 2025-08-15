@@ -12,13 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { classifyFiles } from '@/ai/flows/ai-classify';
 import { proposeRules } from '@/ai/flows/ai-propose-rules';
 import { simulateActions } from '@/ai/flows/ai-simulate-actions';
-import { beginOAuth } from '@/ai/flows/auth-begin-oauth';
 import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { preflightActions } from '@/ai/flows/actions-preflight';
 import { confirmActions } from '@/ai/flows/actions-confirm';
 import { executeActions } from '@/ai/flows/actions-execute';
 import { restoreActions } from '@/ai/flows/actions-restore';
-import { completeOAuth } from '@/ai/flows/auth-complete-oauth';
 
 
 import type {
@@ -47,33 +45,7 @@ export default function AIPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const { toast } = useToast();
 
-  // Effect to handle the OAuth callback
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-
-    if (code && state) {
-      setStatus('Completing authentication...');
-      completeOAuth({ code, state, auth: { uid: state } })
-        .then(result => {
-          if (result.ok) {
-            setStatus('Drive connected successfully!');
-            toast({ title: 'Success', description: 'Your Google Drive is now connected.' });
-          } else {
-            throw new Error(result.message);
-          }
-        })
-        .catch(e => {
-          setStatus(`Error: ${e.message}`);
-          toast({ variant: 'destructive', title: 'Failed to connect Drive', description: e.message });
-        })
-        .finally(() => {
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-        });
-    }
-  }, [toast]);
+  // No longer needed - OAuth is handled by Firebase Auth
 
 
   function resetFlow() {
@@ -200,42 +172,7 @@ export default function AIPage() {
     }
   }
 
-  async function handleConnectDrive() {
-    setStatus('Redirecting to Google...');
-    try {
-      console.log('Starting OAuth flow...');
-      console.log('Mock auth object:', mockAuth);
-      
-      // Use API route instead of Genkit flow to avoid server component issues
-      const response = await fetch('/api/oauth/begin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: mockAuth.uid })
-      });
-      
-      console.log('API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start OAuth');
-      }
-      
-      const { url } = await response.json();
-      console.log('Generated OAuth URL:', url);
-      
-      // Redirect the current window to the consent screen
-      window.location.href = url;
-    } catch (error: any) {
-      console.error('OAuth error details:', {
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause,
-        digest: error.digest
-      });
-      setStatus(`Error: ${error.message}`);
-      toast({ variant: 'destructive', title: 'Failed to connect Drive', description: error.message });
-    }
-  }
+  // No longer needed - Drive access is granted through Firebase Auth
 
   return (
     <MainLayout>
@@ -253,11 +190,10 @@ export default function AIPage() {
         <Card>
           <CardHeader>
             <CardTitle>Google Drive Integration</CardTitle>
-            <CardDescription>Connect your Google Drive account to get started. You will be redirected to a Google consent screen.</CardDescription>
+            <CardDescription>Drive access is automatically granted when you sign in with Google in the sidebar.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3">
-              <Button onClick={handleConnectDrive}>Connect Google Drive</Button>
               <Button onClick={() => listSampleFiles({ auth: mockAuth }).then(res => console.log(res.files)).catch(err => console.error(err))}>Log Sample Files to Console</Button>
             </div>
           </CardContent>

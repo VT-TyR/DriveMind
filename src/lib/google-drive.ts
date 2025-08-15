@@ -1,31 +1,16 @@
 
 /**
- * Google Drive API integration with proper file listing and metadata extraction.
- * In production, user credentials should be stored in a secure database.
+ * Google Drive API integration using Firebase Auth tokens.
+ * Access tokens are automatically handled by Firebase Auth.
  */
 import { google } from 'googleapis';
-import { getOAuthClient } from '@/lib/google-auth';
+import { getDriveClient } from '@/lib/drive-auth';
 import { File } from '@/lib/types';
 
-const userRefreshTokens: Record<string, string> = {};
-
-/** Persist user's Drive refresh token */
-export async function saveRefreshToken(uid: string, refresh: string | null | undefined) {
-    if (refresh) {
-        userRefreshTokens[uid] = refresh;
-        console.log(`Saved refresh token for user ${uid}`);
-    }
-}
-
-/** Create an authenticated Drive client for a given uid (requires stored refresh token). */
+/** Create an authenticated Drive client using Firebase Auth token. */
 export async function driveFor(uid: string) {
-  const refresh = userRefreshTokens[uid];
-  if (!refresh) {
-    throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
-  }
-  const oauth = getOAuthClient();
-  oauth.setCredentials({ refresh_token: refresh });
-  return google.drive({ version: "v3", auth: oauth });
+  // Use Firebase Auth stored token
+  return getDriveClient(uid);
 }
 
 /** Get file type based on MIME type */
