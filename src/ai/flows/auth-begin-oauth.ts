@@ -29,21 +29,31 @@ const beginOAuthFlow = ai.defineFlow(
     outputSchema: BeginOAuthOutputSchema,
   },
   async (input) => {
-    const user = getAuthenticatedUserSync(input.auth);
-    
-    // Create a new OAuth2 client with the correct redirect URI for this specific request.
-    const client = getOAuthClient();
+    try {
+      console.log('beginOAuth input:', input);
+      
+      const user = getAuthenticatedUserSync(input.auth);
+      console.log('User authenticated:', user.uid);
+      
+      // Create a new OAuth2 client with the correct redirect URI for this specific request.
+      const client = getOAuthClient();
+      console.log('OAuth client created successfully');
 
-    // Generate the authentication URL. The user will be redirected to this URL
-    // to grant consent. After consent, Google redirects to our callback handler
-    // with an authorization code, which is then exchanged for tokens.
-    const url = client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent', // Force consent screen to get a refresh token every time.
-      scope: WRITE_SCOPES,
-      state: user.uid, // Tie the callback to this user
-    });
-
-    return { url };
+      // Generate the authentication URL. The user will be redirected to this URL
+      // to grant consent. After consent, Google redirects to our callback handler
+      // with an authorization code, which is then exchanged for tokens.
+      const url = client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent', // Force consent screen to get a refresh token every time.
+        scope: WRITE_SCOPES,
+        state: user.uid, // Tie the callback to this user
+      });
+      
+      console.log('Generated OAuth URL:', url);
+      return { url };
+    } catch (error) {
+      console.error('OAuth flow error:', error);
+      throw error;
+    }
   }
 );
