@@ -21,11 +21,9 @@ export function getOAuthClient() {
     
     // Determine redirect URL based on environment
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const baseUrl = isDevelopment 
+    const redirectUrl = isDevelopment 
         ? 'http://localhost:3000' 
-        : process.env.NEXT_PUBLIC_BASE_URL || 'https://your-domain.com';
-    
-    const redirectUrl = `${baseUrl}/ai`;
+        : 'https://studio--drivemind-q69b7.us-central1.hosted.app';
 
     return new google.auth.OAuth2(
         clientId,
