@@ -26,8 +26,19 @@ export function getOAuthClient() {
                          !process.env.NODE_ENV; // fallback for undefined NODE_ENV
     
     // Use base URL from environment if available, otherwise determine from NODE_ENV
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                   (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
+    // Force production URL if we're clearly not in development
+    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    
+    if (!baseUrl) {
+        // If no environment variable, detect based on current location
+        if (typeof window !== 'undefined') {
+            // Client-side: use current origin
+            baseUrl = window.location.origin;
+        } else {
+            // Server-side: fallback to environment detection
+            baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app';
+        }
+    }
     
     const redirectUrl = baseUrl;
     
