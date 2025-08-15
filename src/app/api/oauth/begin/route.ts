@@ -12,17 +12,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
     
-    // Check if OAuth credentials are available
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+    // Use the correct OAuth client ID that exists in Google Cloud Console
+    const clientId = '687330755440-jtlosqanl7ks6ir40crstcrarbcua8jv.apps.googleusercontent.com';
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
-    if (!clientId || !clientSecret) {
-      console.error("Missing Google OAuth credentials:", { 
-        hasClientId: !!clientId, 
-        hasClientSecret: !!clientSecret 
-      });
+    if (!clientSecret) {
+      console.error("Missing Google OAuth client secret");
       return NextResponse.json({ 
-        error: 'OAuth configuration not available. Please check server configuration.' 
+        error: 'OAuth configuration incomplete. Missing client secret.' 
       }, { status: 500 });
     }
     
@@ -35,6 +32,12 @@ export async function POST(request: NextRequest) {
                    (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
     
     const redirectUrl = `${baseUrl}/ai`;
+    
+    console.log('OAuth Configuration:', {
+      clientId,
+      hasClientSecret: !!clientSecret,
+      redirectUrl
+    });
     
     // Create OAuth client
     const oauth = new google.auth.OAuth2(
