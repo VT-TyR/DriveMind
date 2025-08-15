@@ -18,7 +18,7 @@ env:
   
   # Complete Firebase Config as JSON
   - variable: NEXT_PUBLIC_FIREBASE_CONFIG
-    value: '{"apiKey":"AIzaSyCVbO-u__2o-AF6IAQYZVeJ14vuMssxGXk","authDomain":"drivemind-q69b7.firebaseapp.com","projectId":"drivemind-q69b7","storageBucket":"drivemind-q69b7.firebasestorage.app","messagingSenderId":"687330755440","appId":"1:687330755440:web:3ce0727b1a2afc16fac5b5"}'
+    value: '{"apiKey":"AIzaSyCVbO-u__2o-AF6IAQYZVeJ14vuMssxGXk","authDomain":"studio--drivemind-q69b7.us-central1.hosted.app","projectId":"drivemind-q69b7","storageBucket":"drivemind-q69b7.firebasestorage.app","messagingSenderId":"687330755440","appId":"1:687330755440:web:3ce0727b1a2afc16fac5b5"}'
     availability:
       - BUILD
       - RUNTIME
