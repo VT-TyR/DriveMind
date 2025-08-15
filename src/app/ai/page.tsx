@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { classifyFiles } from '@/ai/flows/ai-classify';
 import { proposeRules } from '@/ai/flows/ai-propose-rules';
 import { simulateActions } from '@/ai/flows/ai-simulate-actions';
-import { beginOAuth } from '@/ai/flows/auth-begin-oauth';
 import { completeOAuth } from '@/ai/flows/auth-complete-oauth';
 import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { preflightActions } from '@/ai/flows/actions-preflight';
@@ -203,8 +202,19 @@ export default function AIPage() {
   async function handleConnectDrive() {
     setStatus('Redirecting to Google...');
     try {
-      const result = await beginOAuth({ auth: mockAuth });
-      window.location.href = result.url;
+      const response = await fetch('/api/oauth/begin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: mockAuth.uid })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start OAuth');
+      }
+      
+      const { url } = await response.json();
+      window.location.href = url;
     } catch (error: any) {
       setStatus(`Error: ${error.message}`);
       toast({ variant: 'destructive', title: 'Failed to connect Drive', description: error.message });
