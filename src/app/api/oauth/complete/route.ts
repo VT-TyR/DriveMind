@@ -13,11 +13,17 @@ export async function POST(request: NextRequest) {
     }
     
     // Use the DriveMind OAuth client for Drive access
-    const clientId = '687330755440-1ebgu9smaba5fkhgplqdard2nuaofnt6.apps.googleusercontent.com';
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID || '687330755440-1ebgu9smaba5fkhgplqdard2nuaofnt6.apps.googleusercontent.com';
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
+    console.log('Environment check:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      nodeEnv: process.env.NODE_ENV
+    });
+    
     if (!clientSecret) {
-      console.error("Missing Google OAuth client secret");
+      console.error("Missing Google OAuth client secret in environment");
       return NextResponse.json({ 
         error: 'OAuth configuration incomplete. Missing client secret.' 
       }, { status: 500 });
