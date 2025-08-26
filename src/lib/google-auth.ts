@@ -36,7 +36,9 @@ export function getOAuthClient() {
         NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
         isDevelopment,
         baseUrl,
-        redirectUrl
+        redirectUrl,
+        clientIdLength: clientId.length,
+        secretLength: clientSecret.length
     });
 
     return new google.auth.OAuth2(
