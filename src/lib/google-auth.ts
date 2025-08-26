@@ -18,7 +18,8 @@ export function getOAuthClient() {
     if (!clientId || !clientSecret) {
         console.error("Missing Google OAuth credentials:", { 
             hasClientId: !!clientId, 
-            hasClientSecret: !!clientSecret 
+            hasClientSecret: !!clientSecret,
+            timestamp: new Date().toISOString()
         });
         throw new Error("Missing Google OAuth credentials. Ensure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are set in your environment.");
     }
