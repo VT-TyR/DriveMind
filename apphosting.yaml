@@ -45,5 +45,9 @@ env:
   # Use Firebase secrets for OAuth credentials
   - variable: GOOGLE_OAUTH_CLIENT_ID
     secret: GOOGLE_OAUTH_CLIENT_ID
+    availability:
+      - RUNTIME
   - variable: GOOGLE_OAUTH_CLIENT_SECRET
     secret: GOOGLE_OAUTH_CLIENT_SECRET
+    availability:
+      - RUNTIME
