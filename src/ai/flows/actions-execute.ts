@@ -42,7 +42,7 @@ const executeActionsFlow = ai.defineFlow(
     inputSchema: ExecuteActionsInputSchema.extend({ idempotencyKey: z.string() }),
     outputSchema: ExecuteActionsOutputSchema,
   },
-  async ({ batchId, idempotencyKey, auth }) => {
+  async ({ batchId, idempotencyKey, auth }: ExecuteActionsInput & { idempotencyKey: string }) => {
     const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth);
 

@@ -22,7 +22,7 @@ const listSampleFilesFlow = ai.defineFlow(
     inputSchema: ListSampleFilesInputSchema,
     outputSchema: ListSampleFilesOutputSchema,
   },
-  async (input) => {
+  async (input: ListSampleFilesInput) => {
     const user = getAuthenticatedUserSync(input.auth);
     const drive = await driveFor(user.uid);
     const resp = await drive.files.list({

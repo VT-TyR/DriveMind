@@ -59,7 +59,7 @@ const detectDuplicatesFlow = ai.defineFlow(
     inputSchema: DetectDuplicatesInputSchema,
     outputSchema: DetectDuplicatesOutputSchema,
   },
-  async input => {
+  async (input: DetectDuplicatesInput) => {
     const {output} = await prompt(input);
     return output!;
   }

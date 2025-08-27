@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, HardDrive, CheckCircle2 } from 'lucide-react';
 
-export function DriveAuth() {
+function DriveAuthInternal() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [driveConnecting, setDriveConnecting] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
@@ -161,5 +161,22 @@ export function DriveAuth() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+export function DriveAuth() {
+  return (
+    <Suspense fallback={
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-center space-x-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading...</span>
+          </div>
+        </CardContent>
+      </Card>
+    }>
+      <DriveAuthInternal />
+    </Suspense>
   );
 }

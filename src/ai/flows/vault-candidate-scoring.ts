@@ -41,7 +41,7 @@ const vaultCandidateScoringFlow = ai.defineFlow(
     inputSchema: VaultCandidateScoringInputSchema,
     outputSchema: VaultCandidateScoringOutputSchema,
   },
-  async input => {
+  async (input: VaultCandidateScoringInput) => {
     const {output} = await prompt(input);
     return output!;
   }

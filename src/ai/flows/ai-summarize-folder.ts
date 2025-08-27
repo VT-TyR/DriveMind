@@ -22,7 +22,7 @@ const summarizeFolderFlow = ai.defineFlow(
     inputSchema: SummarizeFolderInputSchema,
     outputSchema: SummarizeFolderOutputSchema,
   },
-  async (input) => {
+  async (input: SummarizeFolderInput) => {
     const filesJson = JSON.stringify(input.files.slice(0, input.limit), null, 2);
 
     const prompt = ai.definePrompt({

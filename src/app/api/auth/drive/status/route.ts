@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('google_access_token')?.value;
     const refreshToken = cookieStore.get('google_refresh_token')?.value;
     
@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ connected: true });
     } catch (error) {
       // Connection failed, clear cookies
-      cookieStore.delete('google_access_token');
-      cookieStore.delete('google_refresh_token');
+      (await cookies()).delete('google_access_token');
+      (await cookies()).delete('google_refresh_token');
       
       return NextResponse.json({ connected: false, error: 'Token invalid' });
     }

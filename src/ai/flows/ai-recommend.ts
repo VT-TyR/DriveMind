@@ -47,7 +47,7 @@ const recommendFlow = ai.defineFlow(
     inputSchema: RecommendInputSchema,
     outputSchema: RecommendOutputSchema,
   },
-  async ({ auth }) => {
+  async ({ auth }: RecommendInput) => {
     const user = getAuthenticatedUserSync(auth);
     console.log(`STUB: Running recommendations for user ${user.uid}`);
     

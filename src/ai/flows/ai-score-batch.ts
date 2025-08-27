@@ -74,7 +74,7 @@ const scoreBatchFlow = ai.defineFlow(
     inputSchema: ScoreBatchInputSchema,
     outputSchema: ScoreBatchOutputSchema,
   },
-  async ({ batchId, auth }) => {
+  async ({ batchId, auth }: ScoreBatchInput) => {
     const user = getAuthenticatedUserSync(auth);
     const batch = await getActionBatch(batchId, user.uid);
 

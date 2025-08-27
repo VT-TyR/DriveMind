@@ -46,7 +46,7 @@ const riskSensitiveFlow = ai.defineFlow(
     inputSchema: RiskSensitiveInputSchema,
     outputSchema: RiskSensitiveOutputSchema,
   },
-  async ({ files, auth }) => {
+  async ({ files, auth }: RiskSensitiveInput) => {
     const user = getAuthenticatedUserSync(auth);
     let flagged = 0;
     
@@ -85,7 +85,7 @@ const riskScanSharesFlow = ai.defineFlow(
       inputSchema: ScanSharesInputSchema,
       outputSchema: ScanSharesOutputSchema,
     },
-    async ({ auth }) => {
+    async ({ auth }: ScanSharesInput) => {
       getAuthenticatedUserSync(auth);
       // Placeholder: integrate Drive permissions list if needed; here we just stub zero
       return { risks: 0 };

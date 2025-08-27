@@ -25,7 +25,7 @@ const simulateActionsFlow = ai.defineFlow(
     inputSchema: SimulateActionsInputSchema,
     outputSchema: SimulateActionsOutputSchema,
   },
-  async ({ rule, limit }) => {
+  async ({ rule, limit }: SimulateActionsInput) => {
     // This flow does not require an LLM call. It's a business logic flow.
     
     // In a real application, you would fetch files for the authenticated user from Google Drive here.

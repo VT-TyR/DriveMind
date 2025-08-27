@@ -37,7 +37,7 @@ const buildAnalyticsFlow = ai.defineFlow(
     inputSchema: BuildAnalyticsInputSchema,
     outputSchema: BuildAnalyticsOutputSchema,
   },
-  async ({ files, auth }) => {
+  async ({ files, auth }: BuildAnalyticsInput) => {
     const user = getAuthenticatedUserSync(auth);
     
     const byMime:any = {}, byDepth:any = {}, byMonth:any = {};

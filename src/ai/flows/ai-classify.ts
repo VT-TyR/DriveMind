@@ -45,7 +45,7 @@ const classifyFilesFlow = ai.defineFlow(
     inputSchema: ClassifyFilesInputSchema,
     outputSchema: ClassifyFilesOutputSchema,
   },
-  async (input) => {
+  async (input: ClassifyFilesInput) => {
     // Check if API key is available before proceeding
     const hasApiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     if (!hasApiKey) {
@@ -90,7 +90,7 @@ Return a strict JSON object with a single key "labels" containing an array of yo
       return { labels };
     }
 
-    const labelsWithFileIds = output.labels.map((label, i) => ({
+    const labelsWithFileIds = output.labels.map((label: z.infer<typeof AILabelSchema>, i: number) => ({
         ...label,
         fileId: input.files[i].fileId,
     }));
@@ -132,13 +132,13 @@ export async function classifyFiles(
       else if (mimeType === "application/pdf") docType = "pdf";
       
       // Simple sensitivity detection
-      const sensitivity = (fileName.includes("confidential") || fileName.includes("private") || 
+      const sensitivity: "high" | "low" = (fileName.includes("confidential") || fileName.includes("private") || 
                           fileName.includes("ssn") || fileName.includes("personal")) ? "high" : "low";
       
       return {
         fileId: f.fileId,
         topics,
-        sensitivity: sensitivity as const,
+        sensitivity,
         docType,
         summary: `Classified based on file metadata: ${f.name?.slice(0, 30) || "Unknown file"}`,
         suggestedPath: topics[0] === "media" ? ["Media", topics[1] || "Files"] : 

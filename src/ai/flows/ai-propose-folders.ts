@@ -35,7 +35,7 @@ const proposeFoldersFlow = ai.defineFlow(
     inputSchema: ProposeFoldersInputSchema,
     outputSchema: ProposeFoldersOutputSchema,
   },
-  async ({ files }) => {
+  async ({ files }: ProposeFoldersInput) => {
     // In a real scenario, you might have more complex logic to select files for the prompt
     const filesForPrompt = files.slice(0, 50);
 

@@ -52,7 +52,7 @@ const exportToLocalVaultFlow = ai.defineFlow(
     inputSchema: ExportToLocalVaultInputSchema,
     outputSchema: ExportToLocalVaultOutputSchema,
   },
-  async input => {
+  async (input: ExportToLocalVaultInput) => {
     const {output} = await prompt(input);
     return output!;
   }

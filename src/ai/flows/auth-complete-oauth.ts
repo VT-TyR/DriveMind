@@ -21,7 +21,7 @@ const completeOAuthFlow = ai.defineFlow(
     inputSchema: CompleteOAuthInputSchema,
     outputSchema: CompleteOAuthOutputSchema,
   },
-  async (input) => {
+  async (input: CompleteOAuthInput) => {
     try {
       const client = getOAuthClient();
       const { tokens } = await client.getToken(input.code);

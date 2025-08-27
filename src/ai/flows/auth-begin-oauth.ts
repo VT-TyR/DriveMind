@@ -22,7 +22,7 @@ const beginOAuthFlow = ai.defineFlow(
     inputSchema: BeginOAuthInputSchema,
     outputSchema: BeginOAuthOutputSchema,
   },
-  async (input) => {
+  async (input: BeginOAuthInput) => {
     const user = getAuthenticatedUserSync(input.auth);
     
     try {

@@ -29,7 +29,7 @@ const preflightActionsFlow = ai.defineFlow(
     inputSchema: PreflightActionsInputSchema,
     outputSchema: PreflightActionsOutputSchema,
   },
-  async ({ batchId, auth }) => {
+  async ({ batchId, auth }: PreflightActionsInput) => {
     const user = getAuthenticatedUserSync(auth);
     const batch = await getActionBatch(batchId, user.uid);
 

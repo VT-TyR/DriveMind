@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Store tokens in httpOnly cookies (more secure than localStorage)
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     
     if (tokens.access_token) {
       cookieStore.set('google_access_token', tokens.access_token, {

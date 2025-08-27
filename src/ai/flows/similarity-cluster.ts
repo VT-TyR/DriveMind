@@ -26,7 +26,7 @@ const similarityClusterFlow = ai.defineFlow(
     inputSchema: SimilarityClusterInputSchema,
     outputSchema: SimilarityClusterOutputSchema,
   },
-  async ({ files, auth }) => {
+  async ({ files, auth }: SimilarityClusterInput) => {
     const user = getAuthenticatedUserSync(auth);
     const byFuzzy: Record<string, any[]> = {};
     

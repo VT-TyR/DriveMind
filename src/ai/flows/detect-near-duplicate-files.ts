@@ -54,7 +54,7 @@ const detectNearDuplicateFilesFlow = ai.defineFlow(
     inputSchema: DetectNearDuplicateFilesInputSchema,
     outputSchema: DetectNearDuplicateFilesOutputSchema,
   },
-  async input => {
+  async (input: DetectNearDuplicateFilesInput) => {
     const {output} = await prompt(input);
     return output!;
   }

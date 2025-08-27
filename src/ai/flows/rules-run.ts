@@ -64,7 +64,7 @@ const rulesRunFlow = ai.defineFlow(
     inputSchema: RulesRunInputSchema,
     outputSchema: RulesRunOutputSchema,
   },
-  async ({ ruleId, auth }) => {
+  async ({ ruleId, auth }: RulesRunInput) => {
     const user = getAuthenticatedUserSync(auth);
 
     const r = await getRule(ruleId, user.uid);

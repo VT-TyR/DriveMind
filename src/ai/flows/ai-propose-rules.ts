@@ -23,7 +23,7 @@ const proposeRulesFlow = ai.defineFlow(
     inputSchema: ProposeRulesInputSchema,
     outputSchema: ProposeRulesOutputSchema,
   },
-  async (input) => {
+  async (input: ProposeRulesInput) => {
     const user = getAuthenticatedUserSync(input.auth);
     
     // Check if API key is available before proceeding
@@ -91,7 +91,7 @@ export async function proposeRules(input: ProposeRulesInput): Promise<ProposeRul
     let nameRegex = ".*";
     let mimeTypes: string[] = [];
     let olderThanDays = 0;
-    let actionType = "move";
+    let actionType: "move" | "trash" | "archive" | "rename" | "delete" = "move";
     let dest = ["Organized"];
     
     // Extract file type patterns
@@ -142,7 +142,7 @@ export async function proposeRules(input: ProposeRulesInput): Promise<ProposeRul
       ruleId,
       humanPrompt: input.prompt,
       compiledRule,
-      uid: input.auth.uid,
+      uid: input.auth?.uid || '',
     };
   }
 }

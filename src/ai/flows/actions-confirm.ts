@@ -28,7 +28,7 @@ const confirmActionsFlow = ai.defineFlow(
     inputSchema: ConfirmActionsInputSchema,
     outputSchema: ConfirmActionsOutputSchema,
   },
-  async ({ batchId, challengeResponse, auth }) => {
+  async ({ batchId, challengeResponse, auth }: ConfirmActionsInput) => {
     const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth); // Ensure user has recently authenticated
 

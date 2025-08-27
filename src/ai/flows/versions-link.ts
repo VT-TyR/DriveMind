@@ -26,7 +26,7 @@ const versionsLinkFlow = ai.defineFlow(
     inputSchema: VersionsLinkInputSchema,
     outputSchema: VersionsLinkOutputSchema,
   },
-  async ({ files, auth }) => {
+  async ({ files, auth }: VersionsLinkInput) => {
     const user = getAuthenticatedUserSync(auth);
     const buckets: Record<string, any[]> = {};
     

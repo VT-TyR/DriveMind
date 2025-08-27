@@ -84,7 +84,7 @@ const validateHealthFlow = ai.defineFlow(
     inputSchema: ValidateHealthInputSchema,
     outputSchema: HealthValidationOutputSchema,
   },
-  async (input) => {
+  async (input: ValidateHealthInput) => {
     const user = getAuthenticatedUserSync(input.auth);
     const [envVars, driveApi, writeScope] = await Promise.all([
         checkEnvVars(),

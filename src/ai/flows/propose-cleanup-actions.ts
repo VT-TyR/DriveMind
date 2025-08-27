@@ -52,7 +52,7 @@ const proposeCleanupActionsFlow = ai.defineFlow(
     inputSchema: ProposeCleanupActionsInputSchema,
     outputSchema: ProposeCleanupActionsOutputSchema,
   },
-  async input => {
+  async (input: ProposeCleanupActionsInput) => {
     const {output} = await prompt(input);
     return output!;
   }

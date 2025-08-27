@@ -21,7 +21,7 @@ const snapshotCaptureFlow = ai.defineFlow(
     inputSchema: SnapshotCaptureInputSchema,
     outputSchema: SnapshotCaptureOutputSchema,
   },
-  async ({ fileId, batchId, auth }) => {
+  async ({ fileId, batchId, auth }: SnapshotCaptureInput) => {
     const user = getAuthenticatedUserSync(auth);
     console.log(`STUB: Capturing snapshot for file ${fileId} in batch ${batchId} for user ${user.uid}`);
     

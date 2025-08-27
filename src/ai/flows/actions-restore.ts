@@ -32,7 +32,7 @@ const restoreActionsFlow = ai.defineFlow(
     inputSchema: RestoreActionsInputSchema,
     outputSchema: RestoreActionsOutputSchema,
   },
-  async ({ batchId, fileIds, auth }) => {
+  async ({ batchId, fileIds, auth }: RestoreActionsInput) => {
     const user = getAuthenticatedUserSync(auth);
     requireFreshAuth(auth);
     
