@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Drive, CheckCircle2 } from 'lucide-react';
+import { Loader2, HardDrive, CheckCircle2 } from 'lucide-react';
 
 export function DriveAuth() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
@@ -102,7 +102,7 @@ export function DriveAuth() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Drive className="h-5 w-5" />
+          <HardDrive className="h-5 w-5" />
           Connect to Google Drive
         </CardTitle>
       </CardHeader>
