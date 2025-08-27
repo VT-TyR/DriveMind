@@ -2,7 +2,7 @@
 
 DriveMind is an intelligent file management application designed to help you organize and clean up your Google Drive at scale using AI-powered insights and recommendations.
 
-> ⚡ **Latest Update**: OAuth configuration has been updated and secured using Firebase secrets.
+> ⚡ **Latest Update**: Deployment testing - OAuth and AI features configured with Firebase secrets.
 
 ## ✨ Features
 
