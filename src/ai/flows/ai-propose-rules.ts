@@ -25,6 +25,13 @@ const proposeRulesFlow = ai.defineFlow(
   },
   async (input) => {
     const user = getAuthenticatedUserSync(input.auth);
+    
+    // Check if API key is available before proceeding
+    const hasApiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    if (!hasApiKey) {
+      throw new Error('API key not configured - using fallback');
+    }
+    
     // In a real scenario, you would first check user settings for aiMode.
     const prompt = ai.definePrompt({
       name: 'proposeRulesPrompt',

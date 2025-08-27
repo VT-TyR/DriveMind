@@ -46,6 +46,11 @@ const classifyFilesFlow = ai.defineFlow(
     outputSchema: ClassifyFilesOutputSchema,
   },
   async (input) => {
+    // Check if API key is available before proceeding
+    const hasApiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    if (!hasApiKey) {
+      throw new Error('API key not configured - using fallback');
+    }
     // In a real scenario, you would first check user settings for aiMode.
     // For this implementation, we proceed directly to the AI call.
     
