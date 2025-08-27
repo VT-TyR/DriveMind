@@ -29,6 +29,7 @@ import type {
 
 // This is a temporary mock authentication object.
 // In a real app, you would get the current user's ID from your auth system.
+// Force deployment update
 const mockAuth = { uid: 'user-1234' };
 
 
