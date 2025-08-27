@@ -1,5 +1,11 @@
 
 import { google } from 'googleapis';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+if (process.env.NODE_ENV === 'development') {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+}
 
 /**
  * Creates and a Google OAuth2 client.

@@ -37,6 +37,7 @@
   "exclude": [
     "node_modules",
     "functions",
-    "drivemind"
+    "drivemind",
+    "src/__tests__"
   ]
 }

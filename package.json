@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18"
   },
   "scripts": {
     "dev": "next dev",
@@ -22,6 +22,7 @@
     "firebase:deploy": "npx firebase deploy"
   },
   "dependencies": {
+    "firebase-admin": "^12.6.0",
     "@genkit-ai/firebase": "1.15.5",
     "@genkit-ai/googleai": "1.15.5",
     "@genkit-ai/next": "1.15.5",

@@ -6,20 +6,27 @@
 import { google } from 'googleapis';
 import { getOAuthClient } from '@/lib/google-auth';
 import { File } from '@/lib/types';
+import { getUserRefreshToken, saveUserRefreshToken } from '@/lib/token-store';
 
-const userRefreshTokens: Record<string, string> = {};
+// Optional short-lived in-memory cache to reduce Firestore reads
+const localCache: Map<string, string> = new Map();
 
-/** Persist user's Drive refresh token */
+/** Persist user's Drive refresh token (server-side, Firestore-backed) */
 export async function saveRefreshToken(uid: string, refresh: string | null | undefined) {
-    if (refresh) {
-        userRefreshTokens[uid] = refresh;
-        console.log(`Saved refresh token for user ${uid}`);
-    }
+  if (refresh) {
+    await saveUserRefreshToken(uid, refresh);
+    localCache.set(uid, refresh);
+    console.log(`Saved refresh token for user ${uid}`);
+  }
 }
 
 /** Create an authenticated Drive client for a given uid (requires stored refresh token). */
 export async function driveFor(uid: string) {
-  const refresh = userRefreshTokens[uid];
+  // Prefer local cache, then Firestore
+  let refresh = localCache.get(uid) || null;
+  if (!refresh) {
+    refresh = await getUserRefreshToken(uid);
+  }
   if (!refresh) {
     throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
   }
