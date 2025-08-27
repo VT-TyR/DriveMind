@@ -9,8 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { classifyFiles } from '@/ai/flows/ai-classify';
-import { proposeRules } from '@/ai/flows/ai-propose-rules';
+// AI flows now accessed via API routes to prevent SSR issues
 import { simulateActions } from '@/ai/flows/ai-simulate-actions';
 import { DriveAuth } from '@/components/drive-auth';
 import { listSampleFiles } from '@/ai/flows/drive-list-sample';
@@ -66,7 +65,17 @@ export default function AIPage() {
   async function classifySample() {
     setStatus('Classifying...');
     try {
-      const result = await classifyFiles({ files: [], redact: true });
+      const response = await fetch('/api/ai/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: [], redact: true })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Classification request failed');
+      }
+      
+      const result = await response.json();
       setStatus(`Labeled ${result.labels.length} files.`);
       toast({
         title: 'Classification Complete',
@@ -84,7 +93,17 @@ export default function AIPage() {
     setStatus('Proposing rule...');
     try {
       const prompt = "Move all PDFs older than 6 months with 'invoice' in the name to Finance/Invoices/Archive.";
-      const result: ProposeRulesOutput = await proposeRules({ prompt, auth: mockAuth });
+      const response = await fetch('/api/ai/propose-rule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, auth: mockAuth })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Rule proposal request failed');
+      }
+      
+      const result = await response.json();
       setRuleId(result.ruleId);
       setCompiledRule(result.compiledRule);
       setStatus('Rule drafted successfully.');
