@@ -66,9 +66,12 @@ export default function DashboardPage() {
         // Check if this is a Drive connection error or OAuth credentials error
         if (error instanceof Error) {
           if (error.message.includes('No Google Drive connection') || 
-              error.message.includes('Missing Google OAuth credentials')) {
+              error.message.includes('Missing Google OAuth credentials') ||
+              error.message.includes('Please connect your account first')) {
             console.log('User needs to connect Google Drive first');
             setNeedsDriveConnection(true);
+            setStats(null);
+            return;
           }
         }
         setStats(null);

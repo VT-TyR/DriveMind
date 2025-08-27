@@ -36,6 +36,7 @@ export async function driveFor(uid: string) {
     oauth.setCredentials({ refresh_token: refresh });
     return google.drive({ version: "v3", auth: oauth });
   } catch (error) {
+    console.error(`Error creating OAuth client for user ${uid}:`, error);
     // If OAuth credentials are missing, treat as no connection
     throw new Error(`No Google Drive connection for user '${uid}'. Please connect your account first.`);
   }
