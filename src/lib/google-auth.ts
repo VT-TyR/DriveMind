@@ -35,7 +35,7 @@ export function getOAuthClient() {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
                    (isDevelopment ? 'http://localhost:3000' : 'https://studio--drivemind-q69b7.us-central1.hosted.app');
     
-    const redirectUrl = `${baseUrl}/ai`;
+    const redirectUrl = `${baseUrl}/api/auth/drive/callback`;
     
     // Debug logging (server-side only)
     console.log('OAuth Debug (Server):', {
