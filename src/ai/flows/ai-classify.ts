@@ -100,18 +100,48 @@ export async function classifyFiles(
   try {
     return await classifyFilesFlow(input);
   } catch (error: any) {
-    console.error('Classification failed, falling back to stub data:', error);
+    console.warn('Classification using AI failed, using fallback classification:', error.message);
     
-    // If API key is missing or Genkit fails, return stub data
-    const labels = input.files.map((f) => ({
-      fileId: f.fileId,
-      topics: (f.mimeType || "").includes("image") ? ["media", "photo"] : ["docs"],
-      sensitivity: "low" as const,
-      docType: (f.mimeType || "").includes("spreadsheet") ? "sheet" : ((f.mimeType || "").includes("image") ? "photo" : "document"),
-      summary: `Auto-labeled ${f.name?.slice(0, 40) || ""} (fallback)`,
-      suggestedPath: ["_Unsorted"],
-      confidence: 0.5, // Lower confidence for fallback
-    }));
+    // Create intelligent fallback labels based on file metadata
+    const labels = input.files.map((f) => {
+      const mimeType = f.mimeType || "";
+      const fileName = (f.name || "").toLowerCase();
+      
+      // Determine topics based on file name and type
+      let topics = ["documents"];
+      if (mimeType.includes("image")) topics = ["media", "images"];
+      else if (mimeType.includes("video")) topics = ["media", "videos"];
+      else if (mimeType.includes("spreadsheet")) topics = ["data", "spreadsheets"];
+      else if (mimeType.includes("presentation")) topics = ["presentations"];
+      else if (fileName.includes("invoice")) topics = ["finance", "invoices"];
+      else if (fileName.includes("receipt")) topics = ["finance", "receipts"];
+      else if (fileName.includes("contract")) topics = ["legal", "contracts"];
+      else if (fileName.includes("photo") || fileName.includes("img")) topics = ["media", "photos"];
+      
+      // Determine document type
+      let docType = "document";
+      if (mimeType.includes("image")) docType = "photo";
+      else if (mimeType.includes("video")) docType = "video";
+      else if (mimeType.includes("spreadsheet")) docType = "spreadsheet";
+      else if (mimeType.includes("presentation")) docType = "presentation";
+      else if (mimeType === "application/pdf") docType = "pdf";
+      
+      // Simple sensitivity detection
+      const sensitivity = (fileName.includes("confidential") || fileName.includes("private") || 
+                          fileName.includes("ssn") || fileName.includes("personal")) ? "high" : "low";
+      
+      return {
+        fileId: f.fileId,
+        topics,
+        sensitivity: sensitivity as const,
+        docType,
+        summary: `Classified based on file metadata: ${f.name?.slice(0, 30) || "Unknown file"}`,
+        suggestedPath: topics[0] === "media" ? ["Media", topics[1] || "Files"] : 
+                      topics[0] === "finance" ? ["Documents", "Finance", topics[1] || "General"] :
+                      ["Documents", "General"],
+        confidence: 0.6, // Moderate confidence for metadata-based classification
+      };
+    });
     
     return { labels };
   }

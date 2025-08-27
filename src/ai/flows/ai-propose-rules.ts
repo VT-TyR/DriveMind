@@ -74,17 +74,61 @@ export async function proposeRules(input: ProposeRulesInput): Promise<ProposeRul
   try {
     return await proposeRulesFlow(input);
   } catch (error: any) {
-    console.error('Rule proposal failed, falling back to stub rule:', error);
+    console.warn('AI rule proposal failed, creating rule based on keywords:', error.message);
     
-    // Return a fallback rule if Genkit fails
+    // Create a smart fallback rule based on the user's prompt
+    const prompt = input.prompt.toLowerCase();
     const ruleId = `rule_${Date.now()}`;
+    
+    // Parse common patterns from the prompt
+    let nameRegex = ".*";
+    let mimeTypes: string[] = [];
+    let olderThanDays = 0;
+    let actionType = "move";
+    let dest = ["Organized"];
+    
+    // Extract file type patterns
+    if (prompt.includes("pdf")) mimeTypes.push("application/pdf");
+    if (prompt.includes("image") || prompt.includes("photo")) mimeTypes.push("image/jpeg", "image/png");
+    if (prompt.includes("document")) mimeTypes.push("application/vnd.google-apps.document");
+    if (prompt.includes("spreadsheet")) mimeTypes.push("application/vnd.google-apps.spreadsheet");
+    
+    // Extract name patterns
+    if (prompt.includes("invoice")) {
+      nameRegex = "(?i).*invoice.*";
+      dest = ["Finance", "Invoices"];
+    } else if (prompt.includes("receipt")) {
+      nameRegex = "(?i).*receipt.*";
+      dest = ["Finance", "Receipts"];
+    } else if (prompt.includes("contract")) {
+      nameRegex = "(?i).*contract.*";
+      dest = ["Legal", "Contracts"];
+    } else if (prompt.includes("photo")) {
+      nameRegex = "(?i).*(photo|img).*";
+      dest = ["Media", "Photos"];
+    }
+    
+    // Extract time patterns
+    if (prompt.includes("older than")) {
+      if (prompt.includes("year")) olderThanDays = 365;
+      else if (prompt.includes("month")) olderThanDays = 30;
+      else if (prompt.includes("week")) olderThanDays = 7;
+    }
+    
+    // Extract action patterns
+    if (prompt.includes("delete") || prompt.includes("trash")) actionType = "trash";
+    else if (prompt.includes("archive")) {
+      actionType = "move";
+      dest.push("Archive");
+    }
+    
     const compiledRule = {
       filter: {
-        nameRegex: "(?i).*invoice.*",
-        mimeTypes: ["application/pdf"],
-        olderThanDays: 180,
+        nameRegex,
+        mimeTypes: mimeTypes.length > 0 ? mimeTypes : ["*"],
+        olderThanDays,
       },
-      action: { type: "move", dest: ["Finance", "Invoices", "Archive"] }
+      action: { type: actionType, dest }
     };
     
     return {
