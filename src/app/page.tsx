@@ -14,6 +14,7 @@ import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 import { calculateDashboardStats, DashboardStats } from '@/lib/dashboard-service';
 import { File } from '@/lib/types';
 import { markDuplicates } from '@/lib/duplicate-detection';
+import { DeploymentStatus } from '@/components/deployment-status';
 
 function mapMimeTypeToFileType(mimeType: string): File['type'] {
   if (mimeType === 'application/vnd.google-apps.folder') return 'Folder';
@@ -115,6 +116,7 @@ export default function DashboardPage() {
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 sm:p-8">
         <DashboardHeader />
+        <DeploymentStatus />
         <StatsGrid stats={stats} isLoading={isLoading} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AiRecommendations stats={stats} isLoading={isLoading} />

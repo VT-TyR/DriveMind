@@ -12,7 +12,8 @@ function createGenkitInstance() {
       hasGoogleApiKey: !!process.env.GOOGLE_API_KEY,
       apiKeyLength: apiKey?.length || 0,
       nodeEnv: process.env.NODE_ENV,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      deploymentNote: 'Environment variables may not be available due to deployment pipeline issue'
     });
 
     if (!apiKey) {
