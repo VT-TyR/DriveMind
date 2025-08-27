@@ -80,6 +80,15 @@ export class RateLimitError extends AppError {
   }
 }
 
+export class AIFlowError extends AppError {
+  constructor(message: string, originalError?: Error, flowName?: string) {
+    super(message, 'AI_FLOW_ERROR', 502, true, { 
+      flowName, 
+      originalError: originalError?.message 
+    });
+  }
+}
+
 // Error handling utilities
 export function isAppError(error: any): error is AppError {
   return error instanceof AppError;
@@ -174,6 +183,21 @@ export function mapGoogleApiError(error: any, fileId?: string): AppError {
     default:
       return new GoogleDriveError(message, error, fileId);
   }
+}
+
+// AI/Genkit error mapper
+export function mapAIError(error: any, flowName?: string): AppError {
+  const message = error?.message || 'AI service error';
+  
+  if (message.includes('FAILED_PRECONDITION') && message.includes('API key')) {
+    return new AIFlowError('AI service configuration incomplete', error, flowName);
+  }
+  
+  if (message.includes('quota') || message.includes('rate limit')) {
+    return new RateLimitError('AI service');
+  }
+  
+  return new AIFlowError(message, error, flowName);
 }
 
 // Global error handler for unhandled promises and exceptions

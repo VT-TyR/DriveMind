@@ -108,9 +108,9 @@ export async function classifyFiles(
       topics: (f.mimeType || "").includes("image") ? ["media", "photo"] : ["docs"],
       sensitivity: "low" as const,
       docType: (f.mimeType || "").includes("spreadsheet") ? "sheet" : ((f.mimeType || "").includes("image") ? "photo" : "document"),
-      summary: `Auto-labeled ${f.name?.slice(0, 40) || ""}`,
+      summary: `Auto-labeled ${f.name?.slice(0, 40) || ""} (fallback)`,
       suggestedPath: ["_Unsorted"],
-      confidence: 0.65,
+      confidence: 0.5, // Lower confidence for fallback
     }));
     
     return { labels };
