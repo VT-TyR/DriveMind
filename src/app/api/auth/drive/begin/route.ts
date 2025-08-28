@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Use the deployed URL for redirect
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/drive/callback`;
+    // Hardcode the redirect URI to ensure exact match with Google Console
+    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback';
     
     console.log('OAuth begin - redirect URI:', redirectUri, 'state set:', !!userId);
     

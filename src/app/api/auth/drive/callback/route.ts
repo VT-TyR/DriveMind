@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_config_missing`);
     }
     
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/drive/callback`;
+    // Hardcode the redirect URI to ensure exact match with Google Console
+    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback';
     
     const oauth2Client = new google.auth.OAuth2(
       clientId,
