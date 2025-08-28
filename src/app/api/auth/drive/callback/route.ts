@@ -79,13 +79,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Persist refresh token to Firestore so server flows can use it
-    if (state && tokens.refresh_token) {
-      try {
-        await saveUserRefreshToken(state, tokens.refresh_token);
-      } catch (e) {
-        console.error('Failed to persist refresh token for user', state, e);
-      }
-    }
+    // TEMPORARILY DISABLED for debugging
+    console.log('OAuth callback success - tokens received, skipping Firestore save for now');
 
     return res;
     
