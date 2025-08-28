@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
       access_type: 'offline',
       prompt: 'consent', // Force consent to get refresh token
       scope: [
-        'https://www.googleapis.com/auth/drive.metadata.readonly',
-        'https://www.googleapis.com/auth/drive.readonly'
+        'https://www.googleapis.com/auth/drive.read'
       ],
       include_granted_scopes: true,
       // Pass state so callback can associate token with a userId when available

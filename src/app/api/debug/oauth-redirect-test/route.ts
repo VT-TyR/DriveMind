@@ -31,7 +31,7 @@ export async function GET() {
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
-        scope: ['https://www.googleapis.com/auth/drive.readonly'],
+        scope: ['https://www.googleapis.com/auth/drive.read'],
         state: 'test',
       });
 

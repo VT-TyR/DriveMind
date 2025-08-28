@@ -14,7 +14,7 @@ export async function GET() {
     `client_id=${encodeURIComponent(clientId)}&` +
     `redirect_uri=${encodeURIComponent(baseUrl + '/ai')}&` +
     `response_type=code&` +
-    `scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.readonly')}&` +
+    `scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.read')}&` +
     `access_type=offline&` +
     `state=simple-test`;
 

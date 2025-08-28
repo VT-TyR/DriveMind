@@ -27,8 +27,7 @@ export async function GET() {
       access_type: 'offline',
       prompt: 'consent',
       scope: [
-        'https://www.googleapis.com/auth/drive.metadata.readonly',
-        'https://www.googleapis.com/auth/drive.readonly'
+        'https://www.googleapis.com/auth/drive.read'
       ],
       include_granted_scopes: true,
       state: 'debug-test',
