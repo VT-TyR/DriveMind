@@ -4,11 +4,24 @@ import { cookies } from 'next/headers';
 import { saveUserRefreshToken } from '@/lib/token-store';
 
 export async function GET(request: NextRequest) {
+  console.log('=== OAuth Callback START ===');
+  console.log('Request URL:', request.url);
+  
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state'); // user id when provided
     const error = searchParams.get('error');
+    
+    console.log('OAuth callback params:', {
+      hasCode: !!code,
+      codeLength: code?.length,
+      hasState: !!state,
+      state,
+      hasError: !!error,
+      error,
+      allParams: Object.fromEntries(searchParams.entries())
+    });
     
     // Handle OAuth errors
     if (error) {
@@ -24,9 +37,18 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
+    console.log('OAuth credentials check:', {
+      hasClientId: !!clientId,
+      clientIdLength: clientId?.length,
+      clientIdPreview: clientId?.substring(0, 20) + '...',
+      hasClientSecret: !!clientSecret,
+      clientSecretLength: clientSecret?.length,
+      clientSecretPreview: clientSecret?.substring(0, 10) + '...'
+    });
+    
     if (!clientId || !clientSecret) {
       console.error('Missing OAuth credentials in callback');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_config_missing`);
+      return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=oauth_config_missing`);
     }
     
     // Hardcode the redirect URI to ensure exact match with Google Console
@@ -43,10 +65,21 @@ export async function GET(request: NextRequest) {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
       redirectUri,
-      codeLength: code?.length
+      codeLength: code?.length,
+      timestamp: new Date().toISOString()
     });
     
-    const { tokens } = await oauth2Client.getToken(code);
+    console.log('Creating OAuth2 client...');
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      redirectUri
+    );
+    
+    console.log('Calling oauth2Client.getToken()...');
+    const tokenResult = await oauth2Client.getToken(code);
+    const { tokens } = tokenResult;
+    console.log('Token exchange successful!');
     
     console.log('OAuth callback - tokens received:', {
       hasAccessToken: !!tokens.access_token,
