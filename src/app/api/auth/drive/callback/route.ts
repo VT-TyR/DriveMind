@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
     );
     
     // Exchange code for tokens
+    console.log('OAuth callback - attempting token exchange with:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      redirectUri,
+      codeLength: code?.length
+    });
+    
     const { tokens } = await oauth2Client.getToken(code);
     
     console.log('OAuth callback - tokens received:', {
@@ -83,7 +90,23 @@ export async function GET(request: NextRequest) {
     return res;
     
   } catch (error) {
-    console.error('OAuth callback processing error:', error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_callback_failed`);
+    console.error('OAuth callback processing error:', {
+      error: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.code || 'unknown'
+    });
+    
+    // More specific error handling
+    let errorType = 'oauth_callback_failed';
+    if (error.message?.includes('invalid_client')) {
+      errorType = 'invalid_client_credentials';
+    } else if (error.message?.includes('invalid_grant')) {
+      errorType = 'invalid_authorization_code';
+    } else if (error.message?.includes('redirect_uri_mismatch')) {
+      errorType = 'redirect_uri_mismatch';
+    }
+    
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=${errorType}`);
   }
 }
