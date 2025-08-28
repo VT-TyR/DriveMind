@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       access_type: 'offline',
       prompt: 'consent', // Force consent to get refresh token
       scope: [
-        'https://www.googleapis.com/auth/drive.read'
+        'https://www.googleapis.com/auth/drive'
       ],
       include_granted_scopes: true,
       // Pass state so callback can associate token with a userId when available
