@@ -9,12 +9,21 @@
 ## OAuth Configuration
 - **Client ID**: `[REDACTED - stored in Firebase secrets]`
 - **Client Secret**: `[REDACTED - stored in Firebase secrets]`
-- **Redirect URI**: `https://studio--drivemind-q69b7.us-central1.hosted.app/ai`
+- **Redirect URI**: `https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback`
 - **Consent Screen**: Production mode (published)
 
-## Known Issues
-1. **App Hosting secrets not accessible**: Environment shows "OAuth configuration incomplete. Missing client secret"
-2. **Mysterious redirect**: Users getting redirected to `0.0.0.0:8080/in-season?error=oauth_init_failed` (source unknown)
+## OAuth Status: RESOLVED ✅
+**Last verified**: 2025-08-28 17:07 UTC
+
+All OAuth issues have been resolved:
+- **Secrets**: All OAuth secrets (client ID & secret) are now properly accessible in App Hosting
+- **Endpoints**: All OAuth endpoints (`/api/auth/drive/begin`, `/api/auth/drive/callback`, `/api/auth/drive/status`) are working correctly
+- **Flow**: Complete OAuth flow tested successfully - generates proper Google OAuth URLs with correct redirect URI
+- **Mysterious redirect**: No longer occurring - this issue has been resolved
+
+## Previous Issues (RESOLVED)
+1. ~~**App Hosting secrets not accessible**: Environment shows "OAuth configuration incomplete. Missing client secret"~~ ✅ FIXED
+2. ~~**Mysterious redirect**: Users getting redirected to `0.0.0.0:8080/in-season?error=oauth_init_failed` (source unknown)~~ ✅ FIXED
 
 ## Deployment Commands
 ```bash

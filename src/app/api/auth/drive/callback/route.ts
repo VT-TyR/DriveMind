@@ -93,19 +93,32 @@ export async function GET(request: NextRequest) {
       stack: error?.stack,
       name: error?.name,
       code: error?.code || 'unknown',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Additional debugging info
+      response: error?.response?.data,
+      status: error?.response?.status,
+      fullError: JSON.stringify(error, null, 2)
     });
     
     // More specific error handling
     let errorType = 'oauth_callback_failed';
+    let errorDetails = '';
+    
     if (error?.message?.includes('invalid_client')) {
       errorType = 'invalid_client_credentials';
+      errorDetails = 'Client ID or secret mismatch with Google Console';
     } else if (error?.message?.includes('invalid_grant')) {
       errorType = 'invalid_authorization_code';
+      errorDetails = 'Authorization code expired or invalid';
     } else if (error?.message?.includes('redirect_uri_mismatch')) {
       errorType = 'redirect_uri_mismatch';
+      errorDetails = 'Redirect URI does not match Google Console configuration';
+    } else {
+      errorDetails = error?.message || 'Unknown OAuth error';
     }
     
-    return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}`);
+    console.error(`OAuth Error Details: ${errorType} - ${errorDetails}`);
+    
+    return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}&details=${encodeURIComponent(errorDetails)}`);
   }
 }
