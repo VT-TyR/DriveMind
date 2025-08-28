@@ -4,11 +4,14 @@ import { cookies } from 'next/headers';
 import { saveUserRefreshToken } from '@/lib/token-store';
 
 export async function GET(request: NextRequest) {
+  console.log('OAuth callback invoked:', new Date().toISOString());
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state'); // user id when provided
     const error = searchParams.get('error');
+    
+    console.log('OAuth callback params:', { hasCode: !!code, hasError: !!error, state });
     
     // Handle OAuth errors
     if (error) {
@@ -95,7 +98,8 @@ export async function GET(request: NextRequest) {
       error: error.message,
       stack: error.stack,
       name: error.name,
-      code: error.code || 'unknown'
+      code: error.code || 'unknown',
+      timestamp: new Date().toISOString()
     });
     
     // More specific error handling
@@ -108,6 +112,6 @@ export async function GET(request: NextRequest) {
       errorType = 'redirect_uri_mismatch';
     }
     
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=${errorType}`);
+    return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}`);
   }
 }
