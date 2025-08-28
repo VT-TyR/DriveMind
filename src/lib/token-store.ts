@@ -42,3 +42,16 @@ export function clearTokenCache(uid?: string) {
   else tokenCache.clear();
 }
 
+export async function deleteUserRefreshToken(uid: string): Promise<boolean> {
+  const db = getAdminFirestore();
+  if (!db) throw new Error('Failed to initialize Firestore');
+  const ref = db.collection(collectionPathForUser(uid)).doc(docId);
+  try {
+    const { FieldValue } = require('firebase-admin/firestore');
+    await ref.set({ refreshToken: FieldValue.delete(), updatedAt: new Date() }, { merge: true });
+  } catch (e) {
+    // If doc doesn't exist, treat as already deleted
+  }
+  tokenCache.delete(uid);
+  return true;
+}

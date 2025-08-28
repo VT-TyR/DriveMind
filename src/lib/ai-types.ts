@@ -118,30 +118,7 @@ export const SummarizeFolderOutputSchema = z.object({
 export type SummarizeFolderOutput = z.infer<typeof SummarizeFolderOutputSchema>;
 
 
-// Types for: auth-begin-oauth.ts
-export const BeginOAuthInputSchema = z.object({
-  auth: FlowAuthSchema,
-});
-export type BeginOAuthInput = z.infer<typeof BeginOAuthInputSchema>;
-
-export const BeginOAuthOutputSchema = z.object({
-  url: z.string().url().describe('The consent screen URL.'),
-});
-export type BeginOAuthOutput = z.infer<typeof BeginOAuthOutputSchema>;
-
-// Types for: auth-complete-oauth.ts
-export const CompleteOAuthInputSchema = z.object({
-    code: z.string().describe('The authorization code from the OAuth callback.'),
-    state: z.string().describe('The state parameter from the OAuth callback.'),
-    auth: FlowAuthSchema,
-});
-export type CompleteOAuthInput = z.infer<typeof CompleteOAuthInputSchema>;
-
-export const CompleteOAuthOutputSchema = z.object({
-    ok: z.boolean(),
-    message: z.string(),
-});
-export type CompleteOAuthOutput = z.infer<typeof CompleteOAuthOutputSchema>;
+// (Removed) Legacy OAuth flow types are no longer used.
 
 
 // Types for: drive-list-sample.ts

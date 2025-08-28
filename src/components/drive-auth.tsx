@@ -67,7 +67,8 @@ function DriveAuthInternal() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({ userId: user?.uid || null })
       });
 
       if (!response.ok) {

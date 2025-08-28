@@ -3,6 +3,9 @@ import { google } from 'googleapis';
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json().catch(() => ({} as any));
+    const userId: string | undefined = body?.userId;
+
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Use the deployed URL for redirect
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/drive/callback`;
     
-    console.log('OAuth begin - redirect URI:', redirectUri);
+    console.log('OAuth begin - redirect URI:', redirectUri, 'state set:', !!userId);
     
     const oauth2Client = new google.auth.OAuth2(
       clientId,
@@ -38,8 +41,10 @@ export async function POST(request: NextRequest) {
         'https://www.googleapis.com/auth/drive.readonly'
       ],
       include_granted_scopes: true,
+      // Pass state so callback can associate token with a userId when available
+      state: userId || undefined,
     });
-    
+
     return NextResponse.json({ url: authUrl });
   } catch (error) {
     console.error('OAuth begin error:', error);
