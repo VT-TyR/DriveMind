@@ -42,12 +42,6 @@ export async function GET(request: NextRequest) {
     );
     
     // Exchange code for tokens
-    const oauth2Client = new google.auth.OAuth2(
-      clientId,
-      clientSecret,
-      redirectUri
-    );
-    
     const { tokens } = await oauth2Client.getToken(code);
     
     console.log('OAuth callback - tokens received:', {
@@ -93,22 +87,22 @@ export async function GET(request: NextRequest) {
 
     return res;
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('OAuth callback processing error:', {
-      error: error.message,
-      stack: error.stack,
-      name: error.name,
-      code: error.code || 'unknown',
+      error: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code || 'unknown',
       timestamp: new Date().toISOString()
     });
     
     // More specific error handling
     let errorType = 'oauth_callback_failed';
-    if (error.message?.includes('invalid_client')) {
+    if (error?.message?.includes('invalid_client')) {
       errorType = 'invalid_client_credentials';
-    } else if (error.message?.includes('invalid_grant')) {
+    } else if (error?.message?.includes('invalid_grant')) {
       errorType = 'invalid_authorization_code';
-    } else if (error.message?.includes('redirect_uri_mismatch')) {
+    } else if (error?.message?.includes('redirect_uri_mismatch')) {
       errorType = 'redirect_uri_mismatch';
     }
     
