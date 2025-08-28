@@ -31,9 +31,51 @@ function DriveAuthInternal() {
       }
     };
 
+    // Handle OAuth callback if we receive code parameter (direct callback from Google)
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const oauthError = searchParams.get('error');
+    
+    if (code && !driveConnecting) {
+      // We received OAuth callback directly - process it
+      setDriveConnecting(true);
+      console.log('Processing OAuth callback with code:', !!code, 'state:', state);
+      
+      fetch('/api/auth/drive/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, state })
+      }).then(async (response) => {
+        if (response.ok) {
+          setDriveConnected(true);
+          setError(null);
+          // Clean up URL parameters
+          router.replace(window.location.pathname);
+        } else {
+          const errorData = await response.json();
+          setError(`Connection failed: ${errorData.error || 'Unknown error'}`);
+        }
+      }).catch((error) => {
+        console.error('OAuth callback processing failed:', error);
+        setError('Connection failed: Unable to process callback');
+      }).finally(() => {
+        setDriveConnecting(false);
+      });
+      
+      return; // Don't run normal status check when processing callback
+    }
+
+    // Handle OAuth errors from Google
+    if (oauthError) {
+      console.error('OAuth error from Google:', oauthError);
+      setError(`Connection failed: ${oauthError.replace(/_/g, ' ')}`);
+      router.replace(window.location.pathname);
+      return;
+    }
+
     checkDriveStatus();
 
-    // Check for OAuth callback results
+    // Check for processed OAuth callback results (from API routes)
     const driveConnectedParam = searchParams.get('drive_connected');
     const errorParam = searchParams.get('error');
     
@@ -45,7 +87,7 @@ function DriveAuthInternal() {
     } else if (errorParam) {
       setError(`Connection failed: ${errorParam.replace(/_/g, ' ')}`);
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, driveConnecting]);
 
   const handleConnectToDrive = async () => {
     if (!user) {

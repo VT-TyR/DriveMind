@@ -3,24 +3,52 @@ import { google } from 'googleapis';
 import { cookies } from 'next/headers';
 import { saveUserRefreshToken } from '@/lib/token-store';
 
+// Handle both GET (direct redirects) and POST (from frontend) requests
 export async function GET(request: NextRequest) {
-  console.log('OAuth callback invoked:', new Date().toISOString());
+  return handleCallback(request, 'GET');
+}
+
+export async function POST(request: NextRequest) {
+  return handleCallback(request, 'POST');
+}
+
+async function handleCallback(request: NextRequest, method: string) {
+  console.log(`OAuth callback invoked via ${method}:`, new Date().toISOString());
   try {
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    const state = searchParams.get('state'); // user id when provided
-    const error = searchParams.get('error');
+    let code: string | null;
+    let state: string | null;
+    let error: string | null;
+    
+    if (method === 'POST') {
+      // Handle POST request from frontend
+      const body = await request.json();
+      code = body.code;
+      state = body.state;
+      error = body.error;
+    } else {
+      // Handle GET request (direct redirect from Google)
+      const { searchParams } = new URL(request.url);
+      code = searchParams.get('code');
+      state = searchParams.get('state');
+      error = searchParams.get('error');
+    }
     
     console.log('OAuth callback params:', { hasCode: !!code, hasError: !!error, state });
     
     // Handle OAuth errors
     if (error) {
       console.error('OAuth callback error:', error);
+      if (method === 'POST') {
+        return NextResponse.json({ error: `oauth_${error}` }, { status: 400 });
+      }
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_${error}`);
     }
     
     if (!code) {
       console.error('No authorization code received');
+      if (method === 'POST') {
+        return NextResponse.json({ error: 'no_auth_code' }, { status: 400 });
+      }
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=no_auth_code`);
     }
     
@@ -29,11 +57,14 @@ export async function GET(request: NextRequest) {
     
     if (!clientId || !clientSecret) {
       console.error('Missing OAuth credentials in callback');
+      if (method === 'POST') {
+        return NextResponse.json({ error: 'oauth_config_missing' }, { status: 500 });
+      }
       return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=oauth_config_missing`);
     }
     
-    // Hardcode the redirect URI to ensure exact match with Google Console
-    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback';
+    // Use /ai as redirect URI to match Google Console configuration
+    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/ai';
     
     const oauth2Client = new google.auth.OAuth2(
       clientId,
@@ -51,10 +82,18 @@ export async function GET(request: NextRequest) {
       hasState: !!state,
     });
     
-    // Build redirect response and attach cookies explicitly
-    const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/ai?drive_connected=true`;
-    const res = NextResponse.redirect(redirectUrl);
+    // Create appropriate response based on request method
+    let res: NextResponse;
+    if (method === 'POST') {
+      // For POST requests, return JSON response
+      res = NextResponse.json({ success: true, message: 'Drive connected successfully' });
+    } else {
+      // For GET requests, redirect to AI page with success parameter
+      const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/ai?drive_connected=true`;
+      res = NextResponse.redirect(redirectUrl);
+    }
 
+    // Set cookies for both request types
     if (tokens.access_token) {
       res.cookies.set('google_access_token', tokens.access_token, {
         httpOnly: true,
@@ -119,6 +158,9 @@ export async function GET(request: NextRequest) {
     
     console.error(`OAuth Error Details: ${errorType} - ${errorDetails}`);
     
+    if (method === 'POST') {
+      return NextResponse.json({ error: errorType, details: errorDetails }, { status: 500 });
+    }
     return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}&details=${encodeURIComponent(errorDetails)}`);
   }
 }
