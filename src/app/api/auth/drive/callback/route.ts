@@ -63,8 +63,7 @@ async function handleCallback(request: NextRequest, method: string) {
       return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=oauth_config_missing`);
     }
     
-    // Use /ai as redirect URI to match Google Console configuration
-    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/ai';
+    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/api/auth/drive/callback`;
     
     const oauth2Client = new google.auth.OAuth2(
       clientId,

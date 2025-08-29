@@ -21,8 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Use /ai as redirect URI to match Google Console configuration
-    const redirectUri = 'https://studio--drivemind-q69b7.us-central1.hosted.app/ai';
+    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/api/auth/drive/callback`;
     
     console.log('OAuth begin - redirect URI:', redirectUri, 'state set:', !!userId);
     

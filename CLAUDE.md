@@ -12,14 +12,15 @@
 - **Redirect URI**: `https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback`
 - **Consent Screen**: Production mode (published)
 
-## OAuth Status: RESOLVED ✅
-**Last verified**: 2025-08-28 17:07 UTC
+## OAuth Status: UPDATED ✅
+**Last verified**: 2025-08-29 00:01 UTC
 
-All OAuth issues have been resolved:
-- **Secrets**: All OAuth secrets (client ID & secret) are now properly accessible in App Hosting
-- **Endpoints**: All OAuth endpoints (`/api/auth/drive/begin`, `/api/auth/drive/callback`, `/api/auth/drive/status`) are working correctly
-- **Flow**: Complete OAuth flow tested successfully - generates proper Google OAuth URLs with correct redirect URI
-- **Mysterious redirect**: No longer occurring - this issue has been resolved
+OAuth configuration has been updated and verified:
+- **Secrets**: All OAuth secrets (client ID & secret) are properly accessible in App Hosting
+- **Endpoints**: All OAuth endpoints updated to use correct `/api/auth/drive/callback` redirect URI
+- **Redirect URI**: Fixed to use proper callback endpoint instead of hardcoded `/ai` route
+- **Flow**: OAuth begin endpoint generates URLs with correct redirect URI
+- **Fallback**: Added environment variable fallback for production deployment
 
 ## Previous Issues (RESOLVED)
 1. ~~**App Hosting secrets not accessible**: Environment shows "OAuth configuration incomplete. Missing client secret"~~ ✅ FIXED
@@ -47,6 +48,12 @@ npx firebase apphosting:secrets:describe GOOGLE_OAUTH_CLIENT_SECRET
 - Issue appears to be App Hosting environment not picking up secrets despite multiple deployments
 
 ## Files Modified
+- `src/app/api/auth/drive/begin/route.ts` - Updated to use proper redirect URI with fallback
+- `src/app/api/auth/drive/callback/route.ts` - Updated to use proper redirect URI with fallback
 - `src/lib/token-store.ts` - Added null checks for Firestore
 - `src/lib/google-auth.ts` - Added debug logging
 - `apphosting.yaml` - Fixed secret availability configuration
+
+## Required Google Cloud Console Update
+The OAuth 2.0 client configuration in Google Cloud Console must include this redirect URI:
+- `https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback`

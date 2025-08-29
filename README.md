@@ -180,6 +180,42 @@ npm run build
 firebase deploy --only hosting
 ```
 
+## Instructions for Claude
+
+This section provides instructions for Claude, an AI assistant, to help with the development of this project.
+
+### Environment Setup
+
+To set up the local development environment, you will need to create a `.env.local` file in the root of the project. This file should contain the following environment variables:
+
+```
+# Google OAuth Configuration
+GOOGLE_OAUTH_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-google-oauth-client-secret
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+**Important:**
+
+*   Replace the placeholder values with your actual Google OAuth 2.0 Client ID and Client Secret.
+*   The `NEXT_PUBLIC_BASE_URL` should be `http://localhost:3000` for local development.
+
+### Google Cloud Console
+
+In the Google Cloud Console, you will need to add the following redirect URI to your OAuth 2.0 client configuration:
+
+*   `http://localhost:3000/api/auth/drive/callback`
+
+This is the correct redirect URI for the local development environment. The previous hardcoded URI was causing authentication issues.
+
+### Running the Application
+
+Once you have configured the environment variables and the Google Cloud Console, you can run the application with the following command:
+
+```bash
+npm run dev
+```
+
 ## 🔒 Security
 
 - **Authentication**: Firebase Auth with Google OAuth
