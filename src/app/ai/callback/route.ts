@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_config_missing`);
     }
     
-    // Use /ai as redirect URI to match what begin endpoint sends
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/ai`;
+    // Use /ai/callback as redirect URI to match this callback endpoint
+    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/ai/callback`;
     
     const oauth2Client = new google.auth.OAuth2(
       clientId,
