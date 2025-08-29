@@ -13,7 +13,7 @@
 - **Consent Screen**: Production mode (published)
 
 ## OAuth Status: UPDATED ✅
-**Last verified**: 2025-08-29 01:10 UTC
+**Last verified**: 2025-08-29 01:15 UTC
 
 OAuth configuration has been updated and verified:
 - **Secrets**: All OAuth secrets (client ID & secret) are properly accessible in App Hosting
@@ -57,3 +57,4 @@ npx firebase apphosting:secrets:describe GOOGLE_OAUTH_CLIENT_SECRET
 ## Required Google Cloud Console Update
 The OAuth 2.0 client configuration in Google Cloud Console must include this redirect URI:
 - `https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback`
+- api key for google auth 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
