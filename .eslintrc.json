@@ -1,0 +1,15 @@
+{
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "rules": {
+    "prefer-const": "warn",
+    "no-var": "error",
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  }
+}

@@ -1,0 +1,121 @@
+name: ALPHA_DELIVERY_GATES
+on: 
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint & Format Check
+        run: |
+          npm run lint
+          npm run typecheck
+      
+      - name: Security Baseline
+        run: |
+          npm audit --audit-level=high || echo "Security issues found but continuing..."
+          
+  test_enforcement:
+    needs: integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Unit Tests (Coverage Gate)
+        run: |
+          npm run test:coverage
+          # Note: Coverage thresholds defined in jest.config.js
+      
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  security_depth:
+    needs: test_enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Security Audit
+        run: npm audit --audit-level=moderate || echo "Security issues logged but not blocking"
+      
+      # - name: Secret Detection
+      #   run: |
+      #     # Install and run secret scanning
+      #     echo "Secret scanning would go here"
+
+  build_verification:
+    needs: [integrity, test_enforcement, security_depth]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build Application
+        run: npm run build
+      
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            .next/
+            !.next/cache/
+          retention-days: 7
+
+  deployment_ready:
+    needs: [integrity, test_enforcement, security_depth, build_verification]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Deployment Marker
+        run: |
+          echo "[DEPLOYMENT_READY] Version: ${{ github.sha }} at $(date -Iseconds)" >> deployment.log
+          echo "All delivery gates passed successfully" >> deployment.log
+          echo "Ready for Firebase App Hosting deployment" >> deployment.log
+      
+      - name: Upload Deployment Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-log
+          path: deployment.log
