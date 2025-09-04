@@ -11,7 +11,7 @@ export async function GET() {
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/api/auth/drive/callback`;
     
-    const diagnostics = {
+    const diagnostics: any = {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       credentials: {

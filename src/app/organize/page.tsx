@@ -143,6 +143,7 @@ export default function OrganizePage() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">
               Smart Folders
             </h2>
+            {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
           </div>
         </div>
         

@@ -10,27 +10,24 @@ import { detectNearDuplicateFiles } from '@/ai/flows/detect-near-duplicate-files
 import type { DetectNearDuplicateFilesOutput } from '@/ai/flows/detect-near-duplicate-files';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { useFileOperations } from '@/contexts/file-operations-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Copy, ScanSearch, Check, Trash, Users, PlusCircle } from 'lucide-react';
+import { Copy, ScanSearch, Check, Trash, Users, PlusCircle, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { BatchOperationsPanel } from '@/components/shared/file-actions';
 
-
-// This is a temporary mock authentication object.
-const mockAuth = { uid: 'user-1234' };
-
-const initialAccounts = [
-    { id: 1, email: 'work.account@example.com', initials: 'WA' },
-    { id: 2, email: 'personal.account@example.com', initials: 'PA' },
-];
 
 export default function DuplicatesPage() {
-  const [accounts, setAccounts] = React.useState(initialAccounts);
   const [duplicateGroups, setDuplicateGroups] = React.useState<DetectNearDuplicateFilesOutput['nearDuplicateGroups']>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isCreatingBatch, setIsCreatingBatch] = React.useState(false);
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { addToBatch, isProcessing } = useFileOperations();
 
   const handleDetectDuplicates = async () => {
     if (!isAiEnabled) {
@@ -41,30 +38,33 @@ export default function DuplicatesPage() {
       });
       return;
     }
+
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Sign in Required',
+        description: 'Please sign in to analyze your files.',
+      });
+      return;
+    }
+
     setIsLoading(true);
     setDuplicateGroups([]);
     try {
-      // In a real app, this would iterate through each authorized account
-      // and fetch files, then combine them. We simulate this by calling
-      // listSampleFiles multiple times.
-      let allFiles: any[] = [];
-      for (const account of accounts) {
-        console.log(`Simulating file fetch for ${account.email}`);
-        const { files: driveFiles } = await listSampleFiles({ auth: mockAuth });
-        allFiles = [...allFiles, ...driveFiles];
-      }
+      const authData = { uid: user.uid, email: user.email || undefined };
+      const { files: driveFiles } = await listSampleFiles({ auth: authData });
 
-      const fileMetadatas = allFiles.map((f: any, i: number) => ({
-        name: f.name || `Untitled_${i}`,
-        size: Number(f.size) || Math.floor(Math.random() * 10000), // Mock size
-        hash: `mock_hash_${f.id || i}`,
+      const fileMetadatas = driveFiles.map((f: any) => ({
+        name: f.name || `Untitled_${f.id}`,
+        size: Number(f.size) || 0,
+        hash: f.md5Checksum || `hash_${f.id}`,
       }));
 
       const result = await detectNearDuplicateFiles({ fileMetadatas });
       setDuplicateGroups(result.nearDuplicateGroups);
       toast({
-        title: 'Cross-Drive Scan Complete',
-        description: `AI found ${result.nearDuplicateGroups.length} potential duplicate groups across ${accounts.length} accounts.`,
+        title: 'Duplicate Scan Complete',
+        description: `AI found ${result.nearDuplicateGroups.length} potential duplicate groups in your Google Drive.`,
       });
     } catch (error: any) {
         toast({
@@ -77,12 +77,45 @@ export default function DuplicatesPage() {
         setIsLoading(false);
     }
   };
-  
-  const handleAddAccount = () => {
-    // In a real app, this would trigger the OAuth flow for a new account.
-    const newId = accounts.length + 1;
-    setAccounts([...accounts, { id: newId, email: `new.account${newId}@example.com`, initials: `NA${newId}`}]);
-    toast({ title: "Account Added", description: "In a real app, you would now authorize this new account with Google."});
+
+  const handleAddToBatch = (fileName: string, action: 'keep' | 'delete') => {
+    if (!user || duplicateGroups.length === 0) return;
+
+    // Find the file in the duplicate groups
+    let fileId = '';
+    let foundFile = false;
+    
+    for (const group of duplicateGroups) {
+      if (group.includes(fileName)) {
+        // In a real implementation, we'd need the actual file IDs
+        // For now, we'll use a placeholder based on the file name
+        fileId = `file_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        foundFile = true;
+        break;
+      }
+    }
+
+    if (!foundFile) {
+      toast({
+        variant: 'destructive',
+        title: 'File not found',
+        description: 'Could not locate the file in duplicate groups.',
+      });
+      return;
+    }
+
+    if (action === 'delete') {
+      addToBatch('delete', fileId, fileName);
+      toast({
+        title: 'Added to Batch',
+        description: `${fileName} marked for deletion.`,
+      });
+    } else {
+      toast({
+        title: 'File Marked Safe',
+        description: `${fileName} will be kept (not added to batch).`,
+      });
+    }
   };
 
 
@@ -95,47 +128,63 @@ export default function DuplicatesPage() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">
               Duplicate Detection
             </h2>
+            {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
           </div>
         </div>
-        
-        <Card>
+
+        {!user && (
+          <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="text-primary"/> Connected Accounts</CardTitle>
-                <CardDescription>
-                    Manage the Google accounts you want to scan. DriveMind can find duplicates across all connected drives.
-                </CardDescription>
+              <CardTitle className="flex items-center gap-2"><Users className="text-primary"/> Authentication Required</CardTitle>
+              <CardDescription>
+                Sign in with your Google account to scan for duplicate files in your Google Drive.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Please sign in to access duplicate detection features.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {user && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Users className="text-primary"/> Connected Account</CardTitle>
+              <CardDescription>
+                Scanning files from your authenticated Google Drive account.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="space-y-3">
-                    {accounts.map(account => (
-                        <div key={account.id} className="flex items-center gap-3 rounded-md border p-3">
-                             <Avatar>
-                                <AvatarFallback>{account.initials}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium">{account.email}</span>
-                        </div>
-                    ))}
-                </div>
-                <Button variant="outline" onClick={handleAddAccount}>
-                    <PlusCircle className="mr-2"/> Connect Another Account
-                </Button>
+              <div className="flex items-center gap-3 rounded-md border p-3">
+                <Avatar>
+                  <AvatarFallback>{user.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{user.email}</span>
+                <Badge variant="secondary">Active</Badge>
+              </div>
             </CardContent>
-        </Card>
+          </Card>
+        )}
         
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Copy className="text-accent"/> Cross-Drive Duplicate Finder</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Copy className="text-accent"/> AI-Powered Duplicate Finder</CardTitle>
                 <CardDescription>
-                    Let AI analyze your files to find duplicates and near-duplicates based on name, size, and content hashes across all connected accounts.
+                    Let AI analyze your Google Drive files to find duplicates and near-duplicates based on name, size, and content hashes.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={handleDetectDuplicates} disabled={isLoading || !isAiEnabled || accounts.length === 0}>
+                <Button onClick={handleDetectDuplicates} disabled={isLoading || !isAiEnabled || !user}>
                     <ScanSearch className="mr-2"/>
-                    {isLoading ? 'Scanning...' : `Scan ${accounts.length} Accounts`}
+                    {isLoading ? 'Scanning...' : 'Scan Your Drive'}
                 </Button>
                 {!isAiEnabled && (
                     <p className="text-sm text-destructive mt-4">Enable AI-Assisted mode to use this feature.</p>
+                )}
+                {!user && (
+                    <p className="text-sm text-destructive mt-4">Sign in to scan your Google Drive files.</p>
                 )}
             </CardContent>
         </Card>
@@ -157,11 +206,25 @@ export default function DuplicatesPage() {
                                     <Card key={fileName} className="flex flex-col justify-between">
                                         <CardContent className="p-4">
                                             <p className="font-medium truncate">{fileName}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Size: {(Math.random() * 5).toFixed(2)} MB</p>
+                                            <p className="text-xs text-muted-foreground mt-1">Detected by AI analysis</p>
                                         </CardContent>
                                         <CardHeader className="p-4 border-t flex-row items-center justify-end gap-2">
-                                           <Button size="sm" variant="outline" disabled={isLoading}><Check className="mr-2"/> Keep</Button>
-                                           <Button size="sm" variant="destructive" disabled={isLoading}><Trash className="mr-2"/> Delete</Button>
+                                           <Button 
+                                             size="sm" 
+                                             variant="outline" 
+                                             disabled={isLoading || isProcessing}
+                                             onClick={() => handleAddToBatch(fileName, 'keep')}
+                                           >
+                                             <Check className="mr-2"/> Keep
+                                           </Button>
+                                           <Button 
+                                             size="sm" 
+                                             variant="destructive" 
+                                             disabled={isLoading || isProcessing}
+                                             onClick={() => handleAddToBatch(fileName, 'delete')}
+                                           >
+                                             <Trash className="mr-2"/> Delete
+                                           </Button>
                                         </CardHeader>
                                     </Card>
                                 ))}
@@ -171,9 +234,9 @@ export default function DuplicatesPage() {
                 </CardContent>
             </Card>
         )}
+
+        <BatchOperationsPanel />
       </div>
     </MainLayout>
   );
 }
-
-    
