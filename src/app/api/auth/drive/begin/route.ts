@@ -6,8 +6,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({} as any));
     const userId: string | undefined = body?.userId;
 
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
     
     if (!clientId || !clientSecret) {
       console.error('Missing OAuth credentials:', { 

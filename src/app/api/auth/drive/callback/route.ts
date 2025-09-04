@@ -52,8 +52,8 @@ async function handleCallback(request: NextRequest, method: string) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=no_auth_code`);
     }
     
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
     
     if (!clientId || !clientSecret) {
       console.error('Missing OAuth credentials in callback');
