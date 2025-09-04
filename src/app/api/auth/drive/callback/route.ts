@@ -65,11 +65,26 @@ async function handleCallback(request: NextRequest, method: string) {
     
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/api/auth/drive/callback`;
     
+    console.log('OAuth callback - credential validation:', {
+      clientIdLength: clientId?.length,
+      clientSecretLength: clientSecret?.length,
+      clientIdStart: clientId?.substring(0, 20),
+      clientSecretStart: clientSecret?.substring(0, 8),
+      redirectUri,
+      codeLength: code?.length,
+      hasWhitespace: {
+        clientId: clientId?.includes(' ') || clientId?.includes('\n'),
+        clientSecret: clientSecret?.includes(' ') || clientSecret?.includes('\n')
+      }
+    });
+    
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
       redirectUri
     );
+    
+    console.log('OAuth callback - attempting token exchange...');
     
     // Exchange code for tokens
     const { tokens } = await oauth2Client.getToken(code);
