@@ -16,7 +16,7 @@ const customJestConfig = {
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/functions/'],
   roots: ['<rootDir>/src'],
   transformIgnorePatterns: [
-    'node_modules/(?!(lucide-react|@radix-ui)/)',
+    'node_modules/(?!(lucide-react|@radix-ui|react-hook-form)/)',
   ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',

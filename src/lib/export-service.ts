@@ -300,8 +300,15 @@ export class VaultExportService {
   private calculateSpaceSavings(duplicateGroups: Array<{ files: FileExportData[] }>): number {
     return duplicateGroups.reduce((total, group) => {
       if (group.files.length <= 1) return total;
-      const largestFile = Math.max(...group.files.map(f => f.size || 0));
-      const duplicateSpace = group.files.slice(1).reduce((sum, f) => sum + (f.size || 0), 0);
+      
+      // Sort files by size (descending) to keep the largest
+      const sortedFiles = [...group.files].sort((a, b) => (b.size || 0) - (a.size || 0));
+      
+      // Calculate space saved by removing all files except the largest (first after sorting)
+      const duplicateSpace = sortedFiles
+        .slice(1) // Keep the first (largest) file, remove the rest
+        .reduce((sum, f) => sum + (f.size || 0), 0);
+      
       return total + duplicateSpace;
     }, 0);
   }

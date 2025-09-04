@@ -8,9 +8,17 @@ import { usePerformance } from '@/hooks/use-performance';
 // Mock the logger
 jest.mock('@/lib/logger');
 
-// Mock performance.now()
+// Mock performance.now() for both window and global
 const mockPerformanceNow = jest.fn();
+
 Object.defineProperty(window, 'performance', {
+  writable: true,
+  value: {
+    now: mockPerformanceNow,
+  },
+});
+
+Object.defineProperty(global, 'performance', {
   writable: true,
   value: {
     now: mockPerformanceNow,

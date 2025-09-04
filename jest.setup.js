@@ -51,6 +51,31 @@ jest.mock('googleapis', () => ({
   },
 }))
 
+// Mock Lucide React icons
+jest.mock('lucide-react', () => ({
+  AlertTriangle: 'div',
+  CheckCircle: 'div',
+  XCircle: 'div',
+  Info: 'div',
+  Copy: 'div',
+  Download: 'div',
+  RefreshCw: 'div',
+  // Add other icons as needed
+}))
+
+// Mock react-hook-form
+jest.mock('react-hook-form', () => ({
+  useForm: () => ({
+    register: jest.fn(),
+    handleSubmit: jest.fn(),
+    formState: { errors: {} },
+    reset: jest.fn(),
+    setValue: jest.fn(),
+    watch: jest.fn(),
+  }),
+  Controller: ({ render }) => render({ field: {}, fieldState: {}, formState: {} }),
+}))
+
 // Mock logger - simplified to avoid circular dependencies in setup
 const mockLogger = {
   debug: jest.fn(),
@@ -114,22 +139,56 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 
-// Add Blob.text() polyfill for Node.js environment
-if (typeof Blob !== 'undefined' && !Blob.prototype.text) {
-  Blob.prototype.text = function() {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsText(this);
-    });
-  };
+// Mock ReadableStream
+global.ReadableStream = class ReadableStream {
+  constructor() {}
 }
 
-// Mock FileReader for Blob polyfill
+// Enhanced Blob polyfill for Node.js environment
+global.Blob = class Blob {
+  constructor(blobParts, options) {
+    this.blobParts = blobParts || [];
+    this.type = options?.type || '';
+    this._content = this._buildContent();
+  }
+
+  _buildContent() {
+    return this.blobParts.map(part => {
+      if (typeof part === 'string') return part;
+      if (part && typeof part.toString === 'function') return part.toString();
+      return '';
+    }).join('');
+  }
+
+  text() {
+    return Promise.resolve(this._content);
+  }
+
+  stream() {
+    // Mock implementation
+    return new ReadableStream();
+  }
+
+  arrayBuffer() {
+    return Promise.resolve(new ArrayBuffer(this._content.length));
+  }
+
+  get size() {
+    return this._content.length;
+  }
+};
+
+// Mock FileReader for Blob polyfill  
 global.FileReader = class FileReader {
   readAsText(blob) {
-    // Convert blob to text (simplified for testing)
-    this.result = blob.constructor.name === 'Blob' ? '[object Blob]' : String(blob);
-    setTimeout(() => this.onload && this.onload(), 0);
+    if (blob && typeof blob.text === 'function') {
+      blob.text().then(content => {
+        this.result = content;
+        if (this.onload) this.onload();
+      });
+    } else {
+      this.result = String(blob);
+      setTimeout(() => this.onload && this.onload(), 0);
+    }
   }
 };
