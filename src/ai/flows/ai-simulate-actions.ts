@@ -17,6 +17,8 @@ import {
     SimulateActionsOutputSchema,
     FileSchema
 } from '@/lib/ai-types';
+import { listSampleFiles } from './drive-list-sample';
+import { logger } from '@/lib/logger';
 
 
 const simulateActionsFlow = ai.defineFlow(
@@ -25,16 +27,31 @@ const simulateActionsFlow = ai.defineFlow(
     inputSchema: SimulateActionsInputSchema,
     outputSchema: SimulateActionsOutputSchema,
   },
-  async ({ rule, limit }: SimulateActionsInput) => {
-    // This flow does not require an LLM call. It's a business logic flow.
+  async ({ rule, limit, auth }: SimulateActionsInput) => {
+    logger.info('Starting action simulation', { ruleId: rule.id, limit });
     
-    // In a real application, you would fetch files for the authenticated user from Google Drive here.
-    // For this example, we'll use a hardcoded mock list.
-    const files: z.infer<typeof FileSchema>[] = [
-        { id: '1', name: 'invoice-2023.pdf', mimeType: 'application/pdf', size: 1024, lastModified: new Date('2023-01-15'), path: ['/'] },
-        { id: '2', name: 'old_invoice.pdf', mimeType: 'application/pdf', size: 2048, lastModified: new Date('2022-03-20'), path: ['/'] },
-        { id: '3', name: 'photo.jpg', mimeType: 'image/jpeg', size: 4096, lastModified: new Date(), path: ['/'] },
-    ];
+    try {
+      // Fetch real files from Google Drive
+      const { files: driveFiles } = await listSampleFiles({ auth });
+      
+      const files: z.infer<typeof FileSchema>[] = driveFiles.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType || 'application/octet-stream',
+        size: Number(f.size) || 0,
+        lastModified: f.modifiedTime ? new Date(f.modifiedTime) : new Date(),
+        path: ['/'],
+      }));
+
+      logger.info('Retrieved files for simulation', { fileCount: files.length });
+    } catch (error) {
+      logger.error('Failed to fetch files for simulation', error as Error);
+      // Return empty result on failure
+      return {
+        batchId: `batch_empty_${Date.now()}`,
+        proposals: [],
+      };
+    }
     
     const matchingFiles = files.filter(f => {
       const { filter } = rule;
@@ -67,10 +84,14 @@ const simulateActionsFlow = ai.defineFlow(
       };
     });
 
-    const batchId = `batch_${Date.now()}`;
-    // In a real app, this would be saved to Firestore:
-    // const actionBatch: ActionBatch = { ... }
-    // await db.collection("aiActions").doc(batchId).set(actionBatch)
+    const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    logger.info('Action simulation completed', { 
+      batchId, 
+      totalFiles: files.length,
+      matchingFiles: matchingFiles.length,
+      proposalCount: proposals.length 
+    });
 
     return {
       batchId,

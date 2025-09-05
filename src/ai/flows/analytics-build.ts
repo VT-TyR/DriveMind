@@ -10,6 +10,8 @@ import { z } from 'zod';
 import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { BuildAnalyticsInputSchema, BuildAnalyticsOutputSchema, BuildAnalyticsInput, BuildAnalyticsOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
+import { logger } from '@/lib/logger';
+import { createFirebaseAdmin } from '@/lib/firebase';
 
 // In a real app, this would be defined in a shared types file.
 const AnalyticsDataSchema = z.object({
@@ -21,10 +23,26 @@ const AnalyticsDataSchema = z.object({
 });
 export type AnalyticsData = z.infer<typeof AnalyticsDataSchema>;
 
-// Mock datastore write
 async function saveAnalytics(analytics: AnalyticsData) {
-    console.log(`Faking save for analytics data for user '${analytics.uid}'`, analytics);
-    return;
+    try {
+        const admin = await createFirebaseAdmin();
+        const analyticsRef = admin.firestore().collection('analytics').doc(analytics.uid);
+        
+        await analyticsRef.set({
+            ...analytics,
+            updatedAt: analytics.updatedAt.toISOString(),
+        }, { merge: true });
+        
+        logger.info('Analytics data saved', { 
+            uid: analytics.uid, 
+            mimeTypes: Object.keys(analytics.byMime).length,
+            depthLevels: Object.keys(analytics.byDepth).length,
+            monthsTracked: Object.keys(analytics.byMonth).length 
+        });
+    } catch (error) {
+        logger.error('Failed to save analytics data', error as Error, { uid: analytics.uid });
+        throw error;
+    }
 }
 
 export async function buildAnalytics(input: BuildAnalyticsInput): Promise<BuildAnalyticsOutput> {
@@ -40,31 +58,50 @@ const buildAnalyticsFlow = ai.defineFlow(
   async ({ files, auth }: BuildAnalyticsInput) => {
     const user = getAuthenticatedUserSync(auth);
     
-    const byMime:any = {}, byDepth:any = {}, byMonth:any = {};
+    logger.info('Building analytics data', { uid: user.uid, fileCount: files.length });
+    
+    const byMime: any = {}, byDepth: any = {}, byMonth: any = {};
+    let totalBytes = 0;
+    
     files.forEach(f => {
-      const mg = (f.mimeType||"other").split("/")[0];
-      byMime[mg] = byMime[mg] || { count:0, bytes:0 };
-      byMime[mg].count++; 
-      byMime[mg].bytes += Number(f.size||0);
+      const fileSize = Number(f.size || 0);
+      totalBytes += fileSize;
+      
+      // Group by MIME type
+      const mimeGroup = (f.mimeType || "other").split("/")[0];
+      byMime[mimeGroup] = byMime[mimeGroup] || { count: 0, bytes: 0 };
+      byMime[mimeGroup].count++; 
+      byMime[mimeGroup].bytes += fileSize;
 
-      // In a real app, path would be stored with the file record.
+      // Group by folder depth
       const depth = Array.isArray(f.path) ? f.path.length : 0;
-      byDepth[depth] = byDepth[depth] || { count:0, bytes:0 };
+      byDepth[depth] = byDepth[depth] || { count: 0, bytes: 0 };
       byDepth[depth].count++; 
-      byDepth[depth].bytes += Number(f.size||0);
+      byDepth[depth].bytes += fileSize;
 
-      const m = f.lastModified ? f.lastModified.toISOString().slice(0,7) : "unknown";
-      byMonth[m] = byMonth[m] || { createdCount:0, modifiedCount:0, bytes:0 };
-      byMonth[m].modifiedCount++; 
-      byMonth[m].bytes += Number(f.size||0);
+      // Group by modification month
+      const month = f.lastModified ? f.lastModified.toISOString().slice(0, 7) : "unknown";
+      byMonth[month] = byMonth[month] || { createdCount: 0, modifiedCount: 0, bytes: 0 };
+      byMonth[month].modifiedCount++; 
+      byMonth[month].bytes += fileSize;
     });
 
-    await saveAnalytics({ 
+    const analytics: AnalyticsData = {
         uid: user.uid, 
         byMime, 
         byDepth, 
         byMonth, 
         updatedAt: new Date() 
+    };
+
+    await saveAnalytics(analytics);
+    
+    logger.info('Analytics build completed', { 
+      uid: user.uid, 
+      fileCount: files.length,
+      totalBytes,
+      mimeTypes: Object.keys(byMime).length,
+      depthLevels: Object.keys(byDepth).length
     });
 
     return { ok: true, count: files.length };

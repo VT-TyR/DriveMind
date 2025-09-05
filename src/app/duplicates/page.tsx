@@ -55,6 +55,7 @@ export default function DuplicatesPage() {
       const { files: driveFiles } = await listSampleFiles({ auth: authData });
 
       const fileMetadatas = driveFiles.map((f: any) => ({
+        id: f.id,
         name: f.name || `Untitled_${f.id}`,
         size: Number(f.size) || 0,
         hash: f.md5Checksum || `hash_${f.id}`,
@@ -78,31 +79,8 @@ export default function DuplicatesPage() {
     }
   };
 
-  const handleAddToBatch = (fileName: string, action: 'keep' | 'delete') => {
+  const handleAddToBatch = (fileName: string, fileId: string, action: 'keep' | 'delete') => {
     if (!user || duplicateGroups.length === 0) return;
-
-    // Find the file in the duplicate groups
-    let fileId = '';
-    let foundFile = false;
-    
-    for (const group of duplicateGroups) {
-      if (group.includes(fileName)) {
-        // In a real implementation, we'd need the actual file IDs
-        // For now, we'll use a placeholder based on the file name
-        fileId = `file_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        foundFile = true;
-        break;
-      }
-    }
-
-    if (!foundFile) {
-      toast({
-        variant: 'destructive',
-        title: 'File not found',
-        description: 'Could not locate the file in duplicate groups.',
-      });
-      return;
-    }
 
     if (action === 'delete') {
       addToBatch('delete', fileId, fileName);
@@ -202,8 +180,11 @@ export default function DuplicatesPage() {
                                 <CardTitle className="text-lg">Duplicate Group {index + 1}</CardTitle>
                             </CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {group.map((fileName) => (
-                                    <Card key={fileName} className="flex flex-col justify-between">
+                                {group.map((fileInfo) => {
+                                  const fileName = typeof fileInfo === 'string' ? fileInfo : fileInfo.name;
+                                  const fileId = typeof fileInfo === 'string' ? `file_${fileInfo.replace(/[^a-zA-Z0-9]/g, '_')}` : fileInfo.id;
+                                  return (
+                                    <Card key={`${fileName}_${fileId}`} className="flex flex-col justify-between">
                                         <CardContent className="p-4">
                                             <p className="font-medium truncate">{fileName}</p>
                                             <p className="text-xs text-muted-foreground mt-1">Detected by AI analysis</p>
@@ -213,7 +194,7 @@ export default function DuplicatesPage() {
                                              size="sm" 
                                              variant="outline" 
                                              disabled={isLoading || isProcessing}
-                                             onClick={() => handleAddToBatch(fileName, 'keep')}
+                                             onClick={() => handleAddToBatch(fileName, fileId, 'keep')}
                                            >
                                              <Check className="mr-2"/> Keep
                                            </Button>
@@ -221,13 +202,14 @@ export default function DuplicatesPage() {
                                              size="sm" 
                                              variant="destructive" 
                                              disabled={isLoading || isProcessing}
-                                             onClick={() => handleAddToBatch(fileName, 'delete')}
+                                             onClick={() => handleAddToBatch(fileName, fileId, 'delete')}
                                            >
                                              <Trash className="mr-2"/> Delete
                                            </Button>
                                         </CardHeader>
                                     </Card>
-                                ))}
+                                  );
+                                })}
                             </CardContent>
                         </Card>
                     ))}

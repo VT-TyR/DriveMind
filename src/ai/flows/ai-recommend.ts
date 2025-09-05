@@ -8,6 +8,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { FlowAuth, getAuthenticatedUserSync, FlowAuthSchema } from '@/lib/flow-auth';
+import { listSampleFiles } from './drive-list-sample';
+import { logger } from '@/lib/logger';
+import { createFirebaseAdmin } from '@/lib/firebase';
 
 // In a real app, this would be defined in a shared types file.
 const RecommendationSchema = z.object({
@@ -31,10 +34,18 @@ export const RecommendOutputSchema = z.object({
 });
 export type RecommendOutput = z.infer<typeof RecommendOutputSchema>;
 
-// Mock datastore write
 async function saveRecommendation(rec: Recommendation) {
-    console.log(`Faking save for recommendation '${rec.title}'`);
-    return;
+    try {
+        const admin = await createFirebaseAdmin();
+        await admin.firestore().collection('recommendations').add({
+            ...rec,
+            createdAt: rec.createdAt.toISOString(),
+        });
+        logger.info('Recommendation saved', { title: rec.title, uid: rec.uid });
+    } catch (error) {
+        logger.error('Failed to save recommendation', error as Error, { title: rec.title });
+        throw error;
+    }
 }
 
 export async function recommend(input: RecommendInput): Promise<RecommendOutput> {
@@ -49,27 +60,75 @@ const recommendFlow = ai.defineFlow(
   },
   async ({ auth }: RecommendInput) => {
     const user = getAuthenticatedUserSync(auth);
-    console.log(`STUB: Running recommendations for user ${user.uid}`);
+    logger.info('Generating recommendations for user', { uid: user.uid });
     
-    // In a real app, you would:
-    // 1. Scan /files for the user.
-    // 2. Identify patterns (e.g., many large files, old files, etc.).
-    // 3. Create a simulated batch for that pattern.
-    // 4. Generate a recommendation object pointing to that batch.
+    try {
+      // 1. Scan user files from Google Drive
+      const { files: driveFiles } = await listSampleFiles({ auth });
+      
+      const recommendations: Recommendation[] = [];
+      
+      // 2. Identify patterns and generate recommendations
+      const largeFiles = driveFiles.filter(f => Number(f.size || 0) > 100 * 1024 * 1024); // > 100MB
+      if (largeFiles.length > 5) {
+        recommendations.push({
+          uid: user.uid,
+          kind: 'cleanup',
+          title: 'Clean up Large Files',
+          body: `You have ${largeFiles.length} files larger than 100MB taking up significant space.`,
+          batchId: `batch_large_files_${Date.now()}`,
+          createdAt: new Date(),
+          dismissed: false,
+        });
+      }
+      
+      const oldFiles = driveFiles.filter(f => {
+        const modTime = f.modifiedTime ? new Date(f.modifiedTime) : new Date();
+        const daysDiff = (Date.now() - modTime.getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff > 365; // Older than 1 year
+      });
+      
+      if (oldFiles.length > 10) {
+        recommendations.push({
+          uid: user.uid,
+          kind: 'cleanup',
+          title: 'Archive Old Files',
+          body: `${oldFiles.length} files haven't been modified in over a year and could be archived.`,
+          batchId: `batch_old_files_${Date.now()}`,
+          createdAt: new Date(),
+          dismissed: false,
+        });
+      }
+      
+      // Check for organization opportunities
+      const rootFiles = driveFiles.filter(f => !f.parents || f.parents.includes('root'));
+      if (rootFiles.length > 20) {
+        recommendations.push({
+          uid: user.uid,
+          kind: 'organize',
+          title: 'Organize Root Directory',
+          body: `${rootFiles.length} files in your root directory could be better organized into folders.`,
+          createdAt: new Date(),
+          dismissed: false,
+        });
+      }
+      
+      // 3. Save recommendations to Firestore
+      for (const rec of recommendations) {
+        await saveRecommendation(rec);
+      }
+      
+      logger.info('Recommendations generated', { 
+        uid: user.uid, 
+        count: recommendations.length,
+        totalFiles: driveFiles.length 
+      });
 
-    const mockRec: Recommendation = {
-      uid: user.uid,
-      kind: 'cleanup',
-      title: 'Clean up Large Files',
-      body: 'You have several large files that could be archived or deleted to save space.',
-      batchId: 'batch_simulated_large_files',
-      createdAt: new Date(),
-      dismissed: false,
-    };
-    
-    await saveRecommendation(mockRec);
-
-    return { recommendations: [mockRec] };
+      return { recommendations };
+    } catch (error) {
+      logger.error('Failed to generate recommendations', error as Error, { uid: user.uid });
+      return { recommendations: [] };
+    }
   }
 );
 
