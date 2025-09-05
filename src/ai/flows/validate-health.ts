@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileOverview Production system health validation engine.
  * Performs comprehensive health checks across all system components including

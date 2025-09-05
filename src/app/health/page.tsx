@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, AlertCircle, Loader2, Activity, Sparkles } from 'lucide-react';
-import { validateHealth } from '@/ai/flows/validate-health';
 import type { HealthValidationOutput } from '@/ai/flows/validate-health';
 import { useAuth } from '@/contexts/auth-context';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
@@ -33,8 +32,21 @@ export default function HealthPage() {
     setIsLoading(true);
     setResults(null);
     try {
-      const authData = { uid: user.uid, email: user.email || undefined };
-      const healthResults = await validateHealth({ auth: authData });
+      const token = await user.getIdToken();
+      const response = await fetch('/api/health/validate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `HTTP ${response.status}`);
+      }
+
+      const healthResults = await response.json();
       setResults(healthResults);
       
       const hasIssues = healthResults.status !== 'healthy';
