@@ -29,10 +29,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
-import { logger } from '@/lib/logger';
-import { listFiles } from '@/lib/google-drive';
 import { File } from '@/lib/types';
 import { detectNearDuplicateFiles } from '@/ai/flows/detect-near-duplicate-files';
+import { listSampleFiles } from '@/ai/flows/drive-list-sample';
 
 interface DuplicateGroup {
   id: string;
@@ -71,7 +70,7 @@ export default function VaultPage() {
 
   useEffect(() => {
     if (user) {
-      logger.info('Vault page accessed', {
+      console.log('Vault page accessed', {
         userId: user.uid,
         page: 'vault'
       });
@@ -90,11 +89,12 @@ export default function VaultPage() {
 
     setIsLoading(true);
     try {
-      const result = await listFiles(user.uid, undefined, 500); // Load up to 500 files for vault
+      const authData = { uid: user.uid, email: user.email || undefined };
+      const result = await listSampleFiles({ auth: authData }); // Load files for vault
       setFileInventory(result.files);
       setLastScanTime(new Date());
       
-      logger.info('File inventory loaded', {
+      console.log('File inventory loaded', {
         userId: user.uid,
         fileCount: result.files.length
       });
@@ -162,7 +162,7 @@ export default function VaultPage() {
       
       setDuplicateGroups(groups);
       
-      logger.info('Duplicate scan completed', {
+      console.log('Duplicate scan completed', {
         userId: user.uid,
         groupsFound: groups.length
       });
@@ -261,7 +261,7 @@ export default function VaultPage() {
 
     setAnalysisResults(analysis);
     
-    logger.info('Analysis report generated', {
+    console.log('Analysis report generated', {
       userId: user?.uid,
       totalFiles: fileInventory.length,
       totalSize

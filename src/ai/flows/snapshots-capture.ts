@@ -133,7 +133,7 @@ const snapshotCaptureFlow = ai.defineFlow(
         });
         fileMetadata = response.data;
       } catch (error: any) {
-        logger.error('Failed to get file metadata for snapshot', {
+        logger.error('Failed to get file metadata for snapshot', undefined, {
           fileId,
           batchId,
           uid: user.uid,
@@ -211,7 +211,7 @@ const snapshotCaptureFlow = ai.defineFlow(
           fileExtension = exportFormat.extension;
           
         } catch (error: any) {
-          logger.error('Failed to export Google Workspace file', {
+          logger.error('Failed to export Google Workspace file', undefined, {
             fileId,
             batchId,
             uid: user.uid,
@@ -254,7 +254,7 @@ const snapshotCaptureFlow = ai.defineFlow(
           fileExtension = fileName.split('.').pop() || 'bin';
           
         } catch (error: any) {
-          logger.error('Failed to download regular file', {
+          logger.error('Failed to download regular file', undefined, {
             fileId,
             batchId,
             uid: user.uid,
@@ -308,7 +308,7 @@ const snapshotCaptureFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('File snapshot capture failed', {
+      logger.error('File snapshot capture failed', undefined, {
         fileId,
         batchId,
         error: error instanceof Error ? error.message : String(error),

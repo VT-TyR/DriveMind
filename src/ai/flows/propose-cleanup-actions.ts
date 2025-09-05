@@ -330,7 +330,7 @@ const proposeCleanupActionsFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Cleanup action proposal failed', {
+      logger.error('Cleanup action proposal failed', undefined, {
         error: error instanceof Error ? error.message : String(error),
         duration
       });

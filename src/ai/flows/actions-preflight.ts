@@ -301,7 +301,7 @@ const preflightActionsFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Action preflight failed', {
+      logger.error('Action preflight failed', undefined, {
         batchId,
         error: error instanceof Error ? error.message : String(error),
         duration,

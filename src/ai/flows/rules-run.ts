@@ -154,7 +154,7 @@ async function getUserFiles(uid: string, limit: number = 1000): Promise<any[]> {
     return files;
     
   } catch (error) {
-    logger.error('Failed to fetch user files', {
+    logger.error('Failed to fetch user files', undefined, {
       uid,
       limit,
       error: error instanceof Error ? error.message : String(error)
@@ -191,7 +191,7 @@ async function updateRuleStats(ruleId: string, uid: string, stats: {
     });
     
   } catch (error) {
-    logger.error('Failed to update rule statistics', {
+    logger.error('Failed to update rule statistics', undefined, {
       ruleId,
       uid,
       stats,
@@ -259,7 +259,7 @@ const rulesRunFlow = ai.defineFlow(
       try {
         allFiles = await getUserFiles(user.uid, RULE_FILE_LIMIT);
       } catch (driveError) {
-        logger.error('Failed to fetch files from Drive for rule execution', {
+        logger.error('Failed to fetch files from Drive for rule execution', undefined, {
           ruleId,
           uid: user.uid,
           error: driveError instanceof Error ? driveError.message : String(driveError)
@@ -392,7 +392,7 @@ const rulesRunFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Rule execution failed', {
+      logger.error('Rule execution failed', undefined, {
         ruleId,
         error: error instanceof Error ? error.message : String(error),
         duration,

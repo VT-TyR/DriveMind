@@ -89,7 +89,7 @@ export async function getActionBatch(batchId: string, uid: string): Promise<Acti
     return batch;
     
   } catch (error) {
-    logger.error('Error retrieving action batch', { batchId, uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error retrieving action batch', undefined, { batchId, uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -131,7 +131,7 @@ export async function saveActionBatch(batchId: string, batchData: ActionBatch): 
     logger.info('Saved action batch', { batchId, uid: batchData.uid, status: batchData.status });
     
   } catch (error) {
-    logger.error('Error saving action batch', { batchId, uid: batchData.uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving action batch', undefined, { batchId, uid: batchData.uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -154,7 +154,7 @@ export async function createActionBatch(batchData: ActionBatch): Promise<string>
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error creating action batch', { uid: batchData.uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error creating action batch', undefined, { uid: batchData.uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -206,7 +206,7 @@ export async function getUserActionBatches(uid: string, limitCount: number = 50)
     return batches;
     
   } catch (error) {
-    logger.error('Error retrieving user action batches', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error retrieving user action batches', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -233,7 +233,7 @@ export async function getRule(ruleId: string, uid: string): Promise<Rule> {
     return rule;
     
   } catch (error) {
-    logger.error('Error retrieving rule', { ruleId, uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error retrieving rule', undefined, { ruleId, uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -252,7 +252,7 @@ export async function saveRule(ruleId: string, ruleData: Rule): Promise<void> {
     logger.info('Saved rule', { ruleId, uid: ruleData.uid });
     
   } catch (error) {
-    logger.error('Error saving rule', { ruleId, uid: ruleData.uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving rule', undefined, { ruleId, uid: ruleData.uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -279,7 +279,7 @@ export async function getUserRules(uid: string, limitCount: number = 50): Promis
     return rules;
     
   } catch (error) {
-    logger.error('Error retrieving user rules', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error retrieving user rules', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -303,7 +303,7 @@ export async function saveSnapshot(uid: string, fileId: string, batchId: string,
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error saving snapshot', { uid, fileId, batchId, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving snapshot', undefined, { uid, fileId, batchId, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -325,7 +325,7 @@ export async function saveAnalytics(uid: string, data: Record<string, any>): Pro
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error saving analytics', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving analytics', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -348,7 +348,7 @@ export async function saveHealthCheck(uid: string, status: 'healthy' | 'unhealth
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error saving health check', { uid, status, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving health check', undefined, { uid, status, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -370,7 +370,7 @@ export async function saveSimilarityCluster(uid: string, clusters: Record<string
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error saving similarity cluster', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving similarity cluster', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -392,7 +392,7 @@ export async function saveVersionLinks(uid: string, chains: Record<string, any>)
     return docRef.id;
     
   } catch (error) {
-    logger.error('Error saving version links', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error saving version links', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -414,7 +414,7 @@ export async function batchDeleteDocuments(collectionName: string, docIds: strin
     logger.info('Batch deleted documents', { collection: collectionName, count: docIds.length });
     
   } catch (error) {
-    logger.error('Error batch deleting documents', { collection: collectionName, docIds, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error batch deleting documents', undefined, { collection: collectionName, docIds, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -438,7 +438,7 @@ export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'unhe
     };
     
   } catch (error) {
-    logger.error('Database health check failed', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Database health check failed', undefined, { error: error instanceof Error ? error.message : String(error) });
     return {
       status: 'unhealthy',
       details: {
@@ -449,3 +449,8 @@ export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'unhe
     };
   }
 }
+
+// Placeholder for server-side operations - use client Firestore
+export const createFirebaseAdmin = () => {
+  throw new Error('Firebase Admin not available in client environment');
+};

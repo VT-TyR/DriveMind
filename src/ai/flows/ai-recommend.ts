@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { FlowAuth, getAuthenticatedUserSync, FlowAuthSchema } from '@/lib/flow-auth';
 import { listSampleFiles } from './drive-list-sample';
 import { logger } from '@/lib/logger';
-import { createFirebaseAdmin } from '@/lib/firebase';
+import { createFirebaseAdmin } from '@/lib/firebase-db';
 
 // In a real app, this would be defined in a shared types file.
 const RecommendationSchema = z.object({

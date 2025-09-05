@@ -214,7 +214,7 @@ const versionsLinkFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Version linking analysis failed', {
+      logger.error('Version linking analysis failed', undefined, {
         error: error instanceof Error ? error.message : String(error),
         duration,
         stack: error instanceof Error ? error.stack : undefined

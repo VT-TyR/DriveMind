@@ -55,12 +55,12 @@ const confirmActionsFlow = ai.defineFlow(
       }
       
       if (!batch.confirmation) {
-        logger.error('Batch missing confirmation object', { batchId, uid: user.uid });
+        logger.error('Batch missing confirmation object', undefined, { batchId, uid: user.uid });
         throw new Error(`Batch ${batchId} has no confirmation object`);
       }
       
       if (!batch.confirmation.challenge) {
-        logger.error('Batch missing challenge', { batchId, uid: user.uid });
+        logger.error('Batch missing challenge', undefined, { batchId, uid: user.uid });
         throw new Error(`Batch ${batchId} has no challenge`);
       }
       
@@ -80,10 +80,9 @@ const confirmActionsFlow = ai.defineFlow(
         const drive = await driveFor(user.uid);
         await drive.files.list({ pageSize: 1 }); // Test Drive access
       } catch (driveError) {
-        logger.error('Drive access validation failed during confirmation', {
+        logger.error('Drive access validation failed during confirmation', driveError as Error, {
           batchId,
-          uid: user.uid,
-          error: driveError instanceof Error ? driveError.message : String(driveError)
+          uid: user.uid
         });
         throw new Error('Google Drive access is required. Please reconnect your account.');
       }
@@ -129,11 +128,9 @@ const confirmActionsFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Action confirmation failed', {
+      logger.error('Action confirmation failed', error as Error, {
         batchId,
-        error: error instanceof Error ? error.message : String(error),
-        duration,
-        stack: error instanceof Error ? error.stack : undefined
+        duration
       });
       
       // Re-throw with more context if it's a generic error

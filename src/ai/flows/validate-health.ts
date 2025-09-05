@@ -251,7 +251,7 @@ const validateHealthFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Health validation failed', {
+      logger.error('Health validation failed', undefined, {
         error: error instanceof Error ? error.message : String(error),
         duration
       });

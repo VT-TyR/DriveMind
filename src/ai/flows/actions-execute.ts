@@ -63,7 +63,7 @@ async function getUserSettings(uid: string) {
     return defaultSettings;
     
   } catch (error) {
-    logger.error('Error getting user settings', { uid, error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting user settings', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
     // Return safe defaults on error
     return {
       allowSoftDelete: true,
@@ -106,7 +106,7 @@ async function writeChangeLogs(uid: string, batchId: string, logs: Array<{
     logger.info('Change logs written', { uid, batchId, logCount: logs.length });
     
   } catch (error) {
-    logger.error('Error writing change logs', {
+    logger.error('Error writing change logs', undefined, {
       uid,
       batchId,
       logCount: logs.length,
@@ -350,7 +350,7 @@ const executeActionsFlow = ai.defineFlow(
           }
           
         } catch (error: any) {
-          logger.error('Operation failed', {
+          logger.error('Operation failed', undefined, {
             batchId,
             uid: user.uid,
             fileId: proposal.fileId,
@@ -432,7 +432,7 @@ const executeActionsFlow = ai.defineFlow(
     } catch (error: any) {
       const duration = Date.now() - startTime;
       
-      logger.error('Action execution failed', {
+      logger.error('Action execution failed', undefined, {
         batchId,
         idempotencyKey,
         error: error.message,
@@ -453,7 +453,7 @@ const executeActionsFlow = ai.defineFlow(
         await saveActionBatch(batchId, batch);
         
       } catch (updateError) {
-        logger.error('Failed to update batch status after error', {
+        logger.error('Failed to update batch status after error', undefined, {
           batchId,
           updateError: updateError instanceof Error ? updateError.message : String(updateError)
         });

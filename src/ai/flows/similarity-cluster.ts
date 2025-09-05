@@ -435,7 +435,7 @@ const similarityClusterFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Similarity clustering failed', {
+      logger.error('Similarity clustering failed', undefined, {
         error: error instanceof Error ? error.message : String(error),
         duration,
         stack: error instanceof Error ? error.stack : undefined

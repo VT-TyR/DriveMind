@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { FileSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
-import { createFirebaseAdmin } from '@/lib/firebase';
+import { createFirebaseAdmin } from '@/lib/firebase-db';
 import { driveFor } from '@/lib/google-drive';
 import { 
     RiskSensitiveInputSchema,

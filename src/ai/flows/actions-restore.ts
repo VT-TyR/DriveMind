@@ -44,7 +44,7 @@ async function writeRestoreLogs(uid: string, batchId: string, logs: Array<{
     logger.info('Restore logs written', { uid, batchId, logCount: logs.length });
     
   } catch (error) {
-    logger.error('Error writing restore logs', {
+    logger.error('Error writing restore logs', undefined, {
       uid,
       batchId,
       logCount: logs.length,
@@ -355,7 +355,7 @@ const restoreActionsFlow = ai.defineFlow(
           }
           
         } catch (error: any) {
-          logger.error('Failed to restore file', {
+          logger.error('Failed to restore file', undefined, {
             batchId,
             uid: user.uid,
             fileId,
@@ -405,7 +405,7 @@ const restoreActionsFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('Action restore failed', {
+      logger.error('Action restore failed', undefined, {
         batchId,
         error: error instanceof Error ? error.message : String(error),
         duration,

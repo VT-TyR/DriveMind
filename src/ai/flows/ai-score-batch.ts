@@ -220,7 +220,7 @@ async function saveScore(score: AIScore): Promise<void> {
     });
     
   } catch (error) {
-    logger.error('Error saving AI score', {
+    logger.error('Error saving AI score', undefined, {
       batchId: score.batchId,
       uid: score.uid,
       error: error instanceof Error ? error.message : String(error)
@@ -396,7 +396,7 @@ const scoreBatchFlow = ai.defineFlow(
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error('AI batch scoring failed', {
+      logger.error('AI batch scoring failed', undefined, {
         batchId,
         error: error instanceof Error ? error.message : String(error),
         duration,

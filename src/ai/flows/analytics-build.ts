@@ -11,7 +11,7 @@ import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { BuildAnalyticsInputSchema, BuildAnalyticsOutputSchema, BuildAnalyticsInput, BuildAnalyticsOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
-import { createFirebaseAdmin } from '@/lib/firebase';
+import { createFirebaseAdmin } from '@/lib/firebase-db';
 
 // In a real app, this would be defined in a shared types file.
 const AnalyticsDataSchema = z.object({
