@@ -116,9 +116,31 @@ export default function DashboardPage() {
       return;
     }
 
-    // For now, just run a lightweight check or use cached data
-    // The full scan is triggered manually via the "Run Full Scan" button
-    setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const dashboardStats = await response.json();
+        setStats(prev => ({
+          ...prev,
+          ...dashboardStats,
+          scanStatus: dashboardStats.lastScanTime ? 'complete' : 'idle'
+        }));
+      } else {
+        console.warn('Failed to fetch dashboard stats:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user]);
 
   React.useEffect(() => {

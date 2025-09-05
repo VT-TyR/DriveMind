@@ -450,6 +450,114 @@ export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'unhe
   }
 }
 
+/**
+ * Retrieves the latest analytics data for a user by type.
+ */
+export async function getLatestAnalytics(uid: string, type?: string): Promise<any | null> {
+  try {
+    let q = query(
+      collection(db, COLLECTIONS.ANALYTICS),
+      where('uid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+
+    if (type) {
+      q = query(
+        collection(db, COLLECTIONS.ANALYTICS),
+        where('uid', '==', uid),
+        where('data.type', '==', type),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+    }
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+    
+    const doc = querySnapshot.docs[0];
+    return {
+      id: doc.id,
+      ...doc.data(),
+    };
+    
+  } catch (error) {
+    logger.error('Error retrieving latest analytics', undefined, { uid, type, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
+
+/**
+ * Retrieves analytics data for dashboard summary.
+ */
+export async function getDashboardStats(uid: string): Promise<any> {
+  try {
+    // Get the latest drive scan
+    const latestScan = await getLatestAnalytics(uid, 'drive_scan');
+    
+    // Get recent analytics (last 7 days)
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    const recentQuery = query(
+      collection(db, COLLECTIONS.ANALYTICS),
+      where('uid', '==', uid),
+      where('createdAt', '>=', weekAgo),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const recentSnapshot = await getDocs(recentQuery);
+    
+    const stats = {
+      totalFiles: 0,
+      duplicateFiles: 0,
+      totalSize: 0,
+      recentActivity: recentSnapshot.size,
+      vaultCandidates: 0,
+      cleanupSuggestions: 0,
+      qualityScore: 0,
+      scanStatus: 'idle' as const,
+      lastScanTime: null as Date | null,
+    };
+    
+    if (latestScan && latestScan.data) {
+      const scanData = latestScan.data;
+      stats.totalFiles = scanData.totalFiles || 0;
+      stats.totalSize = scanData.totalSize || 0;
+      stats.duplicateFiles = scanData.duplicateCandidates?.length || 0;
+      stats.lastScanTime = latestScan.createdAt?.toDate() || null;
+      
+      // Calculate quality score based on scan results
+      const hasRecentScan = stats.lastScanTime && (Date.now() - stats.lastScanTime.getTime()) < 24 * 60 * 60 * 1000;
+      const duplicateRatio = stats.totalFiles > 0 ? (stats.duplicateFiles / stats.totalFiles) : 0;
+      stats.qualityScore = Math.round((hasRecentScan ? 50 : 20) + (duplicateRatio < 0.1 ? 50 : duplicateRatio < 0.2 ? 30 : 10));
+      
+      // Estimate vault candidates (large old files)
+      stats.vaultCandidates = Math.floor(stats.totalFiles * 0.05); // Rough estimate
+      stats.cleanupSuggestions = stats.duplicateFiles + Math.floor(stats.totalFiles * 0.02);
+    }
+    
+    return stats;
+    
+  } catch (error) {
+    logger.error('Error retrieving dashboard stats', undefined, { uid, error: error instanceof Error ? error.message : String(error) });
+    return {
+      totalFiles: 0,
+      duplicateFiles: 0,
+      totalSize: 0,
+      recentActivity: 0,
+      vaultCandidates: 0,
+      cleanupSuggestions: 0,
+      qualityScore: 0,
+      scanStatus: 'idle' as const,
+      lastScanTime: null,
+    };
+  }
+}
+
 // Placeholder for server-side operations - use client Firestore
 export const createFirebaseAdmin = () => {
   throw new Error('Firebase Admin not available in client environment');
