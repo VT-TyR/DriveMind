@@ -5,9 +5,7 @@ import React from 'react';
 import MainLayout from '@/components/shared/main-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { File } from '@/lib/types';
-import { listSampleFiles } from '@/ai/flows/drive-list-sample';
-import { detectNearDuplicateFiles } from '@/ai/flows/detect-near-duplicate-files';
-import type { DetectNearDuplicateFilesOutput } from '@/ai/flows/detect-near-duplicate-files';
+// Using existing auth context
 import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
@@ -20,13 +18,28 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { BatchOperationsPanel } from '@/components/shared/file-actions';
 
 
+interface DuplicateGroup {
+  id: string;
+  files: Array<{
+    id: string;
+    name: string;
+    size: number;
+    modifiedTime: string;
+    confidence: number;
+  }>;
+  algorithm: string;
+  totalSize: number;
+  potentialSavings: number;
+}
+
 export default function DuplicatesPage() {
-  const [duplicateGroups, setDuplicateGroups] = React.useState<DetectNearDuplicateFilesOutput['nearDuplicateGroups']>([]);
+  const [duplicateGroups, setDuplicateGroups] = React.useState<DuplicateGroup[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isCreatingBatch, setIsCreatingBatch] = React.useState(false);
+  const [scanId, setScanId] = React.useState<string | null>(null);
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
   const { user } = useAuth();
+  // Using existing user from auth context
   const { addToBatch, isProcessing } = useFileOperations();
 
   const handleDetectDuplicates = async () => {
@@ -51,27 +64,73 @@ export default function DuplicatesPage() {
     setIsLoading(true);
     setDuplicateGroups([]);
     try {
-      const authData = { uid: user.uid, email: user.email || undefined };
-      const { files: driveFiles } = await listSampleFiles({ auth: authData });
+      const token = await user.getIdToken();
 
-      const fileMetadatas = driveFiles.map((f: any) => ({
-        id: f.id,
-        name: f.name || `Untitled_${f.id}`,
-        size: Number(f.size) || 0,
-        hash: f.md5Checksum || `hash_${f.id}`,
+      // First, run a scan if we don't have a recent one
+      if (!scanId) {
+        const scanResponse = await fetch('/api/workflows/scan', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ maxDepth: 10, includeTrashed: false }),
+        });
+
+        if (!scanResponse.ok) {
+          throw new Error('Failed to scan drive');
+        }
+
+        const scanResult = await scanResponse.json();
+        setScanId(scanResult.scanId);
+      }
+
+      // Run duplicate detection
+      const duplicatesResponse = await fetch('/api/workflows/duplicates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scanId: scanId,
+          algorithms: ['content_hash', 'fuzzy_match', 'version_detect'],
+          confidenceThreshold: 0.8,
+          maxGroups: 50
+        }),
+      });
+
+      if (!duplicatesResponse.ok) {
+        throw new Error('Failed to detect duplicates');
+      }
+
+      const result = await duplicatesResponse.json();
+      
+      // Transform the result to match our interface
+      const transformedGroups: DuplicateGroup[] = result.duplicateGroups.map((group: any, index: number) => ({
+        id: group.id || `group_${index}`,
+        files: group.files.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          size: file.size || 0,
+          modifiedTime: file.modifiedTime || new Date().toISOString(),
+          confidence: group.confidence || 0.8
+        })),
+        algorithm: group.algorithm || 'smart_detection',
+        totalSize: group.files.reduce((sum: number, file: any) => sum + (file.size || 0), 0),
+        potentialSavings: group.potentialSpaceSaved || 0
       }));
 
-      const result = await detectNearDuplicateFiles({ fileMetadatas });
-      setDuplicateGroups(result.nearDuplicateGroups);
+      setDuplicateGroups(transformedGroups);
       toast({
         title: 'Duplicate Scan Complete',
-        description: `AI found ${result.nearDuplicateGroups.length} potential duplicate groups in your Google Drive.`,
+        description: `Found ${transformedGroups.length} potential duplicate groups in your Google Drive.`,
       });
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Failed to Detect Duplicates',
-            description: error.message || 'Could not connect to the AI service.',
+            description: error.message || 'Could not connect to the duplicate detection service.',
         });
         setDuplicateGroups([]);
     } finally {
@@ -180,21 +239,23 @@ export default function DuplicatesPage() {
                                 <CardTitle className="text-lg">Duplicate Group {index + 1}</CardTitle>
                             </CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {group.map((fileInfo) => {
-                                  const fileName = typeof fileInfo === 'string' ? fileInfo : fileInfo.name;
-                                  const fileId = typeof fileInfo === 'string' ? `file_${fileInfo.replace(/[^a-zA-Z0-9]/g, '_')}` : fileInfo.id;
-                                  return (
-                                    <Card key={`${fileName}_${fileId}`} className="flex flex-col justify-between">
+                                {group.files.map((file) => (
+                                    <Card key={file.id} className="flex flex-col justify-between">
                                         <CardContent className="p-4">
-                                            <p className="font-medium truncate">{fileName}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Detected by AI analysis</p>
+                                            <p className="font-medium truncate">{file.name}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              Size: {(file.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                              Confidence: {Math.round(file.confidence * 100)}%
+                                            </p>
                                         </CardContent>
                                         <CardHeader className="p-4 border-t flex-row items-center justify-end gap-2">
                                            <Button 
                                              size="sm" 
                                              variant="outline" 
                                              disabled={isLoading || isProcessing}
-                                             onClick={() => handleAddToBatch(fileName, fileId, 'keep')}
+                                             onClick={() => handleAddToBatch(file.name, file.id, 'keep')}
                                            >
                                              <Check className="mr-2"/> Keep
                                            </Button>
@@ -202,14 +263,13 @@ export default function DuplicatesPage() {
                                              size="sm" 
                                              variant="destructive" 
                                              disabled={isLoading || isProcessing}
-                                             onClick={() => handleAddToBatch(fileName, fileId, 'delete')}
+                                             onClick={() => handleAddToBatch(file.name, file.id, 'delete')}
                                            >
                                              <Trash className="mr-2"/> Delete
                                            </Button>
                                         </CardHeader>
                                     </Card>
-                                  );
-                                })}
+                                ))}
                             </CardContent>
                         </Card>
                     ))}

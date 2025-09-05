@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { FileSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
-import { createFirebaseAdmin } from '@/lib/firebase-db';
+import { saveAnalytics } from '@/lib/firebase-db';
 import { driveFor } from '@/lib/google-drive';
 import { 
     RiskSensitiveInputSchema,
@@ -35,8 +35,8 @@ export type SensitiveFlag = z.infer<typeof SensitiveFlagSchema>;
 
 async function saveSensitiveFlag(flag: SensitiveFlag) {
     try {
-        const admin = await createFirebaseAdmin();
-        await admin.firestore().collection('sensitive_flags').add({
+        await saveAnalytics(flag.uid, {
+            type: 'sensitive_flag',
             ...flag,
             detectedAt: flag.detectedAt.toISOString(),
         });

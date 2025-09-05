@@ -333,7 +333,7 @@ export async function saveAnalytics(uid: string, data: Record<string, any>): Pro
 /**
  * Stores health check result.
  */
-export async function saveHealthCheck(uid: string, status: 'healthy' | 'unhealthy', details: Record<string, any>): Promise<string> {
+export async function saveHealthCheck(uid: string, status: 'healthy' | 'degraded' | 'unhealthy', details: Record<string, any>): Promise<string> {
   try {
     const healthData = {
       uid,

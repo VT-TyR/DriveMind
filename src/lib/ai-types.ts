@@ -84,6 +84,7 @@ export const FileSchema = z.object({
 export const SimulateActionsInputSchema = z.object({
   rule: CompiledRuleSchema.describe("The compiled rule to simulate."),
   limit: z.number().optional().default(200).describe("Maximum number of proposals to generate."),
+  auth: FlowAuthSchema.describe("Authentication context for the user."),
 });
 export type SimulateActionsInput = z.infer<typeof SimulateActionsInputSchema>;
 

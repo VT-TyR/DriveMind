@@ -28,13 +28,16 @@ const simulateActionsFlow = ai.defineFlow(
     outputSchema: SimulateActionsOutputSchema,
   },
   async ({ rule, limit, auth }: SimulateActionsInput) => {
-    logger.info('Starting action simulation', { ruleId: rule.id, limit });
+    const simulationId = `sim_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    logger.info('Starting action simulation', { simulationId, limit });
+    
+    let files: z.infer<typeof FileSchema>[] = [];
     
     try {
       // Fetch real files from Google Drive
       const { files: driveFiles } = await listSampleFiles({ auth });
       
-      const files: z.infer<typeof FileSchema>[] = driveFiles.map((f: any) => ({
+      files = driveFiles.map((f: any) => ({
         id: f.id,
         name: f.name,
         mimeType: f.mimeType || 'application/octet-stream',

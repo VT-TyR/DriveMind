@@ -3,9 +3,11 @@
 
 import type { App } from 'firebase-admin/app';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { Auth } from 'firebase-admin/auth';
 
 let adminApp: App | null = null;
 let adminFirestore: Firestore | null = null;
+let adminAuth: Auth | null = null;
 
 export function getAdminApp() {
   if (adminApp) return adminApp;
@@ -28,4 +30,22 @@ export function getAdminFirestore() {
   adminFirestore = getFirestore(getAdminApp());
   return adminFirestore;
 }
+
+export function getAdminAuth() {
+  if (adminAuth) return adminAuth;
+  const { getAuth } = require('firebase-admin/auth');
+  adminAuth = getAuth(getAdminApp());
+  return adminAuth;
+}
+
+// Export auth function for API routes to avoid null issues
+export const auth = {
+  verifyIdToken: async (token: string) => {
+    const adminAuth = getAdminAuth();
+    if (!adminAuth) {
+      throw new Error('Firebase Admin Auth not initialized');
+    }
+    return adminAuth.verifyIdToken(token);
+  }
+};
 

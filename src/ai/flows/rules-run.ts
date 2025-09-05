@@ -178,7 +178,8 @@ async function updateRuleStats(ruleId: string, uid: string, stats: {
     const updatedRule = {
       ...rule,
       ...stats,
-      totalRuns: (rule.totalRuns || 0) + 1
+      // Add runtime statistics as additional properties not in schema
+      totalRuns: ((rule as any).totalRuns || 0) + 1
     };
     
     await saveRule(ruleId, updatedRule);

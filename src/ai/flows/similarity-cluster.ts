@@ -78,7 +78,7 @@ function extractFileFeatures(file: any): FileFeatures {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(token => token.length > 1); // Filter short tokens
+    .filter((token: string) => token.length > 1); // Filter short tokens
   
   // Categorize file size
   const size = file.size || 0;
@@ -245,7 +245,7 @@ function createFileCluster(files: any[], features: FileFeatures[], strategy: Fil
   }, {} as Record<string, number>);
   
   const dominantMimeType = Object.entries(mimeTypeCounts)
-    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'unknown';
+    .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'unknown';
   
   // Find representative file (largest or most recent)
   const representativeFile = files.reduce((best, current) => {

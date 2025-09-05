@@ -189,7 +189,8 @@ const executeActionsFlow = ai.defineFlow(
       // Validate operation types against settings
       const hasTrashOps = batch.proposals.some(p => p.type === 'trash');
       const hasMoveOps = batch.proposals.some(p => p.type === 'move');
-      const hasDeleteOps = batch.proposals.some(p => p.type === 'delete');
+      // Note: 'delete' type doesn't exist in current schema, using 'trash' instead
+      const hasDeleteOps = false; // No permanent deletes allowed in current implementation
       
       if (hasTrashOps && !settings.allowSoftDelete) {
         throw new Error('Trash operations are disabled in your settings.');
@@ -301,16 +302,7 @@ const executeActionsFlow = ai.defineFlow(
               fileName: proposal.name
             });
             
-          } else if (proposal.type === 'delete') {
-            // Permanent delete (if allowed)
-            await drive.files.delete({ fileId: proposal.fileId });
-            
-            results.push({ 
-              fileId: proposal.fileId, 
-              op: 'delete', 
-              ok: true, 
-              error: null 
-            });
+          // Note: 'delete' type not supported in current schema, all deletes are soft deletes (trash)
             
             changeLogs.push({
               fileId: proposal.fileId,

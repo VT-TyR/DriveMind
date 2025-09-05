@@ -91,7 +91,26 @@ export default function VaultPage() {
     try {
       const authData = { uid: user.uid, email: user.email || undefined };
       const result = await listSampleFiles({ auth: authData }); // Load files for vault
-      setFileInventory(result.files);
+      
+      // Transform files to match File type
+      const transformedFiles: File[] = result.files.map(file => ({
+        id: file.id,
+        name: file.name,
+        type: file.mimeType?.includes('document') ? 'Document' as const :
+              file.mimeType?.includes('spreadsheet') ? 'Spreadsheet' as const :
+              file.mimeType?.includes('presentation') ? 'Presentation' as const :
+              file.mimeType?.includes('image') ? 'Image' as const :
+              file.mimeType?.includes('video') ? 'Video' as const :
+              file.mimeType?.includes('pdf') ? 'PDF' as const :
+              file.mimeType?.includes('folder') ? 'Folder' as const : 'Other' as const,
+        size: Number(file.size || 0),
+        lastModified: file.modifiedTime ? new Date(file.modifiedTime) : new Date(),
+        isDuplicate: false,
+        path: ['/'],
+        vaultScore: null
+      }));
+      
+      setFileInventory(transformedFiles);
       setLastScanTime(new Date());
       
       console.log('File inventory loaded', {
@@ -202,8 +221,8 @@ export default function VaultPage() {
     };
     
     let totalSize = 0;
-    let oldestFile: File | null = null;
-    let largestFile: File | null = null;
+    let oldestFile = null as File | null;
+    let largestFile = null as File | null;
     const mimeTypeCounts: Record<string, number> = {};
 
     fileInventory.forEach(file => {

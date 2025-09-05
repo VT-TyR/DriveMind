@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
-import { listSampleFiles } from '@/ai/flows/drive-list-sample';
-import { markDuplicates } from '@/lib/duplicate-detection';
+// Using the existing auth context
+import { useWorkflow } from '@/hooks/use-workflow';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -30,20 +30,75 @@ interface DashboardStats {
   recentActivity: number;
   vaultCandidates: number;
   cleanupSuggestions: number;
+  qualityScore: number;
+  scanStatus: 'idle' | 'scanning' | 'complete' | 'error';
 }
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { isAiEnabled } = useOperatingMode();
+  // Using existing user from auth context
+  const { scanDrive, analyzeInventory } = useWorkflow();
   const [stats, setStats] = React.useState<DashboardStats>({
     totalFiles: 0,
     duplicateFiles: 0,
     totalSize: 0,
     recentActivity: 0,
     vaultCandidates: 0,
-    cleanupSuggestions: 0
+    cleanupSuggestions: 0,
+    qualityScore: 0,
+    scanStatus: 'idle'
   });
   const [isLoading, setIsLoading] = React.useState(true);
+  const [lastScanId, setLastScanId] = React.useState<string | null>(null);
+
+  const runFullScan = React.useCallback(async () => {
+    if (!user) return;
+    
+    setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
+    setIsLoading(true);
+
+    try {
+      // Step 1: Scan Drive with progress tracking
+      const scanResult = await scanDrive(
+        { maxDepth: 10, includeTrashed: false },
+        {
+          onComplete: (result) => {
+            setLastScanId(result.scanId);
+          }
+        }
+      );
+
+      // Step 2: Analyze Inventory with progress tracking
+      const inventoryResult = await analyzeInventory(
+        { scanId: scanResult.scanId },
+        {
+          onComplete: (result) => {
+            // Update stats with real data
+            setStats({
+              totalFiles: result.insights.totalFiles,
+              duplicateFiles: result.insights.duplicateGroups,
+              totalSize: result.insights.totalSize,
+              recentActivity: result.files.filter((f: any) => {
+                const daysDiff = (Date.now() - new Date(f.modifiedTime).getTime()) / (1000 * 60 * 60 * 24);
+                return daysDiff <= 7;
+              }).length,
+              vaultCandidates: result.insights.archiveCandidates,
+              cleanupSuggestions: result.insights.recommendedActions.length,
+              qualityScore: result.insights.qualityScore,
+              scanStatus: 'complete'
+            });
+          }
+        }
+      );
+
+    } catch (error) {
+      console.error('Failed to run full scan:', error);
+      setStats(prev => ({ ...prev, scanStatus: 'error' }));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, scanDrive, analyzeInventory]);
 
   const fetchDashboardData = React.useCallback(async () => {
     if (!user) {
@@ -53,49 +108,17 @@ export default function DashboardPage() {
         totalSize: 0,
         recentActivity: 0,
         vaultCandidates: 0,
-        cleanupSuggestions: 0
+        cleanupSuggestions: 0,
+        qualityScore: 0,
+        scanStatus: 'idle'
       });
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const authData = { uid: user.uid, email: user.email || undefined };
-      const { files } = await listSampleFiles({ auth: authData });
-      
-      // Process files for statistics
-      const filesWithDuplicates = markDuplicates(files.map(f => ({
-        id: f.id,
-        name: f.name,
-        type: 'Other' as const,
-        size: Number(f.size || 0),
-        lastModified: f.modifiedTime ? new Date(f.modifiedTime) : new Date(),
-        isDuplicate: false,
-        path: [],
-        vaultScore: null
-      })));
-
-      const totalSize = filesWithDuplicates.reduce((sum, file) => sum + file.size, 0);
-      const duplicateCount = filesWithDuplicates.filter(f => f.isDuplicate).length;
-      const recentCount = filesWithDuplicates.filter(f => {
-        const daysDiff = (Date.now() - f.lastModified.getTime()) / (1000 * 60 * 60 * 24);
-        return daysDiff <= 7;
-      }).length;
-
-      setStats({
-        totalFiles: filesWithDuplicates.length,
-        duplicateFiles: duplicateCount,
-        totalSize,
-        recentActivity: recentCount,
-        vaultCandidates: Math.floor(filesWithDuplicates.length * 0.3), // Estimate
-        cleanupSuggestions: duplicateCount + Math.floor(filesWithDuplicates.length * 0.1)
-      });
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    // For now, just run a lightweight check or use cached data
+    // The full scan is triggered manually via the "Run Full Scan" button
+    setIsLoading(false);
   }, [user]);
 
   React.useEffect(() => {
@@ -138,9 +161,28 @@ export default function DashboardPage() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
             {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
           </div>
-          <Button onClick={fetchDashboardData} disabled={isLoading}>
-            {isLoading ? 'Loading...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={fetchDashboardData} variant="outline" disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Refresh'}
+            </Button>
+            <Button 
+              onClick={runFullScan} 
+              disabled={stats.scanStatus === 'scanning'}
+              className="gap-2"
+            >
+              {stats.scanStatus === 'scanning' ? (
+                <>
+                  <Activity className="h-4 w-4 animate-spin" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  <HardDrive className="h-4 w-4" />
+                  Run Full Scan
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -185,13 +227,13 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">AI Insights</CardTitle>
+              <CardTitle className="text-sm font-medium">Drive Quality</CardTitle>
               <Sparkles className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.cleanupSuggestions.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.qualityScore}/100</div>
               <p className="text-xs text-muted-foreground">
-                Cleanup suggestions available
+                {stats.cleanupSuggestions} cleanup suggestions
               </p>
             </CardContent>
           </Card>

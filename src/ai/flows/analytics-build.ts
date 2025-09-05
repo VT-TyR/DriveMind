@@ -11,7 +11,7 @@ import { FlowAuth, getAuthenticatedUserSync } from '@/lib/flow-auth';
 import { BuildAnalyticsInputSchema, BuildAnalyticsOutputSchema, BuildAnalyticsInput, BuildAnalyticsOutput } from '@/lib/ai-types';
 import { FileSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
-import { createFirebaseAdmin } from '@/lib/firebase-db';
+import { saveAnalytics } from '@/lib/firebase-db';
 
 // In a real app, this would be defined in a shared types file.
 const AnalyticsDataSchema = z.object({
@@ -23,15 +23,13 @@ const AnalyticsDataSchema = z.object({
 });
 export type AnalyticsData = z.infer<typeof AnalyticsDataSchema>;
 
-async function saveAnalytics(analytics: AnalyticsData) {
+async function saveAnalyticsData(analytics: AnalyticsData) {
     try {
-        const admin = await createFirebaseAdmin();
-        const analyticsRef = admin.firestore().collection('analytics').doc(analytics.uid);
-        
-        await analyticsRef.set({
+        await saveAnalytics(analytics.uid, {
+            type: 'file_analytics',
             ...analytics,
             updatedAt: analytics.updatedAt.toISOString(),
-        }, { merge: true });
+        });
         
         logger.info('Analytics data saved', { 
             uid: analytics.uid, 
@@ -94,7 +92,7 @@ const buildAnalyticsFlow = ai.defineFlow(
         updatedAt: new Date() 
     };
 
-    await saveAnalytics(analytics);
+    await saveAnalyticsData(analytics);
     
     logger.info('Analytics build completed', { 
       uid: user.uid, 

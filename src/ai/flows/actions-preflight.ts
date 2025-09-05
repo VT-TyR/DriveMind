@@ -222,7 +222,7 @@ const preflightActionsFlow = ai.defineFlow(
       }
       
       // Check for high-risk operations
-      if (allRisks.has('shared_public') && batch.proposals.some(p => p.type === 'delete')) {
+      if (allRisks.has('shared_public') && batch.proposals.some(p => p.type === 'trash')) {
         allRisks.add('deleting_shared_files');
       }
       
@@ -265,7 +265,7 @@ const preflightActionsFlow = ai.defineFlow(
       const restoreDuration = isHighRisk ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000; // 7 days for high risk, 30 days for normal
       
       batch.restorePlan = {
-        mode: batch.proposals.some(p => p.type === 'delete') ? 'full_backup' : 'trash_only',
+        mode: 'trash_only', // Current implementation only supports soft deletes
         parentsByFile: preflightFiles.reduce((acc, f) => ({ 
           ...acc, 
           [f.fileId]: f.currentParents 
