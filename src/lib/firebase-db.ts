@@ -4,27 +4,13 @@
  * All operations include proper error handling, validation, and logging.
  */
 
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  addDoc,
-  deleteDoc,
-  writeBatch,
-  serverTimestamp,
-  Timestamp,
-  orderBy,
-  limit as firestoreLimit
-} from 'firebase/firestore';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
+import { getAdminFirestore } from '@/lib/admin';
 import { ActionBatchSchema, ProposeRulesOutputSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
+
+// Use Firebase Admin Firestore for server-side operations
+const getDb = () => getAdminFirestore();
 
 // Firestore collections
 const COLLECTIONS = {
@@ -605,6 +591,7 @@ export async function createScanJob(
   config: ScanJob['config'] = {}
 ): Promise<string> {
   try {
+    const db = getDb();
     const jobData: Omit<ScanJob, 'id'> = {
       uid,
       status: 'pending',
@@ -616,11 +603,11 @@ export async function createScanJob(
         currentStep: 'Initializing scan...'
       },
       config,
-      createdAt: serverTimestamp() as Timestamp,
-      updatedAt: serverTimestamp() as Timestamp
+      createdAt: Date.now(), // Use timestamp for Firebase Admin
+      updatedAt: Date.now()
     };
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.SCAN_JOBS), jobData);
+    const docRef = await db.collection(COLLECTIONS.SCAN_JOBS).add(jobData);
     logger.info('Created scan job', { jobId: docRef.id, uid, type });
     return docRef.id;
   } catch (error) {
@@ -634,15 +621,14 @@ export async function createScanJob(
  */
 export async function getActiveScanJob(uid: string): Promise<ScanJob | null> {
   try {
-    const q = query(
-      collection(db, COLLECTIONS.SCAN_JOBS),
-      where('uid', '==', uid),
-      where('status', 'in', ['pending', 'running']),
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(1)
-    );
+    const db = getDb();
+    const querySnapshot = await db.collection(COLLECTIONS.SCAN_JOBS)
+      .where('uid', '==', uid)
+      .where('status', 'in', ['pending', 'running'])
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
 
-    const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
       return null;
     }
@@ -664,26 +650,27 @@ export async function updateScanJobProgress(
   status?: ScanJob['status']
 ): Promise<void> {
   try {
-    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
+    const db = getDb();
+    const jobRef = db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId);
     const updateData: any = {
-      updatedAt: serverTimestamp()
+      updatedAt: Date.now()
     };
 
     if (status) {
       updateData.status = status;
       if (status === 'running' && !updateData.startedAt) {
-        updateData.startedAt = serverTimestamp();
+        updateData.startedAt = Date.now();
       }
       if (status === 'completed' || status === 'failed') {
-        updateData.completedAt = serverTimestamp();
+        updateData.completedAt = Date.now();
       }
     }
 
     if (progress) {
       // Get current progress to merge
-      const jobDoc = await getDoc(jobRef);
-      if (jobDoc.exists()) {
-        const currentProgress = jobDoc.data().progress || {};
+      const jobDoc = await jobRef.get();
+      if (jobDoc.exists) {
+        const currentProgress = jobDoc.data()?.progress || {};
         updateData.progress = { ...currentProgress, ...progress };
         
         // Calculate percentage if current and total are available
@@ -695,7 +682,7 @@ export async function updateScanJobProgress(
       }
     }
 
-    await updateDoc(jobRef, updateData);
+    await jobRef.update(updateData);
   } catch (error) {
     logger.error(`Failed to update scan job progress for job ${jobId}: ${error instanceof Error ? error.message : error}`);
     throw error;
@@ -710,12 +697,13 @@ export async function completeScanJob(
   results: ScanJob['results']
 ): Promise<void> {
   try {
-    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
-    await updateDoc(jobRef, {
+    const db = getDb();
+    const jobRef = db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId);
+    await jobRef.update({
       status: 'completed',
       results,
-      completedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
       progress: {
         current: 1,
         total: 1,
@@ -736,12 +724,13 @@ export async function completeScanJob(
  */
 export async function failScanJob(jobId: string, error: string): Promise<void> {
   try {
-    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
-    await updateDoc(jobRef, {
+    const db = getDb();
+    const jobRef = db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId);
+    await jobRef.update({
       status: 'failed',
       error,
-      completedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      completedAt: Date.now(),
+      updatedAt: Date.now()
     });
     
     logger.error(`Failed scan job ${jobId}: ${error}`);

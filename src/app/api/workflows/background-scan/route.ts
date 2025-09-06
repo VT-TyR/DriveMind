@@ -20,21 +20,32 @@ import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
+    logger.info('📡 Background scan API called');
+    
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
+      logger.warn('❌ No authorization token provided');
       return NextResponse.json({ error: 'No authorization token provided' }, { status: 401 });
     }
+    logger.info(`🔑 Authorization token received, length: ${token.length}`);
 
     const auth = getAdminAuth();
     if (!auth) {
+      logger.error('💥 Firebase Admin not initialized');
       return NextResponse.json({ error: 'Firebase Admin not initialized' }, { status: 500 });
     }
+    logger.info('✅ Firebase Admin Auth initialized');
+    
+    logger.info('🔍 Verifying Firebase ID token...');
     const decodedToken = await auth.verifyIdToken(token);
     const uid = decodedToken.uid;
+    logger.info(`✅ Token verified for user: ${uid}`);
 
     // Check if there's already an active scan
+    logger.info('🔍 Checking for active scan jobs...');
     const activeScan = await getActiveScanJob(uid);
     if (activeScan) {
+      logger.info(`⚡ Found active scan: ${activeScan.id}, status: ${activeScan.status}`);
       return NextResponse.json({ 
         message: 'Scan already in progress',
         jobId: activeScan.id,
@@ -42,20 +53,27 @@ export async function POST(request: NextRequest) {
         progress: activeScan.progress
       });
     }
+    logger.info('✅ No active scan found');
 
+    logger.info('📋 Parsing request body...');
     const body = await request.json();
     const { type = 'full_analysis', config = {} } = body;
+    logger.info(`📊 Scan configuration: type=${type}, config=${JSON.stringify(config)}`);
 
     // Create the background scan job
+    logger.info('🗂️ Creating scan job...');
     const jobId = await createScanJob(uid, type, config);
+    logger.info(`✅ Scan job created: ${jobId}`);
 
     // Start the background processing (don't await - let it run async)
+    logger.info('🚀 Starting background scan process...');
     processBackgroundScan(uid, jobId, type, config).catch(error => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      logger.error(`Background scan failed for user ${uid}, job ${jobId}: ${errorMessage}`);
+      logger.error(`💥 Background scan failed for user ${uid}, job ${jobId}: ${errorMessage}`);
       failScanJob(jobId, errorMessage);
     });
 
+    logger.info('✅ Background scan initiated successfully');
     return NextResponse.json({ 
       message: 'Background scan started',
       jobId,
@@ -64,9 +82,17 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Failed to start background scan: ${errorMessage}`);
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+    logger.error(`💥 Background scan API error: ${errorMessage}`);
+    logger.error(`📍 Error stack trace: ${errorStack}`);
+    
+    // Return more specific error information
     return NextResponse.json(
-      { error: 'Failed to start background scan' },
+      { 
+        error: 'Failed to start background scan', 
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
