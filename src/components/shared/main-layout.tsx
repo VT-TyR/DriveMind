@@ -4,7 +4,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart2, Files, ListChecks, ShieldAlert, GitMerge, FolderSync, Copy, Activity, TestTube2, Archive } from 'lucide-react';
+import { BarChart2, Files, ListChecks, ShieldAlert, GitMerge, FolderSync, Copy, Activity, TestTube2, Archive, Info } from 'lucide-react';
 
 import {
   SidebarProvider,
@@ -142,6 +142,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/vault">
                   <Archive />
                   <span>Vault</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/about')}
+                tooltip={{ children: 'About DriveMind' }}
+              >
+                <Link href="/about">
+                  <Info />
+                  <span>About</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
