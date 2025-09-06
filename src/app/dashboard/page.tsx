@@ -177,33 +177,35 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 sm:p-8">
-        <div className="flex items-center justify-between space-y-2">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="md:hidden" />
-            <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
-            {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={fetchDashboardData} variant="outline" disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Refresh'}
-            </Button>
-            <Button 
-              onClick={runFullScan} 
-              disabled={stats.scanStatus === 'scanning'}
-              className="gap-2"
-            >
-              {stats.scanStatus === 'scanning' ? (
-                <>
-                  <Activity className="h-4 w-4 animate-spin" />
-                  Scanning...
-                </>
-              ) : (
-                <>
-                  <HardDrive className="h-4 w-4" />
-                  Run Full Scan
-                </>
-              )}
-            </Button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="md:hidden" />
+              <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
+              {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={fetchDashboardData} variant="outline" disabled={isLoading}>
+                {isLoading ? 'Loading...' : 'Refresh'}
+              </Button>
+              <Button 
+                onClick={runFullScan} 
+                disabled={stats.scanStatus === 'scanning'}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {stats.scanStatus === 'scanning' ? (
+                  <>
+                    <Activity className="h-4 w-4 animate-spin" />
+                    Scanning...
+                  </>
+                ) : (
+                  <>
+                    <HardDrive className="h-4 w-4" />
+                    Run Full Scan
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -267,31 +269,77 @@ export default function DashboardPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link href="/inventory">
-                  <Button variant="outline" className="w-full justify-start gap-2">
-                    <Files className="h-4 w-4" />
-                    View File Inventory
+              <div className="space-y-4">
+                {stats.totalFiles === 0 && (
+                  <div className="bg-muted rounded-lg p-6 text-center border-2 border-dashed">
+                    <HardDrive className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                    <h4 className="font-medium mb-2">Start with a Drive Scan</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Analyze your Google Drive to get insights and recommendations
+                    </p>
+                    <Button 
+                      onClick={runFullScan} 
+                      disabled={stats.scanStatus === 'scanning'}
+                      className="gap-2"
+                    >
+                      {stats.scanStatus === 'scanning' ? (
+                        <>
+                          <Activity className="h-4 w-4 animate-spin" />
+                          Scanning...
+                        </>
+                      ) : (
+                        <>
+                          <HardDrive className="h-4 w-4" />
+                          Run Drive Scan
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    onClick={runFullScan} 
+                    disabled={stats.scanStatus === 'scanning'}
+                    variant={stats.totalFiles === 0 ? "default" : "outline"}
+                    className="w-full justify-start gap-2"
+                  >
+                    {stats.scanStatus === 'scanning' ? (
+                      <>
+                        <Activity className="h-4 w-4 animate-spin" />
+                        Scanning Drive...
+                      </>
+                    ) : (
+                      <>
+                        <HardDrive className="h-4 w-4" />
+                        {stats.totalFiles === 0 ? 'Run First Scan' : 'Refresh Scan'}
+                      </>
+                    )}
                   </Button>
-                </Link>
-                <Link href="/duplicates">
-                  <Button variant="outline" className="w-full justify-start gap-2">
-                    <Copy className="h-4 w-4" />
-                    Find Duplicates
-                  </Button>
-                </Link>
-                <Link href="/organize">
-                  <Button variant="outline" className="w-full justify-start gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    Organize Files
-                  </Button>
-                </Link>
-                <Link href="/health">
-                  <Button variant="outline" className="w-full justify-start gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    System Health
-                  </Button>
-                </Link>
+                  <Link href="/inventory">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <Files className="h-4 w-4" />
+                      View File Inventory
+                    </Button>
+                  </Link>
+                  <Link href="/duplicates">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <Copy className="h-4 w-4" />
+                      Find Duplicates
+                    </Button>
+                  </Link>
+                  <Link href="/organize">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Organize Files
+                    </Button>
+                  </Link>
+                  <Link href="/health">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      System Health
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </CardContent>
           </Card>
