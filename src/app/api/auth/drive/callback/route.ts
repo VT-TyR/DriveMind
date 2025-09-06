@@ -129,12 +129,19 @@ async function handleCallback(request: NextRequest, method: string) {
     }
 
     // Persist refresh token to Firestore so server flows can use it
-    if (state && tokens.refresh_token) {
-      try {
-        await saveUserRefreshToken(state, tokens.refresh_token);
-      } catch (e) {
-        console.error('Failed to persist refresh token for user', state, e);
-        // Don't let Firestore errors break the OAuth flow
+    if (tokens.refresh_token) {
+      if (state) {
+        // We have a userId from the state parameter - save directly
+        try {
+          await saveUserRefreshToken(state, tokens.refresh_token);
+          console.log(`✅ Saved refresh token to Firestore for user: ${state}`);
+        } catch (e) {
+          console.error('Failed to persist refresh token for user', state, e);
+          // Don't let Firestore errors break the OAuth flow
+        }
+      } else {
+        console.log('ℹ️ No userId in state - refresh token saved in cookies only');
+        console.log('ℹ️ Token will be synced to Firestore when user signs in and calls sync endpoint');
       }
     }
 

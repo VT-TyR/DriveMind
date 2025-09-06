@@ -21,9 +21,27 @@ function DriveAuthInternal() {
   useEffect(() => {
     const checkDriveStatus = async () => {
       try {
-        const response = await fetch('/api/auth/drive/status');
-        const { connected } = await response.json();
-        setDriveConnected(connected);
+        const headers: HeadersInit = {};
+        
+        // Include Firebase auth token if user is authenticated
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            headers.Authorization = `Bearer ${token}`;
+          } catch (error) {
+            console.warn('Failed to get Firebase ID token:', error);
+          }
+        }
+        
+        const response = await fetch('/api/auth/drive/status', { headers });
+        const result = await response.json();
+        console.log('Drive status check result:', result);
+        
+        setDriveConnected(result.connected);
+        
+        if (!result.connected && result.error) {
+          console.warn('Drive not connected:', result.error);
+        }
       } catch (error) {
         console.error('Failed to check Drive status:', error);
       } finally {
@@ -73,7 +91,38 @@ function DriveAuthInternal() {
       return;
     }
 
-    checkDriveStatus();
+    // Run token sync if user is authenticated but status is unknown
+    const syncTokens = async () => {
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          const response = await fetch('/api/auth/drive/sync', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const result = await response.json();
+          console.log('Token sync result:', result);
+          
+          if (result.synced && result.hasToken) {
+            setDriveConnected(true);
+            setError(null);
+          }
+        } catch (error) {
+          console.warn('Token sync failed:', error);
+        }
+      }
+    };
+
+    // Check status first, then sync if needed
+    checkDriveStatus().then(() => {
+      // If not connected but user is authenticated, try syncing tokens
+      if (user && !driveConnected && !checking) {
+        syncTokens();
+      }
+    });
 
     // Check for processed OAuth callback results (from API routes)
     const driveConnectedParam = searchParams.get('drive_connected');
@@ -87,7 +136,7 @@ function DriveAuthInternal() {
     } else if (errorParam) {
       setError(`Connection failed: ${errorParam.replace(/_/g, ' ')}`);
     }
-  }, [searchParams, router, driveConnecting]);
+  }, [searchParams, router, driveConnecting, user]);
 
   const handleConnectToDrive = async () => {
     if (!user) {
