@@ -34,7 +34,10 @@ const COLLECTIONS = {
   ANALYTICS: 'analytics',
   HEALTH_CHECKS: 'healthChecks',
   SIMILARITY_CLUSTERS: 'similarityClusters',
-  VERSION_LINKS: 'versionLinks'
+  VERSION_LINKS: 'versionLinks',
+  SCAN_JOBS: 'scanJobs',
+  FILE_INDEX: 'fileIndex',
+  SCAN_DELTAS: 'scanDeltas'
 } as const;
 
 type ActionBatch = z.infer<typeof ActionBatchSchema>;
@@ -554,6 +557,537 @@ export async function getDashboardStats(uid: string): Promise<any> {
       qualityScore: 0,
       scanStatus: 'idle' as const,
       lastScanTime: null,
+    };
+  }
+}
+
+// Scan Job System for Background Processing
+export interface ScanJob {
+  id: string;
+  uid: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  type: 'drive_scan' | 'full_analysis' | 'duplicate_detection';
+  progress: {
+    current: number;
+    total: number;
+    percentage: number;
+    currentStep: string;
+    estimatedTimeRemaining?: number;
+    bytesProcessed?: number;
+    totalBytes?: number;
+  };
+  config: {
+    maxDepth?: number;
+    includeTrashed?: boolean;
+    rootFolderId?: string;
+    fileTypes?: string[];
+  };
+  results?: {
+    scanId?: string;
+    filesFound?: number;
+    duplicatesDetected?: number;
+    totalSize?: number;
+    insights?: any;
+  };
+  error?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  startedAt?: Timestamp;
+  completedAt?: Timestamp;
+}
+
+/**
+ * Creates a new background scan job
+ */
+export async function createScanJob(
+  uid: string,
+  type: ScanJob['type'],
+  config: ScanJob['config'] = {}
+): Promise<string> {
+  try {
+    const jobData: Omit<ScanJob, 'id'> = {
+      uid,
+      status: 'pending',
+      type,
+      progress: {
+        current: 0,
+        total: 0,
+        percentage: 0,
+        currentStep: 'Initializing scan...'
+      },
+      config,
+      createdAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.SCAN_JOBS), jobData);
+    logger.info('Created scan job', { jobId: docRef.id, uid, type });
+    return docRef.id;
+  } catch (error) {
+    logger.error(`Failed to create scan job for user ${uid}, type ${type}: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
+}
+
+/**
+ * Gets the current active scan job for a user
+ */
+export async function getActiveScanJob(uid: string): Promise<ScanJob | null> {
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.SCAN_JOBS),
+      where('uid', '==', uid),
+      where('status', 'in', ['pending', 'running']),
+      orderBy('createdAt', 'desc'),
+      firestoreLimit(1)
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as ScanJob;
+  } catch (error) {
+    logger.error(`Failed to get active scan job for user ${uid}: ${error instanceof Error ? error.message : error}`);
+    return null;
+  }
+}
+
+/**
+ * Updates scan job progress
+ */
+export async function updateScanJobProgress(
+  jobId: string,
+  progress: Partial<ScanJob['progress']>,
+  status?: ScanJob['status']
+): Promise<void> {
+  try {
+    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
+    const updateData: any = {
+      updatedAt: serverTimestamp()
+    };
+
+    if (status) {
+      updateData.status = status;
+      if (status === 'running' && !updateData.startedAt) {
+        updateData.startedAt = serverTimestamp();
+      }
+      if (status === 'completed' || status === 'failed') {
+        updateData.completedAt = serverTimestamp();
+      }
+    }
+
+    if (progress) {
+      // Get current progress to merge
+      const jobDoc = await getDoc(jobRef);
+      if (jobDoc.exists()) {
+        const currentProgress = jobDoc.data().progress || {};
+        updateData.progress = { ...currentProgress, ...progress };
+        
+        // Calculate percentage if current and total are available
+        if (updateData.progress.current && updateData.progress.total) {
+          updateData.progress.percentage = Math.round(
+            (updateData.progress.current / updateData.progress.total) * 100
+          );
+        }
+      }
+    }
+
+    await updateDoc(jobRef, updateData);
+  } catch (error) {
+    logger.error(`Failed to update scan job progress for job ${jobId}: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
+}
+
+/**
+ * Completes a scan job with results
+ */
+export async function completeScanJob(
+  jobId: string,
+  results: ScanJob['results']
+): Promise<void> {
+  try {
+    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
+    await updateDoc(jobRef, {
+      status: 'completed',
+      results,
+      completedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      progress: {
+        current: 1,
+        total: 1,
+        percentage: 100,
+        currentStep: 'Scan completed successfully'
+      }
+    });
+    
+    logger.info('Completed scan job', { jobId, results });
+  } catch (error) {
+    logger.error(`Failed to complete scan job ${jobId}: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
+}
+
+/**
+ * Fails a scan job with error
+ */
+export async function failScanJob(jobId: string, error: string): Promise<void> {
+  try {
+    const jobRef = doc(db, COLLECTIONS.SCAN_JOBS, jobId);
+    await updateDoc(jobRef, {
+      status: 'failed',
+      error,
+      completedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    logger.error(`Failed scan job ${jobId}: ${error}`);
+  } catch (error) {
+    logger.error(`Failed to fail scan job ${jobId}: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
+}
+
+/**
+ * Gets recent scan jobs for a user
+ */
+export async function getUserScanJobs(uid: string, limit: number = 10): Promise<ScanJob[]> {
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.SCAN_JOBS),
+      where('uid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      firestoreLimit(limit)
+    );
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as ScanJob));
+  } catch (error) {
+    logger.error(`Failed to get user scan jobs for ${uid}: ${error instanceof Error ? error.message : error}`);
+    return [];
+  }
+}
+
+// Delta Scan System for Incremental Updates
+export interface FileIndexEntry {
+  id: string; // Drive file ID
+  uid: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  modifiedTime: string; // ISO timestamp
+  parentId?: string;
+  md5Checksum?: string;
+  version: number; // Revision version from Drive
+  lastScanId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isDeleted?: boolean;
+}
+
+export interface ScanDelta {
+  id: string;
+  uid: string;
+  scanId: string;
+  type: 'created' | 'modified' | 'deleted' | 'moved';
+  fileId: string;
+  fileName: string;
+  oldPath?: string;
+  newPath?: string;
+  sizeChange?: number;
+  timestamp: Timestamp;
+  processed: boolean;
+}
+
+/**
+ * Updates the file index with new/changed files from a scan
+ */
+export async function updateFileIndex(
+  uid: string,
+  files: any[],
+  scanId: string
+): Promise<{ updated: number; created: number; deleted: number }> {
+  try {
+    const batch = writeBatch(db);
+    let updated = 0;
+    let created = 0;
+    let deleted = 0;
+
+    // Get existing file index for this user
+    const existingFilesQuery = query(
+      collection(db, COLLECTIONS.FILE_INDEX),
+      where('uid', '==', uid),
+      where('isDeleted', '!=', true)
+    );
+    
+    const existingSnapshot = await getDocs(existingFilesQuery);
+    const existingFiles = new Map<string, FileIndexEntry>();
+    
+    existingSnapshot.forEach(doc => {
+      const data = doc.data() as FileIndexEntry;
+      existingFiles.set(data.id, data);
+    });
+
+    const scannedFileIds = new Set<string>();
+
+    // Process each file from the scan
+    for (const file of files) {
+      scannedFileIds.add(file.id);
+      const existing = existingFiles.get(file.id);
+
+      const fileEntry: Omit<FileIndexEntry, 'createdAt' | 'updatedAt'> = {
+        id: file.id,
+        uid,
+        name: file.name,
+        mimeType: file.mimeType || 'unknown',
+        size: parseInt(file.size || '0'),
+        modifiedTime: file.modifiedTime || new Date().toISOString(),
+        parentId: file.parents?.[0],
+        md5Checksum: file.md5Checksum,
+        version: parseInt(file.version || '1'),
+        lastScanId: scanId,
+        isDeleted: false
+      };
+
+      if (existing) {
+        // Check if file has changed
+        const hasChanged = 
+          existing.modifiedTime !== fileEntry.modifiedTime ||
+          existing.size !== fileEntry.size ||
+          existing.name !== fileEntry.name ||
+          existing.parentId !== fileEntry.parentId;
+
+        if (hasChanged) {
+          // Create delta record
+          const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+          batch.set(deltaDoc, {
+            id: deltaDoc.id,
+            uid,
+            scanId,
+            type: 'modified',
+            fileId: file.id,
+            fileName: file.name,
+            sizeChange: fileEntry.size - existing.size,
+            timestamp: serverTimestamp(),
+            processed: false
+          });
+
+          // Update file index
+          const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${file.id}`);
+          batch.update(fileDoc, {
+            ...fileEntry,
+            updatedAt: serverTimestamp()
+          });
+          
+          updated++;
+        }
+      } else {
+        // New file
+        const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+        batch.set(deltaDoc, {
+          id: deltaDoc.id,
+          uid,
+          scanId,
+          type: 'created',
+          fileId: file.id,
+          fileName: file.name,
+          timestamp: serverTimestamp(),
+          processed: false
+        });
+
+        // Add to file index
+        const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${file.id}`);
+        batch.set(fileDoc, {
+          ...fileEntry,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        created++;
+      }
+    }
+
+    // Mark files as deleted if they weren't found in the scan
+    for (const [fileId, existing] of existingFiles) {
+      if (!scannedFileIds.has(fileId) && !existing.isDeleted) {
+        // Create deletion delta
+        const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+        batch.set(deltaDoc, {
+          id: deltaDoc.id,
+          uid,
+          scanId,
+          type: 'deleted',
+          fileId: fileId,
+          fileName: existing.name,
+          timestamp: serverTimestamp(),
+          processed: false
+        });
+
+        // Mark as deleted in index
+        const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${fileId}`);
+        batch.update(fileDoc, {
+          isDeleted: true,
+          lastScanId: scanId,
+          updatedAt: serverTimestamp()
+        });
+
+        deleted++;
+      }
+    }
+
+    await batch.commit();
+    
+    logger.info('File index updated', { 
+      uid, 
+      scanId, 
+      updated, 
+      created, 
+      deleted,
+      totalFiles: files.length 
+    });
+
+    return { updated, created, deleted };
+  } catch (error) {
+    logger.error(`Failed to update file index for user ${uid}, scan ${scanId}: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
+}
+
+/**
+ * Gets files that have changed since the last scan
+ */
+export async function getChangedFilesSinceLastScan(
+  uid: string,
+  lastScanId?: string
+): Promise<ScanDelta[]> {
+  try {
+    let q = query(
+      collection(db, COLLECTIONS.SCAN_DELTAS),
+      where('uid', '==', uid),
+      where('processed', '==', false),
+      orderBy('timestamp', 'desc')
+    );
+
+    if (lastScanId) {
+      // Get changes since specific scan
+      const lastScanQuery = query(
+        collection(db, COLLECTIONS.SCAN_DELTAS),
+        where('uid', '==', uid),
+        where('scanId', '==', lastScanId)
+      );
+      
+      const lastScanSnapshot = await getDocs(lastScanQuery);
+      if (!lastScanSnapshot.empty) {
+        const lastScanTime = lastScanSnapshot.docs[0].data().timestamp;
+        q = query(
+          collection(db, COLLECTIONS.SCAN_DELTAS),
+          where('uid', '==', uid),
+          where('timestamp', '>', lastScanTime),
+          orderBy('timestamp', 'desc')
+        );
+      }
+    }
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as ScanDelta);
+  } catch (error) {
+    logger.error(`Failed to get changed files for user ${uid}: ${error instanceof Error ? error.message : error}`);
+    return [];
+  }
+}
+
+/**
+ * Gets the last successful scan timestamp for delta comparison
+ */
+export async function getLastScanTimestamp(uid: string): Promise<string | null> {
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.SCAN_JOBS),
+      where('uid', '==', uid),
+      where('status', '==', 'completed'),
+      orderBy('completedAt', 'desc'),
+      firestoreLimit(1)
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const lastScan = querySnapshot.docs[0].data();
+    return lastScan.completedAt?.toDate().toISOString() || null;
+  } catch (error) {
+    logger.error(`Failed to get last scan timestamp for user ${uid}: ${error instanceof Error ? error.message : error}`);
+    return null;
+  }
+}
+
+/**
+ * Determines if a full scan is needed or if delta scan is sufficient
+ */
+export async function shouldRunFullScan(uid: string): Promise<{
+  shouldRunFull: boolean;
+  reason: string;
+  lastScanTime?: string;
+  fileCount?: number;
+}> {
+  try {
+    const lastScanTime = await getLastScanTimestamp(uid);
+    
+    if (!lastScanTime) {
+      return { 
+        shouldRunFull: true, 
+        reason: 'No previous scan found' 
+      };
+    }
+
+    // Check how old the last scan is
+    const daysSinceLastScan = (Date.now() - new Date(lastScanTime).getTime()) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceLastScan > 7) {
+      return { 
+        shouldRunFull: true, 
+        reason: 'Last scan is more than 7 days old',
+        lastScanTime 
+      };
+    }
+
+    // Check file index size - if we have very few files indexed, run full scan
+    const indexQuery = query(
+      collection(db, COLLECTIONS.FILE_INDEX),
+      where('uid', '==', uid),
+      where('isDeleted', '!=', true)
+    );
+    
+    const indexSnapshot = await getDocs(indexQuery);
+    const fileCount = indexSnapshot.size;
+    
+    if (fileCount < 100) {
+      return { 
+        shouldRunFull: true, 
+        reason: 'File index is incomplete (< 100 files)',
+        lastScanTime,
+        fileCount 
+      };
+    }
+
+    return { 
+      shouldRunFull: false, 
+      reason: 'Delta scan sufficient',
+      lastScanTime,
+      fileCount 
+    };
+  } catch (error) {
+    logger.error(`Failed to check scan requirements for user ${uid}: ${error instanceof Error ? error.message : error}`);
+    return { 
+      shouldRunFull: true, 
+      reason: 'Error checking scan requirements' 
     };
   }
 }
