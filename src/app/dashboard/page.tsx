@@ -86,10 +86,20 @@ export default function DashboardPage() {
   const [scanPollingInterval, setScanPollingInterval] = React.useState<NodeJS.Timeout | null>(null);
 
   const startBackgroundScan = React.useCallback(async () => {
-    if (!user) return;
+    console.log('🔥 Scan button clicked! User:', user ? 'authenticated' : 'not authenticated');
+    
+    if (!user) {
+      console.error('❌ No user authenticated - cannot start scan');
+      alert('Please sign in with Google first to start a scan.');
+      return;
+    }
     
     try {
+      console.log('🔄 Getting Firebase ID token...');
       const token = await user.getIdToken();
+      console.log('✅ Firebase ID token obtained, length:', token.length);
+      
+      console.log('📡 Making API request to /api/workflows/background-scan...');
       const response = await fetch('/api/workflows/background-scan', {
         method: 'POST',
         headers: {
@@ -105,18 +115,23 @@ export default function DashboardPage() {
         })
       });
 
+      console.log('📬 API response status:', response.status);
       const result = await response.json();
+      console.log('📋 API response data:', result);
       
       if (response.ok) {
+        console.log('✅ Scan started successfully!');
         setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
         // Start polling for progress
         startScanPolling();
       } else {
-        console.error('Failed to start background scan:', result.error);
+        console.error('❌ Failed to start background scan:', result.error);
+        alert(`Failed to start scan: ${result.error}`);
         setStats(prev => ({ ...prev, scanStatus: 'error' }));
       }
     } catch (error) {
-      console.error('Failed to start background scan:', error);
+      console.error('💥 Failed to start background scan:', error);
+      alert(`Error starting scan: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setStats(prev => ({ ...prev, scanStatus: 'error' }));
     }
   }, [user]);
