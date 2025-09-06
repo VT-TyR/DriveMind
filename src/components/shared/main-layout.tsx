@@ -40,10 +40,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === '/'}
+                isActive={pathname === '/dashboard' || pathname === '/'}
                 tooltip={{ children: 'Dashboard' }}
               >
-                <Link href="/">
+                <Link href="/dashboard">
                   <BarChart2 />
                   <span>Dashboard</span>
                 </Link>
