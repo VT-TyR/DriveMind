@@ -459,7 +459,7 @@ export async function getLatestAnalytics(uid: string, type?: string): Promise<an
       collection(db, COLLECTIONS.ANALYTICS),
       where('uid', '==', uid),
       orderBy('createdAt', 'desc'),
-      limit(1)
+      firestoreLimit(1)
     );
 
     if (type) {
@@ -468,7 +468,7 @@ export async function getLatestAnalytics(uid: string, type?: string): Promise<an
         where('uid', '==', uid),
         where('data.type', '==', type),
         orderBy('createdAt', 'desc'),
-        limit(1)
+        firestoreLimit(1)
       );
     }
     
