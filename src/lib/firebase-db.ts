@@ -803,19 +803,17 @@ export async function updateFileIndex(
   scanId: string
 ): Promise<{ updated: number; created: number; deleted: number }> {
   try {
-    const batch = writeBatch(db);
+    const db = getDb();
+    const batch = db.batch();
     let updated = 0;
     let created = 0;
     let deleted = 0;
 
     // Get existing file index for this user
-    const existingFilesQuery = query(
-      collection(db, COLLECTIONS.FILE_INDEX),
-      where('uid', '==', uid),
-      where('isDeleted', '!=', true)
-    );
-    
-    const existingSnapshot = await getDocs(existingFilesQuery);
+    const existingSnapshot = await db.collection(COLLECTIONS.FILE_INDEX)
+      .where('uid', '==', uid)
+      .where('isDeleted', '!=', true)
+      .get();
     const existingFiles = new Map<string, FileIndexEntry>();
     
     existingSnapshot.forEach(doc => {
@@ -854,7 +852,7 @@ export async function updateFileIndex(
 
         if (hasChanged) {
           // Create delta record
-          const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+          const deltaDoc = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
           batch.set(deltaDoc, {
             id: deltaDoc.id,
             uid,
@@ -863,22 +861,22 @@ export async function updateFileIndex(
             fileId: file.id,
             fileName: file.name,
             sizeChange: fileEntry.size - existing.size,
-            timestamp: serverTimestamp(),
+            timestamp: Date.now(),
             processed: false
           });
 
           // Update file index
-          const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${file.id}`);
+          const fileDoc = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${file.id}`);
           batch.update(fileDoc, {
             ...fileEntry,
-            updatedAt: serverTimestamp()
+            updatedAt: Date.now()
           });
           
           updated++;
         }
       } else {
         // New file
-        const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+        const deltaDoc = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
         batch.set(deltaDoc, {
           id: deltaDoc.id,
           uid,
@@ -886,16 +884,16 @@ export async function updateFileIndex(
           type: 'created',
           fileId: file.id,
           fileName: file.name,
-          timestamp: serverTimestamp(),
+          timestamp: Date.now(),
           processed: false
         });
 
         // Add to file index
-        const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${file.id}`);
+        const fileDoc = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${file.id}`);
         batch.set(fileDoc, {
           ...fileEntry,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         });
 
         created++;
@@ -906,7 +904,7 @@ export async function updateFileIndex(
     for (const [fileId, existing] of existingFiles) {
       if (!scannedFileIds.has(fileId) && !existing.isDeleted) {
         // Create deletion delta
-        const deltaDoc = doc(collection(db, COLLECTIONS.SCAN_DELTAS));
+        const deltaDoc = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
         batch.set(deltaDoc, {
           id: deltaDoc.id,
           uid,
@@ -914,16 +912,16 @@ export async function updateFileIndex(
           type: 'deleted',
           fileId: fileId,
           fileName: existing.name,
-          timestamp: serverTimestamp(),
+          timestamp: Date.now(),
           processed: false
         });
 
         // Mark as deleted in index
-        const fileDoc = doc(collection(db, COLLECTIONS.FILE_INDEX), `${uid}_${fileId}`);
+        const fileDoc = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${fileId}`);
         batch.update(fileDoc, {
           isDeleted: true,
           lastScanId: scanId,
-          updatedAt: serverTimestamp()
+          updatedAt: Date.now()
         });
 
         deleted++;
@@ -996,21 +994,21 @@ export async function getChangedFilesSinceLastScan(
  */
 export async function getLastScanTimestamp(uid: string): Promise<string | null> {
   try {
-    const q = query(
-      collection(db, COLLECTIONS.SCAN_JOBS),
-      where('uid', '==', uid),
-      where('status', '==', 'completed'),
-      orderBy('completedAt', 'desc'),
-      firestoreLimit(1)
-    );
+    const db = getDb();
+    const querySnapshot = await db.collection(COLLECTIONS.SCAN_JOBS)
+      .where('uid', '==', uid)
+      .where('status', '==', 'completed')
+      .orderBy('completedAt', 'desc')
+      .limit(1)
+      .get();
 
-    const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
       return null;
     }
 
     const lastScan = querySnapshot.docs[0].data();
-    return lastScan.completedAt?.toDate().toISOString() || null;
+    // Firebase Admin timestamps are just numbers (Date.now() format)
+    return lastScan.completedAt ? new Date(lastScan.completedAt).toISOString() : null;
   } catch (error) {
     logger.error(`Failed to get last scan timestamp for user ${uid}: ${error instanceof Error ? error.message : error}`);
     return null;
@@ -1048,13 +1046,12 @@ export async function shouldRunFullScan(uid: string): Promise<{
     }
 
     // Check file index size - if we have very few files indexed, run full scan
-    const indexQuery = query(
-      collection(db, COLLECTIONS.FILE_INDEX),
-      where('uid', '==', uid),
-      where('isDeleted', '!=', true)
-    );
+    const db = getDb();
+    const indexSnapshot = await db.collection(COLLECTIONS.FILE_INDEX)
+      .where('uid', '==', uid)
+      .where('isDeleted', '!=', true)
+      .get();
     
-    const indexSnapshot = await getDocs(indexQuery);
     const fileCount = indexSnapshot.size;
     
     if (fileCount < 100) {
