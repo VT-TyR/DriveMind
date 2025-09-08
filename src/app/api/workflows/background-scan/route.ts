@@ -55,33 +55,59 @@ export async function POST(request: NextRequest) {
     logger.info('✅ Firebase Admin Auth initialized');
     
     logger.info('🔍 Verifying Firebase ID token...');
-    const decodedToken = await auth.verifyIdToken(token);
-    const uid = decodedToken.uid;
-    logger.info(`✅ Token verified for user: ${uid}`);
+    let uid: string;
+    try {
+      const decodedToken = await auth.verifyIdToken(token);
+      uid = decodedToken.uid;
+      logger.info(`✅ Token verified for user: ${uid}`);
+    } catch (error) {
+      logger.error(`🚫 Token verification failed: ${error.message}`);
+      throw error;
+    }
 
     // Check if there's already an active scan
     logger.info('🔍 Checking for active scan jobs...');
-    const activeScan = await getActiveScanJob(uid);
-    if (activeScan) {
-      logger.info(`⚡ Found active scan: ${activeScan.id}, status: ${activeScan.status}`);
-      return NextResponse.json({
-        message: 'Scan already in progress',
-        jobId: activeScan.id,
-        status: activeScan.status,
-        progress: activeScan.progress,
-      }, { status: 409 });
+    let activeScan;
+    try {
+      activeScan = await getActiveScanJob(uid);
+      if (activeScan) {
+        logger.info(`⚡ Found active scan: ${activeScan.id}, status: ${activeScan.status}`);
+        return NextResponse.json({
+          message: 'Scan already in progress',
+          jobId: activeScan.id,
+          status: activeScan.status,
+          progress: activeScan.progress,
+        }, { status: 409 });
+      }
+      logger.info('✅ No active scan found');
+    } catch (error) {
+      logger.error(`💥 Failed to check active scan: ${error.message}`);
+      throw error;
     }
-    logger.info('✅ No active scan found');
 
     logger.info('📋 Parsing request body...');
-    const json = await request.json().catch(() => ({}));
-    const { type, config } = StartScanSchema.parse(json);
-    logger.info(`📊 Scan configuration: type=${type}, config=${JSON.stringify(config)}`);
+    let type, config;
+    try {
+      const json = await request.json().catch(() => ({}));
+      const parsed = StartScanSchema.parse(json);
+      type = parsed.type;
+      config = parsed.config;
+      logger.info(`📊 Scan configuration: type=${type}, config=${JSON.stringify(config)}`);
+    } catch (error) {
+      logger.error(`📋 Failed to parse request body: ${error.message}`);
+      throw error;
+    }
 
     // Create the background scan job
     logger.info('🗂️ Creating scan job...');
-    const jobId = await createScanJob(uid, type, config);
-    logger.info(`✅ Scan job created: ${jobId}`);
+    let jobId;
+    try {
+      jobId = await createScanJob(uid, type, config);
+      logger.info(`✅ Scan job created: ${jobId}`);
+    } catch (error) {
+      logger.error(`💥 Failed to create scan job: ${error.message}`);
+      throw error;
+    }
 
     // Start the background processing (don't await - let it run async)
     logger.info('🚀 Starting background scan process...');
@@ -100,6 +126,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof z.ZodError) {
+      logger.error(`📋 Zod validation error: ${JSON.stringify(error.flatten())}`);
       return NextResponse.json({ error: 'Invalid request body', details: error.flatten() }, { status: 400 });
     }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -107,11 +134,18 @@ export async function POST(request: NextRequest) {
     logger.error(`💥 Background scan API error: ${errorMessage}`);
     logger.error(`📍 Error stack trace: ${errorStack}`);
     
+    // More detailed error context
+    logger.error(`🔍 Error type: ${typeof error}`);
+    logger.error(`🔍 Error constructor: ${error.constructor?.name}`);
+    logger.error(`🔍 Error details: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+    
     // Return more specific error information
     return NextResponse.json(
       { 
         error: 'Failed to start background scan', 
         details: errorMessage,
+        errorType: typeof error,
+        errorConstructor: error.constructor?.name,
         timestamp: new Date().toISOString()
       },
       { status: 500 }
