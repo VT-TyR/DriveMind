@@ -8,8 +8,11 @@
  */
 
 import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { getFirestore } from "firebase-admin/firestore";
+import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
+import { runScanJob } from "./scan-runner";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -26,7 +29,30 @@ import * as logger from "firebase-functions/logger";
 // this will be the maximum concurrent request count.
 setGlobalOptions({ maxInstances: 10 });
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+// Initialize Admin (idempotent in Functions)
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+
+// Draft worker: detect new scanJobs and mark them acknowledged.
+// NOTE: This is a minimal scaffold; wire full processing by moving the
+// background logic from Next.js API into a shared module used here.
+export const onScanJobCreated = onDocumentCreated("scanJobs/{jobId}", async (event) => {
+  try {
+    const doc = event.data;
+    if (!doc) return;
+    const job = doc.data() as any;
+    if (!job || job.status !== 'pending') return;
+
+    const db = getFirestore();
+    const ref = doc.ref;
+
+    await ref.update({ workerAcknowledged: true, worker: 'functions-v2', updatedAt: Date.now() });
+    logger.info("Worker acknowledged new scan job", { jobId: ref.id, uid: job.uid });
+
+    // Run the scan job pipeline
+    await runScanJob(db, ref.id);
+  } catch (e: any) {
+    logger.error("Error in onScanJobCreated", e);
+  }
+});

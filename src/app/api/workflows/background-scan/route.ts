@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/admin';
+import { z } from 'zod';
 import { 
   createScanJob, 
   updateScanJobProgress, 
@@ -13,10 +14,27 @@ import {
   getActiveScanJob,
   updateFileIndex,
   shouldRunFullScan,
+  isScanCancelled,
+  cancelScanJob,
   type ScanJob 
 } from '@/lib/firebase-db';
 import { driveFor } from '@/lib/google-drive';
 import { logger } from '@/lib/logger';
+
+const StartScanSchema = z.object({
+  type: z.enum(['drive_scan', 'full_analysis', 'duplicate_detection']).optional().default('full_analysis'),
+  config: z
+    .object({
+      maxDepth: z.number().int().min(1).max(50).optional(),
+      includeTrashed: z.boolean().optional(),
+      rootFolderId: z.string().optional(),
+      fileTypes: z.array(z.string()).max(50).optional(),
+      forceFull: z.boolean().optional().default(false),
+      forceDelta: z.boolean().optional().default(false),
+    })
+    .optional()
+    .default({}),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,18 +64,18 @@ export async function POST(request: NextRequest) {
     const activeScan = await getActiveScanJob(uid);
     if (activeScan) {
       logger.info(`⚡ Found active scan: ${activeScan.id}, status: ${activeScan.status}`);
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'Scan already in progress',
         jobId: activeScan.id,
         status: activeScan.status,
-        progress: activeScan.progress
-      });
+        progress: activeScan.progress,
+      }, { status: 409 });
     }
     logger.info('✅ No active scan found');
 
     logger.info('📋 Parsing request body...');
-    const body = await request.json();
-    const { type = 'full_analysis', config = {} } = body;
+    const json = await request.json().catch(() => ({}));
+    const { type, config } = StartScanSchema.parse(json);
     logger.info(`📊 Scan configuration: type=${type}, config=${JSON.stringify(config)}`);
 
     // Create the background scan job
@@ -81,6 +99,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid request body', details: error.flatten() }, { status: 400 });
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : 'No stack trace';
     logger.error(`💥 Background scan API error: ${errorMessage}`);
@@ -95,6 +116,41 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+const CancelSchema = z.object({
+  action: z.literal('cancel'),
+  jobId: z.string().optional(),
+});
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) return NextResponse.json({ error: 'No authorization token provided' }, { status: 401 });
+    const auth = getAdminAuth();
+    if (!auth) return NextResponse.json({ error: 'Firebase Admin not initialized' }, { status: 500 });
+    const { uid } = await auth.verifyIdToken(token);
+
+    const body = await request.json().catch(() => ({}));
+    const parsed = CancelSchema.parse(body);
+
+    // Determine jobId
+    let jobId = parsed.jobId;
+    if (!jobId) {
+      const active = await getActiveScanJob(uid);
+      if (!active) return NextResponse.json({ error: 'No active scan to cancel' }, { status: 404 });
+      jobId = active.id;
+    }
+
+    await cancelScanJob(jobId, uid);
+    return NextResponse.json({ jobId, status: 'cancelled' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid request body', details: error.flatten() }, { status: 400 });
+    }
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -193,6 +249,11 @@ async function processBackgroundScan(
       current: 3,
       total: 6
     });
+    if (await isScanCancelled(jobId)) {
+      logger.warn(`Scan ${jobId} cancelled before scanning`);
+      await failScanJob(jobId, 'Scan cancelled by user');
+      return;
+    }
 
     const allFiles: any[] = [];
     let pageToken: string | undefined;
@@ -201,6 +262,12 @@ async function processBackgroundScan(
 
     do {
       try {
+        // Cooperative cancellation check before each page
+        if (await isScanCancelled(jobId)) {
+          logger.warn(`Scan ${jobId} cancelled by user`);
+          await failScanJob(jobId, 'Scan cancelled by user');
+          return;
+        }
         const response = await drive.files.list({
           pageSize: 1000, // Maximum allowed by Google Drive API
           pageToken,
@@ -234,6 +301,12 @@ async function processBackgroundScan(
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
+        // Cancellation check after each page
+        if (await isScanCancelled(jobId)) {
+          logger.warn(`Scan ${jobId} cancelled by user after page ${pageCount}`);
+          await failScanJob(jobId, 'Scan cancelled by user');
+          return;
+        }
         logger.info(`Page ${pageCount}: Found ${files.length} files, total: ${allFiles.length}`);
 
       } catch (driveError) {
@@ -250,6 +323,11 @@ async function processBackgroundScan(
       current: 4,
       total: 6
     });
+    if (await isScanCancelled(jobId)) {
+      logger.warn(`Scan ${jobId} cancelled before indexing`);
+      await failScanJob(jobId, 'Scan cancelled by user');
+      return;
+    }
 
     const scanId = `scan_${jobId}_${Date.now()}`;
     const indexUpdate = await updateFileIndex(uid, allFiles, scanId);
@@ -262,6 +340,11 @@ async function processBackgroundScan(
       current: 5,
       total: 6
     });
+    if (await isScanCancelled(jobId)) {
+      logger.warn(`Scan ${jobId} cancelled before duplicate analysis`);
+      await failScanJob(jobId, 'Scan cancelled by user');
+      return;
+    }
 
     // Simple duplicate detection based on size and name similarity
     const duplicates = findDuplicates(allFiles);
@@ -273,6 +356,11 @@ async function processBackgroundScan(
       current: 6,
       total: 6
     });
+    if (await isScanCancelled(jobId)) {
+      logger.warn(`Scan ${jobId} cancelled before finalization`);
+      await failScanJob(jobId, 'Scan cancelled by user');
+      return;
+    }
 
     const results = {
       scanId,

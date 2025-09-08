@@ -10,6 +10,8 @@ import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScanProgress } from '@/components/dashboard/scan-progress';
+import { db as clientDb } from '@/lib/firebase';
+import { collection, query as fsQuery, where, orderBy, limit as fsLimit, onSnapshot } from 'firebase/firestore';
 
 // Client-safe ScanJob interface 
 interface ScanJob {
@@ -66,6 +68,7 @@ interface DashboardStats {
   cleanupSuggestions: number;
   qualityScore: number;
   scanStatus: 'idle' | 'scanning' | 'complete' | 'error';
+  lastScanMode?: 'full' | 'delta' | null;
 }
 
 export default function DashboardPage() {
@@ -79,13 +82,14 @@ export default function DashboardPage() {
     vaultCandidates: 0,
     cleanupSuggestions: 0,
     qualityScore: 0,
-    scanStatus: 'idle'
+    scanStatus: 'idle',
+    lastScanMode: null,
   });
   const [isLoading, setIsLoading] = React.useState(true);
   const [activeScanJob, setActiveScanJob] = React.useState<ScanJob | null>(null);
-  const [scanPollingInterval, setScanPollingInterval] = React.useState<NodeJS.Timeout | null>(null);
+  const scanSubRef = React.useRef<() => void>();
 
-  const startBackgroundScan = React.useCallback(async () => {
+  const startBackgroundScan = React.useCallback(async (forceFull?: boolean) => {
     console.log('🔥 Scan button clicked! User:', user ? 'authenticated' : 'not authenticated');
     
     if (!user) {
@@ -110,7 +114,8 @@ export default function DashboardPage() {
           type: 'full_analysis',
           config: { 
             maxDepth: 20, // Increased for thorough scan
-            includeTrashed: false 
+            includeTrashed: false,
+            forceFull: !!forceFull,
           }
         })
       });
@@ -122,8 +127,6 @@ export default function DashboardPage() {
       if (response.ok) {
         console.log('✅ Scan started successfully!');
         setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
-        // Start polling for progress
-        startScanPolling();
       } else {
         console.error('❌ Failed to start background scan:', result.error);
         alert(`Failed to start scan: ${result.error}`);
@@ -136,90 +139,118 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  const startScanPolling = React.useCallback(() => {
-    if (scanPollingInterval) {
-      clearInterval(scanPollingInterval);
+  // Firestore subscription to active scan job
+  const subscribeActiveScan = React.useCallback(() => {
+    if (!user) return;
+    if (scanSubRef.current) {
+      scanSubRef.current();
     }
-
-    const interval = setInterval(async () => {
-      if (!user) return;
-
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch('/api/workflows/background-scan', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        });
-
-        const scanStatus = await response.json();
-        
-        if (response.ok) {
-          if (scanStatus.status === 'idle') {
-            // No active scan
-            setActiveScanJob(null);
-            setStats(prev => ({ ...prev, scanStatus: 'idle' }));
-            clearInterval(interval);
-            setScanPollingInterval(null);
-          } else {
-            // Update scan job state
-            const job: ScanJob = {
-              id: scanStatus.jobId,
-              uid: user.uid,
-              status: scanStatus.status,
-              type: scanStatus.type,
-              progress: scanStatus.progress,
-              config: {},
-              createdAt: scanStatus.createdAt,
-              updatedAt: scanStatus.createdAt,
-              startedAt: scanStatus.startedAt,
-              results: scanStatus.results,
-              error: scanStatus.error
-            };
-            
-            setActiveScanJob(job);
-            
-            if (scanStatus.status === 'completed') {
-              // Update dashboard stats with results
-              if (scanStatus.results) {
-                setStats({
-                  totalFiles: scanStatus.results.filesFound || 0,
-                  duplicateFiles: scanStatus.results.duplicatesDetected || 0,
-                  totalSize: scanStatus.results.totalSize || 0,
-                  recentActivity: 0, // TODO: Calculate from results
-                  vaultCandidates: scanStatus.results.insights?.archiveCandidates || 0,
-                  cleanupSuggestions: scanStatus.results.insights?.recommendedActions?.length || 0,
-                  qualityScore: scanStatus.results.insights?.qualityScore || 0,
-                  scanStatus: 'complete'
-                });
-              }
-              clearInterval(interval);
-              setScanPollingInterval(null);
-            } else if (scanStatus.status === 'failed') {
-              setStats(prev => ({ ...prev, scanStatus: 'error' }));
-              clearInterval(interval);
-              setScanPollingInterval(null);
-            } else {
-              setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error polling scan status:', error);
+    const q = fsQuery(
+      collection(clientDb, 'scanJobs'),
+      where('uid', '==', user.uid),
+      where('status', 'in', ['pending', 'running']),
+      orderBy('createdAt', 'desc'),
+      fsLimit(1)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        setActiveScanJob(null);
+        setStats(prev => ({ ...prev, scanStatus: 'idle' }));
+        return;
       }
-    }, 2000); // Poll every 2 seconds
-
-    setScanPollingInterval(interval);
-  }, [user, scanPollingInterval]);
+      const d = snap.docs[0];
+      const data = d.data() as any;
+      const job: ScanJob = {
+        id: d.id,
+        uid: data.uid,
+        status: data.status,
+        type: data.type,
+        progress: data.progress || { current: 0, total: 0, percentage: 0, currentStep: 'Starting...' },
+        config: data.config || {},
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        startedAt: data.startedAt,
+        results: data.results,
+        error: data.error,
+      };
+      setActiveScanJob(job);
+      if (job.status === 'completed') {
+        if (job.results) {
+          setStats({
+            totalFiles: job.results.filesFound || 0,
+            duplicateFiles: job.results.duplicatesDetected || 0,
+            totalSize: job.results.totalSize || 0,
+            recentActivity: 0,
+            vaultCandidates: job.results.insights?.archiveCandidates || 0,
+            cleanupSuggestions: job.results.insights?.recommendedActions?.length || 0,
+            qualityScore: job.results.insights?.qualityScore || 0,
+            scanStatus: 'complete',
+            lastScanMode: job.results.insights?.scanType === 'delta' ? 'delta' : 'full',
+          });
+        }
+      } else if (job.status === 'failed') {
+        setStats(prev => ({ ...prev, scanStatus: 'error' }));
+      } else {
+        setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
+      }
+    }, (err) => {
+      console.error('Scan job subscription error:', err);
+    });
+    scanSubRef.current = unsub;
+  }, [user]);
 
   const cancelScan = React.useCallback(async () => {
-    // TODO: Implement scan cancellation
-    console.log('Cancel scan requested');
-  }, []);
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/workflows/background-scan', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'cancel' })
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        console.warn('Cancel failed', res.status, j);
+      }
+    } catch (e) {
+      console.error('Cancel scan error', e);
+    }
+  }, [user]);
 
   const retryScan = React.useCallback(() => {
     startBackgroundScan();
   }, [startBackgroundScan]);
+
+  const runFullScan = React.useCallback(() => {
+    startBackgroundScan(true);
+  }, [startBackgroundScan]);
+
+  const runDeltaScan = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/workflows/background-scan', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'full_analysis',
+          config: { includeTrashed: false, forceDelta: true }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        console.warn('Delta scan request failed:', result);
+      }
+    } catch (e) {
+      console.error('Run delta scan error', e);
+    }
+  }, [user]);
 
   const fetchDashboardData = React.useCallback(async () => {
     if (!user) {
@@ -266,54 +297,13 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     fetchDashboardData();
-    
-    // Check for active scan jobs on load via API
-    const checkActiveScan = async () => {
-      if (!user) return;
-      
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch('/api/workflows/background-scan', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        });
-
-        const scanStatus = await response.json();
-        
-        if (response.ok && scanStatus.status !== 'idle') {
-          const job: ScanJob = {
-            id: scanStatus.jobId,
-            uid: user.uid,
-            status: scanStatus.status,
-            type: scanStatus.type,
-            progress: scanStatus.progress,
-            config: {},
-            createdAt: scanStatus.createdAt,
-            updatedAt: scanStatus.createdAt,
-            startedAt: scanStatus.startedAt,
-            results: scanStatus.results,
-            error: scanStatus.error
-          };
-          
-          setActiveScanJob(job);
-          setStats(prev => ({ ...prev, scanStatus: 'scanning' }));
-          startScanPolling();
-        }
-      } catch (error) {
-        console.error('Failed to check active scan:', error);
-      }
-    };
-    
-    checkActiveScan();
-
-    // Cleanup polling on unmount
+    if (user) {
+      subscribeActiveScan();
+    }
     return () => {
-      if (scanPollingInterval) {
-        clearInterval(scanPollingInterval);
-      }
+      if (scanSubRef.current) scanSubRef.current();
     };
-  }, [fetchDashboardData, user, startScanPolling, scanPollingInterval]);
+  }, [fetchDashboardData, user, subscribeActiveScan]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -351,13 +341,21 @@ export default function DashboardPage() {
               <SidebarTrigger className="md:hidden" />
               <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
               {isAiEnabled && <Badge variant="secondary" className="gap-1"><Sparkles className="h-3 w-3" />AI Active</Badge>}
+              {stats.lastScanMode && (
+                <Badge variant="outline" className="gap-1">
+                  Last Scan: {stats.lastScanMode === 'delta' ? 'Delta' : 'Full'}
+                </Badge>
+              )}
             </div>
+            <p className="text-xs text-muted-foreground ml-[2.5rem]">
+              Full scans enumerate all files; Delta scans use Drive Changes for faster incremental updates.
+            </p>
             <div className="flex gap-2 flex-shrink-0">
               <Button onClick={fetchDashboardData} variant="outline" disabled={isLoading}>
                 {isLoading ? 'Loading...' : 'Refresh'}
               </Button>
               <Button 
-                onClick={startBackgroundScan} 
+                onClick={() => startBackgroundScan()} 
                 disabled={stats.scanStatus === 'scanning'}
                 className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               >
@@ -372,6 +370,21 @@ export default function DashboardPage() {
                     Start Background Scan
                   </>
                 )}
+              </Button>
+              <Button 
+                onClick={runFullScan} 
+                variant="secondary"
+                disabled={stats.scanStatus === 'scanning'}
+              >
+                Run Full Scan
+              </Button>
+              <Button 
+                onClick={runDeltaScan}
+                variant="outline"
+                disabled={stats.scanStatus === 'scanning'}
+                title="Runs delta scan if a changes token exists"
+              >
+                Run Delta Scan
               </Button>
             </div>
           </div>
@@ -455,7 +468,7 @@ export default function DashboardPage() {
                       Analyze your Google Drive to get insights and recommendations
                     </p>
                     <Button 
-                      onClick={startBackgroundScan} 
+                      onClick={() => startBackgroundScan()} 
                       disabled={stats.scanStatus === 'scanning'}
                       className="gap-2"
                     >
@@ -475,7 +488,7 @@ export default function DashboardPage() {
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
-                    onClick={startBackgroundScan} 
+                    onClick={() => startBackgroundScan()} 
                     disabled={stats.scanStatus === 'scanning'}
                     variant={stats.totalFiles === 0 ? "default" : "outline"}
                     className="w-full justify-start gap-2"

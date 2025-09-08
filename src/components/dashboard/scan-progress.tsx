@@ -231,6 +231,30 @@ export function ScanProgress({ scanJob, onCancel, onRetry }: ScanProgressProps) 
                 </div>
               </div>
             </div>
+
+            {scanJob.results.insights?.metrics && (
+              <div className="mt-4">
+                <h5 className="text-sm font-medium text-green-800 mb-2">Scan Metrics</h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <div className="text-green-600">Pages</div>
+                    <div className="font-semibold text-green-900">{scanJob.results.insights.metrics.pages || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-green-600">Write Ops</div>
+                    <div className="font-semibold text-green-900">{scanJob.results.insights.metrics.writeOps || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-green-600">Duration</div>
+                    <div className="font-semibold text-green-900">{Math.round((scanJob.results.insights.metrics.durationMs || 0) / 1000)}s</div>
+                  </div>
+                  <div>
+                    <div className="text-green-600">Mode</div>
+                    <div className="font-semibold text-green-900 capitalize">{scanJob.results.insights.scanType === 'delta' ? 'Delta' : 'Full'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

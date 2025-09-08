@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     if (token) {
       try {
         const auth = getAdminAuth();
+        if (!auth) {
+          throw new Error('Firebase Admin Auth not initialized');
+        }
         const decodedToken = await auth.verifyIdToken(token);
         uid = decodedToken.uid;
         logger.info(`✅ Firebase user authenticated: ${uid}`);
