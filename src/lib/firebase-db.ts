@@ -6,11 +6,12 @@
 
 import { z } from 'zod';
 import { getAdminFirestore } from '@/lib/admin';
+import type { Firestore } from 'firebase-admin/firestore';
 import { ActionBatchSchema, ProposeRulesOutputSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
 
 // Use Firebase Admin Firestore for server-side operations
-const getDb = () => getAdminFirestore();
+const getDb = (): Firestore => getAdminFirestore() as Firestore;
 
 // Firestore collections
 const COLLECTIONS = {
@@ -29,42 +30,56 @@ const COLLECTIONS = {
 type ActionBatch = z.infer<typeof ActionBatchSchema>;
 type Rule = z.infer<typeof ProposeRulesOutputSchema>;
 
+// Helper: normalize Firestore timestamp/number/string to Date
+function toDate(value: any, fallback: Date = new Date()): Date {
+  try {
+    if (!value) return fallback;
+    if (typeof value === 'number') return new Date(value);
+    if (typeof value === 'string') return new Date(value);
+    if (typeof value === 'object' && typeof value.toDate === 'function') {
+      return value.toDate();
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * Retrieves an action batch by ID for a specific user.
  * Throws error if batch doesn't exist or doesn't belong to user.
  */
 export async function getActionBatch(batchId: string, uid: string): Promise<ActionBatch> {
   try {
-    const docRef = doc(db, COLLECTIONS.ACTION_BATCHES, batchId);
-    const docSnap = await getDoc(docRef);
-    
-    if (!docSnap.exists()) {
+    const db = getDb();
+    const docSnap = await db.collection(COLLECTIONS.ACTION_BATCHES).doc(batchId).get();
+
+    if (!docSnap.exists) {
       throw new Error(`Action batch ${batchId} not found`);
     }
-    
-    const data = docSnap.data();
-    
-    // Convert Firestore timestamps back to Date objects
+    const data = docSnap.data() || {};
+
+    // Convert stored timestamps back to Date objects
     const processedData = {
       ...data,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      executedAt: data.executedAt?.toDate() || null,
+      createdAt: toDate(data.createdAt),
+      executedAt: data.executedAt ? toDate(data.executedAt) : null,
       preflight: data.preflight ? {
         ...data.preflight,
-        createdAt: data.preflight.createdAt?.toDate() || new Date()
+        createdAt: toDate(data.preflight.createdAt)
       } : null,
       confirmation: data.confirmation ? {
         ...data.confirmation,
-        approvedAt: data.confirmation.approvedAt?.toDate() || null
+        approvedAt: data.confirmation.approvedAt ? toDate(data.confirmation.approvedAt) : null
       } : null,
       execution: data.execution ? {
         ...data.execution,
-        startedAt: data.execution.startedAt?.toDate() || null,
-        finishedAt: data.execution.finishedAt?.toDate() || null
+        startedAt: data.execution.startedAt ? toDate(data.execution.startedAt) : null,
+        finishedAt: data.execution.finishedAt ? toDate(data.execution.finishedAt) : null
       } : null,
       restorePlan: data.restorePlan ? {
         ...data.restorePlan,
-        expiresAt: data.restorePlan.expiresAt?.toDate() || new Date()
+        expiresAt: toDate(data.restorePlan.expiresAt)
       } : null
     };
     
@@ -89,33 +104,33 @@ export async function getActionBatch(batchId: string, uid: string): Promise<Acti
  */
 export async function saveActionBatch(batchId: string, batchData: ActionBatch): Promise<void> {
   try {
-    // Convert Date objects to Firestore timestamps
+    const db = getDb();
+    // Serialize Dates to millis for Admin Firestore
     const firestoreData = {
       ...batchData,
-      createdAt: Timestamp.fromDate(batchData.createdAt),
-      executedAt: batchData.executedAt ? Timestamp.fromDate(batchData.executedAt) : null,
+      createdAt: batchData.createdAt?.getTime?.() ?? Date.now(),
+      executedAt: batchData.executedAt ? batchData.executedAt.getTime() : null,
       preflight: batchData.preflight ? {
         ...batchData.preflight,
-        createdAt: Timestamp.fromDate(batchData.preflight.createdAt)
+        createdAt: batchData.preflight.createdAt.getTime(),
       } : null,
       confirmation: batchData.confirmation ? {
         ...batchData.confirmation,
-        approvedAt: batchData.confirmation.approvedAt ? Timestamp.fromDate(batchData.confirmation.approvedAt) : null
+        approvedAt: batchData.confirmation.approvedAt ? batchData.confirmation.approvedAt.getTime() : null,
       } : null,
       execution: batchData.execution ? {
         ...batchData.execution,
-        startedAt: batchData.execution.startedAt ? Timestamp.fromDate(batchData.execution.startedAt) : null,
-        finishedAt: batchData.execution.finishedAt ? Timestamp.fromDate(batchData.execution.finishedAt) : null
+        startedAt: batchData.execution.startedAt ? batchData.execution.startedAt.getTime() : null,
+        finishedAt: batchData.execution.finishedAt ? batchData.execution.finishedAt.getTime() : null,
       } : null,
       restorePlan: batchData.restorePlan ? {
         ...batchData.restorePlan,
-        expiresAt: Timestamp.fromDate(batchData.restorePlan.expiresAt)
+        expiresAt: batchData.restorePlan.expiresAt.getTime(),
       } : null,
-      updatedAt: serverTimestamp()
-    };
-    
-    const docRef = doc(db, COLLECTIONS.ACTION_BATCHES, batchId);
-    await setDoc(docRef, firestoreData);
+      updatedAt: Date.now(),
+    } as any;
+
+    await db.collection(COLLECTIONS.ACTION_BATCHES).doc(batchId).set(firestoreData);
     
     logger.info('Saved action batch', { batchId, uid: batchData.uid, status: batchData.status });
     
@@ -130,14 +145,15 @@ export async function saveActionBatch(batchId: string, batchData: ActionBatch): 
  */
 export async function createActionBatch(batchData: ActionBatch): Promise<string> {
   try {
+    const db = getDb();
     const firestoreData = {
       ...batchData,
-      createdAt: serverTimestamp(),
+      createdAt: batchData.createdAt?.getTime?.() ?? Date.now(),
       executedAt: null,
-      updatedAt: serverTimestamp()
-    };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.ACTION_BATCHES), firestoreData);
+      updatedAt: Date.now(),
+    } as any;
+
+    const docRef = await db.collection(COLLECTIONS.ACTION_BATCHES).add(firestoreData);
     
     logger.info('Created action batch', { batchId: docRef.id, uid: batchData.uid, status: batchData.status });
     return docRef.id;
@@ -153,38 +169,36 @@ export async function createActionBatch(batchData: ActionBatch): Promise<string>
  */
 export async function getUserActionBatches(uid: string, limitCount: number = 50): Promise<ActionBatch[]> {
   try {
-    const q = query(
-      collection(db, COLLECTIONS.ACTION_BATCHES),
-      where('uid', '==', uid),
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(limitCount)
-    );
-    
-    const querySnapshot = await getDocs(q);
+    const db = getDb();
+    const querySnapshot = await db.collection(COLLECTIONS.ACTION_BATCHES)
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(limitCount)
+      .get();
     const batches: ActionBatch[] = [];
     
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() || {};
       const processedData = {
         ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        executedAt: data.executedAt?.toDate() || null,
+        createdAt: toDate(data.createdAt),
+        executedAt: data.executedAt ? toDate(data.executedAt) : null,
         preflight: data.preflight ? {
           ...data.preflight,
-          createdAt: data.preflight.createdAt?.toDate() || new Date()
+          createdAt: toDate(data.preflight.createdAt)
         } : null,
         confirmation: data.confirmation ? {
           ...data.confirmation,
-          approvedAt: data.confirmation.approvedAt?.toDate() || null
+          approvedAt: data.confirmation.approvedAt ? toDate(data.confirmation.approvedAt) : null
         } : null,
         execution: data.execution ? {
           ...data.execution,
-          startedAt: data.execution.startedAt?.toDate() || null,
-          finishedAt: data.execution.finishedAt?.toDate() || null
+          startedAt: data.execution.startedAt ? toDate(data.execution.startedAt) : null,
+          finishedAt: data.execution.finishedAt ? toDate(data.execution.finishedAt) : null
         } : null,
         restorePlan: data.restorePlan ? {
           ...data.restorePlan,
-          expiresAt: data.restorePlan.expiresAt?.toDate() || new Date()
+          expiresAt: toDate(data.restorePlan.expiresAt)
         } : null
       };
       
@@ -205,13 +219,12 @@ export async function getUserActionBatches(uid: string, limitCount: number = 50)
  */
 export async function getRule(ruleId: string, uid: string): Promise<Rule> {
   try {
-    const docRef = doc(db, COLLECTIONS.RULES, ruleId);
-    const docSnap = await getDoc(docRef);
+    const db = getDb();
+    const docSnap = await db.collection(COLLECTIONS.RULES).doc(ruleId).get();
     
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
       throw new Error(`Rule ${ruleId} not found`);
     }
-    
     const rule = ProposeRulesOutputSchema.parse(docSnap.data());
     
     if (rule.uid !== uid) {
@@ -232,10 +245,10 @@ export async function getRule(ruleId: string, uid: string): Promise<Rule> {
  */
 export async function saveRule(ruleId: string, ruleData: Rule): Promise<void> {
   try {
-    const docRef = doc(db, COLLECTIONS.RULES, ruleId);
-    await setDoc(docRef, {
+    const db = getDb();
+    await db.collection(COLLECTIONS.RULES).doc(ruleId).set({
       ...ruleData,
-      updatedAt: serverTimestamp()
+      updatedAt: Date.now()
     });
     
     logger.info('Saved rule', { ruleId, uid: ruleData.uid });
@@ -251,17 +264,15 @@ export async function saveRule(ruleId: string, ruleData: Rule): Promise<void> {
  */
 export async function getUserRules(uid: string, limitCount: number = 50): Promise<Rule[]> {
   try {
-    const q = query(
-      collection(db, COLLECTIONS.RULES),
-      where('uid', '==', uid),
-      firestoreLimit(limitCount)
-    );
-    
-    const querySnapshot = await getDocs(q);
+    const db = getDb();
+    const querySnapshot = await db.collection(COLLECTIONS.RULES)
+      .where('uid', '==', uid)
+      .limit(limitCount)
+      .get();
     const rules: Rule[] = [];
     
-    querySnapshot.forEach((doc) => {
-      rules.push(ProposeRulesOutputSchema.parse(doc.data()));
+    querySnapshot.forEach((docSnap) => {
+      rules.push(ProposeRulesOutputSchema.parse(docSnap.data()));
     });
     
     logger.info('Retrieved user rules', { uid, count: rules.length });
@@ -278,15 +289,15 @@ export async function getUserRules(uid: string, limitCount: number = 50): Promis
  */
 export async function saveSnapshot(uid: string, fileId: string, batchId: string, snapshotPath: string): Promise<string> {
   try {
+    const db = getDb();
     const snapshotData = {
       uid,
       fileId,
       batchId,
       snapshotPath,
-      createdAt: serverTimestamp()
+      createdAt: Date.now()
     };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.SNAPSHOTS), snapshotData);
+    const docRef = await db.collection(COLLECTIONS.SNAPSHOTS).add(snapshotData);
     
     logger.info('Saved snapshot', { snapshotId: docRef.id, uid, fileId, batchId });
     return docRef.id;
@@ -302,13 +313,13 @@ export async function saveSnapshot(uid: string, fileId: string, batchId: string,
  */
 export async function saveAnalytics(uid: string, data: Record<string, any>): Promise<string> {
   try {
+    const db = getDb();
     const analyticsData = {
       uid,
       data,
-      createdAt: serverTimestamp()
+      createdAt: Date.now()
     };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.ANALYTICS), analyticsData);
+    const docRef = await db.collection(COLLECTIONS.ANALYTICS).add(analyticsData);
     
     logger.info('Saved analytics', { analyticsId: docRef.id, uid });
     return docRef.id;
@@ -324,14 +335,14 @@ export async function saveAnalytics(uid: string, data: Record<string, any>): Pro
  */
 export async function saveHealthCheck(uid: string, status: 'healthy' | 'degraded' | 'unhealthy', details: Record<string, any>): Promise<string> {
   try {
+    const db = getDb();
     const healthData = {
       uid,
       status,
       details,
-      createdAt: serverTimestamp()
+      createdAt: Date.now()
     };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.HEALTH_CHECKS), healthData);
+    const docRef = await db.collection(COLLECTIONS.HEALTH_CHECKS).add(healthData);
     
     logger.info('Saved health check', { healthCheckId: docRef.id, uid, status });
     return docRef.id;
@@ -347,13 +358,13 @@ export async function saveHealthCheck(uid: string, status: 'healthy' | 'degraded
  */
 export async function saveSimilarityCluster(uid: string, clusters: Record<string, any>): Promise<string> {
   try {
+    const db = getDb();
     const clusterData = {
       uid,
       clusters,
-      createdAt: serverTimestamp()
+      createdAt: Date.now()
     };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.SIMILARITY_CLUSTERS), clusterData);
+    const docRef = await db.collection(COLLECTIONS.SIMILARITY_CLUSTERS).add(clusterData);
     
     logger.info('Saved similarity cluster', { clusterId: docRef.id, uid });
     return docRef.id;
@@ -369,13 +380,13 @@ export async function saveSimilarityCluster(uid: string, clusters: Record<string
  */
 export async function saveVersionLinks(uid: string, chains: Record<string, any>): Promise<string> {
   try {
+    const db = getDb();
     const versionData = {
       uid,
       chains,
-      createdAt: serverTimestamp()
+      createdAt: Date.now()
     };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.VERSION_LINKS), versionData);
+    const docRef = await db.collection(COLLECTIONS.VERSION_LINKS).add(versionData);
     
     logger.info('Saved version links', { versionId: docRef.id, uid });
     return docRef.id;
@@ -391,13 +402,14 @@ export async function saveVersionLinks(uid: string, chains: Record<string, any>)
  */
 export async function batchDeleteDocuments(collectionName: string, docIds: string[]): Promise<void> {
   try {
-    const batch = writeBatch(db);
-    
+    const db = getDb();
+    const batch = db.batch();
+
     for (const docId of docIds) {
-      const docRef = doc(db, collectionName, docId);
-      batch.delete(docRef);
+      const ref = db.collection(collectionName).doc(docId);
+      batch.delete(ref);
     }
-    
+
     await batch.commit();
     
     logger.info('Batch deleted documents', { collection: collectionName, count: docIds.length });
@@ -413,16 +425,17 @@ export async function batchDeleteDocuments(collectionName: string, docIds: strin
  */
 export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'unhealthy'; details: Record<string, any> }> {
   try {
+    const db = getDb();
     // Try to read from a test document
-    const testDocRef = doc(db, 'health', 'test');
-    const testDocSnap = await getDoc(testDocRef);
+    const testDocRef = db.collection('health').doc('test');
+    const testDocSnap = await testDocRef.get();
     
     return {
       status: 'healthy',
       details: {
         connected: true,
         timestamp: new Date().toISOString(),
-        testDocExists: testDocSnap.exists()
+        testDocExists: testDocSnap.exists
       }
     };
     
@@ -444,34 +457,28 @@ export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'unhe
  */
 export async function getLatestAnalytics(uid: string, type?: string): Promise<any | null> {
   try {
-    let q = query(
-      collection(db, COLLECTIONS.ANALYTICS),
-      where('uid', '==', uid),
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(1)
-    );
+    const db = getDb();
+    let q = db.collection(COLLECTIONS.ANALYTICS)
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1);
 
     if (type) {
-      q = query(
-        collection(db, COLLECTIONS.ANALYTICS),
-        where('uid', '==', uid),
-        where('data.type', '==', type),
-        orderBy('createdAt', 'desc'),
-        firestoreLimit(1)
-      );
+      q = db.collection(COLLECTIONS.ANALYTICS)
+        .where('uid', '==', uid)
+        .where('data.type', '==', type)
+        .orderBy('createdAt', 'desc')
+        .limit(1);
     }
-    
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
+
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
       return null;
     }
-    
-    const doc = querySnapshot.docs[0];
-    return {
-      id: doc.id,
-      ...doc.data(),
-    };
+
+    const docSnap = snapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() };
     
   } catch (error) {
     logger.error('Error retrieving latest analytics', undefined, { uid, type, error: error instanceof Error ? error.message : String(error) });
@@ -490,15 +497,13 @@ export async function getDashboardStats(uid: string): Promise<any> {
     // Get recent analytics (last 7 days)
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    
-    const recentQuery = query(
-      collection(db, COLLECTIONS.ANALYTICS),
-      where('uid', '==', uid),
-      where('createdAt', '>=', weekAgo),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const recentSnapshot = await getDocs(recentQuery);
+
+    const db = getDb();
+    const recentSnapshot = await db.collection(COLLECTIONS.ANALYTICS)
+      .where('uid', '==', uid)
+      .where('createdAt', '>=', weekAgo.getTime())
+      .orderBy('createdAt', 'desc')
+      .get();
     
     const stats = {
       totalFiles: 0,
@@ -517,7 +522,9 @@ export async function getDashboardStats(uid: string): Promise<any> {
       stats.totalFiles = scanData.totalFiles || 0;
       stats.totalSize = scanData.totalSize || 0;
       stats.duplicateFiles = scanData.duplicateCandidates?.length || 0;
-      stats.lastScanTime = latestScan.createdAt?.toDate() || null;
+      // Normalize to Date
+      const created = (latestScan as any).createdAt;
+      stats.lastScanTime = created ? toDate(created) : null;
       
       // Calculate quality score based on scan results
       const hasRecentScan = stats.lastScanTime && (Date.now() - stats.lastScanTime.getTime()) < 24 * 60 * 60 * 1000;
@@ -576,10 +583,10 @@ export interface ScanJob {
     insights?: any;
   };
   error?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  startedAt?: Timestamp;
-  completedAt?: Timestamp;
+  createdAt: number;
+  updatedAt: number;
+  startedAt?: number;
+  completedAt?: number;
 }
 
 /**
@@ -690,6 +697,32 @@ export async function updateScanJobProgress(
 }
 
 /**
+ * Cancels a scan job by setting its status to 'cancelled'.
+ */
+export async function cancelScanJob(jobId: string, uid?: string): Promise<void> {
+  const db = getDb();
+  const jobRef = db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId);
+  const snap = await jobRef.get();
+  if (!snap.exists) return;
+  const data = snap.data() as ScanJob;
+  if (uid && data.uid !== uid) {
+    throw new Error('Not authorized to cancel this job');
+  }
+  await jobRef.update({ status: 'cancelled', updatedAt: Date.now() });
+}
+
+/**
+ * Returns true if the job has been cancelled by the user.
+ */
+export async function isScanCancelled(jobId: string): Promise<boolean> {
+  const db = getDb();
+  const snap = await db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId).get();
+  if (!snap.exists) return false;
+  const data = snap.data() as ScanJob;
+  return data.status === 'cancelled';
+}
+
+/**
  * Completes a scan job with results
  */
 export async function completeScanJob(
@@ -745,18 +778,13 @@ export async function failScanJob(jobId: string, error: string): Promise<void> {
  */
 export async function getUserScanJobs(uid: string, limit: number = 10): Promise<ScanJob[]> {
   try {
-    const q = query(
-      collection(db, COLLECTIONS.SCAN_JOBS),
-      where('uid', '==', uid),
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(limit)
-    );
-
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as ScanJob));
+    const db = getDb();
+    const snapshot = await db.collection(COLLECTIONS.SCAN_JOBS)
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get();
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ScanJob));
   } catch (error) {
     logger.error(`Failed to get user scan jobs for ${uid}: ${error instanceof Error ? error.message : error}`);
     return [];
@@ -775,8 +803,8 @@ export interface FileIndexEntry {
   md5Checksum?: string;
   version: number; // Revision version from Drive
   lastScanId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: number;
+  updatedAt: number;
   isDeleted?: boolean;
 }
 
@@ -790,7 +818,7 @@ export interface ScanDelta {
   oldPath?: string;
   newPath?: string;
   sizeChange?: number;
-  timestamp: Timestamp;
+  timestamp: number;
   processed: boolean;
 }
 
@@ -954,35 +982,31 @@ export async function getChangedFilesSinceLastScan(
   lastScanId?: string
 ): Promise<ScanDelta[]> {
   try {
-    let q = query(
-      collection(db, COLLECTIONS.SCAN_DELTAS),
-      where('uid', '==', uid),
-      where('processed', '==', false),
-      orderBy('timestamp', 'desc')
-    );
+    const db = getDb();
+    let q = db.collection(COLLECTIONS.SCAN_DELTAS)
+      .where('uid', '==', uid)
+      .where('processed', '==', false)
+      .orderBy('timestamp', 'desc');
 
     if (lastScanId) {
-      // Get changes since specific scan
-      const lastScanQuery = query(
-        collection(db, COLLECTIONS.SCAN_DELTAS),
-        where('uid', '==', uid),
-        where('scanId', '==', lastScanId)
-      );
-      
-      const lastScanSnapshot = await getDocs(lastScanQuery);
+      const lastScanSnapshot = await db.collection(COLLECTIONS.SCAN_DELTAS)
+        .where('uid', '==', uid)
+        .where('scanId', '==', lastScanId)
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .get();
+
       if (!lastScanSnapshot.empty) {
         const lastScanTime = lastScanSnapshot.docs[0].data().timestamp;
-        q = query(
-          collection(db, COLLECTIONS.SCAN_DELTAS),
-          where('uid', '==', uid),
-          where('timestamp', '>', lastScanTime),
-          orderBy('timestamp', 'desc')
-        );
+        q = db.collection(COLLECTIONS.SCAN_DELTAS)
+          .where('uid', '==', uid)
+          .where('timestamp', '>', lastScanTime)
+          .orderBy('timestamp', 'desc');
       }
     }
 
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as ScanDelta);
+    const snapshot = await q.get();
+    return snapshot.docs.map(d => d.data() as ScanDelta);
   } catch (error) {
     logger.error(`Failed to get changed files for user ${uid}: ${error instanceof Error ? error.message : error}`);
     return [];
