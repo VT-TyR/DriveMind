@@ -109,12 +109,22 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // Start the background processing (don't await - let it run async)
-    logger.info('🚀 Starting background scan process...');
-    processBackgroundScan(uid, jobId, type, config).catch(error => {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      logger.error(`💥 Background scan failed for user ${uid}, job ${jobId}: ${errorMessage}`);
-      failScanJob(jobId, errorMessage);
+    // Use the Cloud Function scan runner directly (until Functions are deployed)
+    logger.info('🚀 Starting background scan process via scan runner...');
+    setImmediate(async () => {
+      try {
+        const { runScanJob } = await import('../../../../../../functions/src/scan-runner');
+        const { getAdminFirestore } = await import('@/lib/admin');
+        const db = getAdminFirestore();
+        await runScanJob(db, jobId);
+        logger.info(`✅ Scan job completed via scan runner: ${jobId}`);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        logger.error(`💥 Scan runner failed for user ${uid}, job ${jobId}: ${errorMessage}`);
+        failScanJob(jobId, errorMessage).catch(failError => {
+          logger.error(`💥 Failed to update job failure status: ${failError.message}`);
+        });
+      }
     });
 
     logger.info('✅ Background scan initiated successfully');
