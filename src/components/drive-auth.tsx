@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ function DriveAuthInternal() {
   const [checking, setChecking] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   // Check drive connection status on mount and URL changes
   useEffect(() => {
@@ -67,8 +68,8 @@ function DriveAuthInternal() {
         if (response.ok) {
           setDriveConnected(true);
           setError(null);
-          // Clean up URL parameters
-          router.replace(window.location.pathname);
+          // Clean up URL parameters by reloading the page without query params
+          window.location.href = pathname;
         } else {
           const errorData = await response.json();
           setError(`Connection failed: ${errorData.error || 'Unknown error'}`);
@@ -87,7 +88,7 @@ function DriveAuthInternal() {
     if (oauthError) {
       console.error('OAuth error from Google:', oauthError);
       setError(`Connection failed: ${oauthError.replace(/_/g, ' ')}`);
-      router.replace(window.location.pathname);
+      window.location.href = pathname;
       return;
     }
 
@@ -131,12 +132,12 @@ function DriveAuthInternal() {
     if (driveConnectedParam === 'true') {
       setDriveConnected(true);
       setError(null);
-      // Clean up URL parameters
-      router.replace(window.location.pathname);
+      // Clean up URL parameters by reloading the page without query params
+      window.location.href = pathname;
     } else if (errorParam) {
       setError(`Connection failed: ${errorParam.replace(/_/g, ' ')}`);
     }
-  }, [searchParams, router, driveConnecting, user]);
+  }, [searchParams, router, driveConnecting, user, pathname]);
 
   const handleConnectToDrive = async () => {
     if (!user) {
