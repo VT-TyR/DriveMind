@@ -6,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/admin';
 import { z } from 'zod';
+import { rateLimiters } from '@/lib/security/rate-limiter';
+import { securityMiddleware, sanitizeInput } from '@/lib/security/middleware';
+import crypto from 'crypto';
 import { 
   createScanJob, 
   updateScanJobProgress, 
@@ -25,10 +28,10 @@ const StartScanSchema = z.object({
   type: z.enum(['drive_scan', 'full_analysis', 'duplicate_detection']).optional().default('full_analysis'),
   config: z
     .object({
-      maxDepth: z.number().int().min(1).max(50).optional(),
+      maxDepth: z.number().int().min(1).max(10).optional(), // Reduced max depth for security
       includeTrashed: z.boolean().optional(),
-      rootFolderId: z.string().optional(),
-      fileTypes: z.array(z.string()).max(50).optional(),
+      rootFolderId: z.string().uuid().optional(), // Validate UUID format
+      fileTypes: z.array(z.string().max(50)).max(10).optional(), // Limit array size
       forceFull: z.boolean().optional().default(false),
       forceDelta: z.boolean().optional().default(false),
     })
@@ -37,130 +40,149 @@ const StartScanSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  try {
-    logger.info('📡 Background scan API called');
-    
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      logger.warn('❌ No authorization token provided');
-      return NextResponse.json({ error: 'No authorization token provided' }, { status: 401 });
-    }
-    logger.info(`🔑 Authorization token received, length: ${token.length}`);
-
-    const auth = getAdminAuth();
-    if (!auth) {
-      logger.error('💥 Firebase Admin not initialized');
-      return NextResponse.json({ error: 'Firebase Admin not initialized' }, { status: 500 });
-    }
-    logger.info('✅ Firebase Admin Auth initialized');
-    
-    logger.info('🔍 Verifying Firebase ID token...');
-    let uid: string;
-    try {
-      const decodedToken = await auth.verifyIdToken(token);
-      uid = decodedToken.uid;
-      logger.info(`✅ Token verified for user: ${uid}`);
-    } catch (error) {
-      logger.error(`🚫 Token verification failed: ${error.message}`);
-      throw error;
-    }
-
-    // Check if there's already an active scan
-    logger.info('🔍 Checking for active scan jobs...');
-    let activeScan;
-    try {
-      activeScan = await getActiveScanJob(uid);
-      if (activeScan) {
-        logger.info(`⚡ Found active scan: ${activeScan.id}, status: ${activeScan.status}`);
-        return NextResponse.json({
-          message: 'Scan already in progress',
-          jobId: activeScan.id,
-          status: activeScan.status,
-          progress: activeScan.progress,
-        }, { status: 409 });
-      }
-      logger.info('✅ No active scan found');
-    } catch (error) {
-      logger.error(`💥 Failed to check active scan: ${error.message}`);
-      throw error;
-    }
-
-    logger.info('📋 Parsing request body...');
-    let type, config;
-    try {
-      const json = await request.json().catch(() => ({}));
-      const parsed = StartScanSchema.parse(json);
-      type = parsed.type;
-      config = parsed.config;
-      logger.info(`📊 Scan configuration: type=${type}, config=${JSON.stringify(config)}`);
-    } catch (error) {
-      logger.error(`📋 Failed to parse request body: ${error.message}`);
-      throw error;
-    }
-
-    // Create the background scan job
-    logger.info('🗂️ Creating scan job...');
-    let jobId;
-    try {
-      jobId = await createScanJob(uid, type, config);
-      logger.info(`✅ Scan job created: ${jobId}`);
-    } catch (error) {
-      logger.error(`💥 Failed to create scan job: ${error.message}`);
-      throw error;
-    }
-
-    // Use the Cloud Function scan runner directly (until Functions are deployed)
-    logger.info('🚀 Starting background scan process via scan runner...');
-    setImmediate(async () => {
+  // Apply rate limiting for expensive operations
+  return rateLimiters.expensive(request, async (req) => {
+    // Apply security middleware
+    return securityMiddleware(req, async (req) => {
+      const requestId = crypto.randomUUID();
+      const startTime = Date.now();
+      
       try {
-        const { runScanJob } = await import('../../../../../../functions/src/scan-runner');
-        const { getAdminFirestore } = await import('@/lib/admin');
-        const db = getAdminFirestore();
-        await runScanJob(db, jobId);
-        logger.info(`✅ Scan job completed via scan runner: ${jobId}`);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        logger.error(`💥 Scan runner failed for user ${uid}, job ${jobId}: ${errorMessage}`);
-        failScanJob(jobId, errorMessage).catch(failError => {
-          logger.error(`💥 Failed to update job failure status: ${failError.message}`);
+        logger.info('Background scan API called', { requestId });
+    
+        const token = req.headers.get('authorization')?.replace('Bearer ', '');
+        if (!token) {
+          logger.warn('No authorization token provided', { requestId });
+          return NextResponse.json(
+            { error: 'Authentication required', requestId },
+            { status: 401 }
+          );
+        }
+
+        const auth = getAdminAuth();
+        if (!auth) {
+          logger.error('Firebase Admin not initialized', { requestId });
+          return NextResponse.json(
+            { error: 'Service temporarily unavailable', requestId },
+            { status: 503 }
+          );
+        }
+    
+        let uid: string;
+        try {
+          const decodedToken = await auth.verifyIdToken(token);
+          uid = decodedToken.uid;
+          const userHash = crypto.createHash('sha256').update(uid).digest('hex').substring(0, 8);
+          logger.info('Token verified', { requestId, userHash });
+        } catch (error) {
+          logger.error('Token verification failed', { requestId });
+          return NextResponse.json(
+            { error: 'Invalid authentication token', requestId },
+            { status: 401 }
+          );
+        }
+
+        // Check if there's already an active scan
+        let activeScan;
+        try {
+          activeScan = await getActiveScanJob(uid);
+          if (activeScan) {
+            logger.info('Active scan found', { requestId, jobId: activeScan.id });
+            return NextResponse.json({
+              message: 'Scan already in progress',
+              jobId: activeScan.id,
+              status: activeScan.status,
+              progress: activeScan.progress,
+              requestId,
+            }, { status: 409 });
+          }
+        } catch (error) {
+          logger.error('Failed to check active scan', { requestId });
+          return NextResponse.json(
+            { error: 'Service error', requestId },
+            { status: 500 }
+          );
+        }
+
+        // Parse and validate request body
+        let type, config;
+        try {
+          const json = await req.json().catch(() => ({}));
+          const sanitized = sanitizeInput(json);
+          const parsed = StartScanSchema.parse(sanitized);
+          type = parsed.type;
+          config = parsed.config;
+          logger.info('Scan configuration parsed', { requestId, type });
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            logger.warn('Invalid request body', { requestId, errors: error.flatten() });
+            return NextResponse.json(
+              { error: 'Invalid request parameters', requestId },
+              { status: 400 }
+            );
+          }
+          throw error;
+        }
+
+        // Create the background scan job
+        let jobId;
+        try {
+          jobId = await createScanJob(uid, type, config);
+          logger.info('Scan job created', { requestId, jobId });
+        } catch (error) {
+          logger.error('Failed to create scan job', { requestId });
+          return NextResponse.json(
+            { error: 'Failed to initiate scan', requestId },
+            { status: 500 }
+          );
+        }
+
+        // Start background scan process
+        setImmediate(async () => {
+          try {
+            await processBackgroundScan(uid, jobId, type, config);
+            const userHash = crypto.createHash('sha256').update(uid).digest('hex').substring(0, 8);
+            logger.info('Scan job completed', { requestId, jobId, userHash });
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            logger.error('Scan runner failed', { requestId, jobId, error: errorMessage });
+            failScanJob(jobId, 'Scan processing failed').catch(failError => {
+              logger.error('Failed to update job failure status', { requestId, jobId });
+            });
+          }
         });
+
+        const duration = Date.now() - startTime;
+        logger.info('Background scan initiated', { requestId, jobId, duration });
+        
+        return NextResponse.json({ 
+          message: 'Background scan started',
+          jobId,
+          status: 'pending',
+          requestId,
+        });
+
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        logger.error('Background scan API error', {
+          requestId,
+          error: errorMessage,
+          duration,
+        });
+        
+        // Return sanitized error response
+        return NextResponse.json(
+          { 
+            error: 'Failed to start background scan',
+            requestId,
+          },
+          { status: 500 }
+        );
       }
     });
-
-    logger.info('✅ Background scan initiated successfully');
-    return NextResponse.json({ 
-      message: 'Background scan started',
-      jobId,
-      status: 'pending'
-    });
-
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      logger.error(`📋 Zod validation error: ${JSON.stringify(error.flatten())}`);
-      return NextResponse.json({ error: 'Invalid request body', details: error.flatten() }, { status: 400 });
-    }
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace';
-    logger.error(`💥 Background scan API error: ${errorMessage}`);
-    logger.error(`📍 Error stack trace: ${errorStack}`);
-    
-    // More detailed error context
-    logger.error(`🔍 Error type: ${typeof error}`);
-    logger.error(`🔍 Error constructor: ${error.constructor?.name}`);
-    logger.error(`🔍 Error details: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-    
-    // Return more specific error information
-    return NextResponse.json(
-      { 
-        error: 'Failed to start background scan', 
-        details: errorMessage,
-        errorType: typeof error,
-        errorConstructor: error.constructor?.name,
-        timestamp: new Date().toISOString()
-      },
-      { status: 500 }
-    );
-  }
+  });
 }
 
 const CancelSchema = z.object({

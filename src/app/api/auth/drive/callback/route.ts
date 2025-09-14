@@ -2,18 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { cookies } from 'next/headers';
 import { saveUserRefreshToken } from '@/lib/token-store';
+import { rateLimiters } from '@/lib/security/rate-limiter';
+import { securityMiddleware, sanitizeInput } from '@/lib/security/middleware';
+import { z } from 'zod';
+import { logger } from '@/lib/logger';
+import crypto from 'crypto';
+
+// Schema for callback validation
+const CallbackSchema = z.object({
+  code: z.string().optional(),
+  state: z.string().optional(),
+  error: z.string().optional(),
+});
 
 // Handle both GET (direct redirects) and POST (from frontend) requests
 export async function GET(request: NextRequest) {
-  return handleCallback(request, 'GET');
+  return rateLimiters.auth(request, async (req) => {
+    return securityMiddleware(req, async (req) => {
+      return handleCallback(req, 'GET');
+    });
+  });
 }
 
 export async function POST(request: NextRequest) {
-  return handleCallback(request, 'POST');
+  return rateLimiters.auth(request, async (req) => {
+    return securityMiddleware(req, async (req) => {
+      return handleCallback(req, 'POST');
+    });
+  });
 }
 
 async function handleCallback(request: NextRequest, method: string) {
-  console.log(`OAuth callback invoked via ${method}:`, new Date().toISOString());
+  const requestId = crypto.randomUUID();
+  logger.info(`OAuth callback via ${method}`, { requestId });
+  
   try {
     let code: string | null;
     let state: string | null;
@@ -22,9 +44,19 @@ async function handleCallback(request: NextRequest, method: string) {
     if (method === 'POST') {
       // Handle POST request from frontend
       const body = await request.json();
-      code = body.code;
-      state = body.state;
-      error = body.error;
+      const parsed = CallbackSchema.safeParse(body);
+      
+      if (!parsed.success) {
+        logger.warn('Invalid callback parameters', { requestId });
+        return NextResponse.json(
+          { error: 'Invalid request parameters' },
+          { status: 400 }
+        );
+      }
+      
+      code = parsed.data.code || null;
+      state = parsed.data.state || null;
+      error = parsed.data.error || null;
     } else {
       // Handle GET request (direct redirect from Google)
       const { searchParams } = new URL(request.url);
@@ -33,19 +65,45 @@ async function handleCallback(request: NextRequest, method: string) {
       error = searchParams.get('error');
     }
     
-    console.log('OAuth callback params:', { hasCode: !!code, hasError: !!error, state });
+    // Validate and decode state parameter
+    let userId: string | undefined;
+    if (state) {
+      try {
+        const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
+        // Validate state freshness (5 minute window)
+        if (decoded.timestamp && Date.now() - decoded.timestamp > 300000) {
+          logger.warn('Expired state parameter', { requestId });
+          if (method === 'POST') {
+            return NextResponse.json({ error: 'expired_state' }, { status: 400 });
+          }
+          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=expired_state`);
+        }
+        userId = decoded.userId;
+      } catch (e) {
+        // Legacy state format (just userId)
+        userId = state;
+      }
+    }
+    
+    logger.info('OAuth callback parameters', {
+      requestId,
+      hasCode: !!code,
+      hasError: !!error,
+      hasUserId: !!userId,
+    });
     
     // Handle OAuth errors
     if (error) {
-      console.error('OAuth callback error:', error);
+      logger.error('OAuth error received', { requestId, error });
+      const sanitizedError = sanitizeInput(error) as string;
       if (method === 'POST') {
-        return NextResponse.json({ error: `oauth_${error}` }, { status: 400 });
+        return NextResponse.json({ error: `oauth_${sanitizedError}` }, { status: 400 });
       }
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_${error}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_${sanitizedError}`);
     }
     
     if (!code) {
-      console.error('No authorization code received');
+      logger.error('No authorization code received', { requestId });
       if (method === 'POST') {
         return NextResponse.json({ error: 'no_auth_code' }, { status: 400 });
       }
@@ -56,26 +114,21 @@ async function handleCallback(request: NextRequest, method: string) {
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
     
     if (!clientId || !clientSecret) {
-      console.error('Missing OAuth credentials in callback');
+      logger.error('OAuth configuration incomplete', { requestId });
       if (method === 'POST') {
-        return NextResponse.json({ error: 'oauth_config_missing' }, { status: 500 });
+        return NextResponse.json({ error: 'service_configuration_error' }, { status: 500 });
       }
-      return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=oauth_config_missing`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=service_configuration_error`);
     }
     
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app'}/api/auth/drive/callback`;
     
-    console.log('OAuth callback - credential validation:', {
-      clientIdLength: clientId?.length,
-      clientSecretLength: clientSecret?.length,
-      clientIdStart: clientId?.substring(0, 20),
-      clientSecretStart: clientSecret?.substring(0, 8),
-      redirectUri,
-      codeLength: code?.length,
-      hasWhitespace: {
-        clientId: clientId?.includes(' ') || clientId?.includes('\n'),
-        clientSecret: clientSecret?.includes(' ') || clientSecret?.includes('\n')
-      }
+    // Log without exposing sensitive credentials
+    logger.debug('OAuth credential validation', {
+      requestId,
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      redirectUri: redirectUri.replace(/https?:\/\/[^\/]+/, '[REDACTED]'),
     });
     
     const oauth2Client = new google.auth.OAuth2(
@@ -84,16 +137,16 @@ async function handleCallback(request: NextRequest, method: string) {
       redirectUri
     );
     
-    console.log('OAuth callback - attempting token exchange...');
+    logger.info('Attempting token exchange', { requestId });
     
     // Exchange code for tokens
     const { tokens } = await oauth2Client.getToken(code);
     
-    console.log('OAuth callback - tokens received:', {
+    logger.info('Tokens received successfully', {
+      requestId,
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
       expiryDate: tokens.expiry_date,
-      hasState: !!state,
     });
     
     // Create appropriate response based on request method
@@ -129,59 +182,50 @@ async function handleCallback(request: NextRequest, method: string) {
     }
 
     // Persist refresh token to Firestore so server flows can use it
-    if (tokens.refresh_token) {
-      if (state) {
-        // We have a userId from the state parameter - save directly
-        try {
-          await saveUserRefreshToken(state, tokens.refresh_token);
-          console.log(`✅ Saved refresh token to Firestore for user: ${state}`);
-        } catch (e) {
-          console.error('Failed to persist refresh token for user', state, e);
-          // Don't let Firestore errors break the OAuth flow
-        }
-      } else {
-        console.log('ℹ️ No userId in state - refresh token saved in cookies only');
-        console.log('ℹ️ Token will be synced to Firestore when user signs in and calls sync endpoint');
+    if (tokens.refresh_token && userId) {
+      try {
+        await saveUserRefreshToken(userId, tokens.refresh_token);
+        // Hash userId for logging
+        const hashedUserId = crypto.createHash('sha256').update(userId).digest('hex').substring(0, 8);
+        logger.info('Refresh token persisted', { requestId, userHash: hashedUserId });
+      } catch (e) {
+        logger.error('Failed to persist refresh token', {
+          requestId,
+          error: e instanceof Error ? e.message : 'Unknown error',
+        });
+        // Don't let Firestore errors break the OAuth flow
       }
+    } else if (!userId) {
+      logger.info('No userId available - token saved in cookies only', { requestId });
     }
 
     return res;
     
   } catch (error: any) {
-    console.error('OAuth callback processing error:', {
-      error: error?.message,
-      stack: error?.stack,
-      name: error?.name,
+    // Log error securely without exposing sensitive information
+    const errorMessage = error?.message || 'Unknown error';
+    logger.error('OAuth callback failed', {
+      requestId,
+      error: errorMessage,
       code: error?.code || 'unknown',
-      timestamp: new Date().toISOString(),
-      // Additional debugging info
-      response: error?.response?.data,
-      status: error?.response?.status,
-      fullError: JSON.stringify(error, null, 2)
     });
     
-    // More specific error handling
-    let errorType = 'oauth_callback_failed';
-    let errorDetails = '';
+    // Map error to user-friendly message
+    let errorType = 'authentication_failed';
     
-    if (error?.message?.includes('invalid_client')) {
-      errorType = 'invalid_client_credentials';
-      errorDetails = 'Client ID or secret mismatch with Google Console';
-    } else if (error?.message?.includes('invalid_grant')) {
-      errorType = 'invalid_authorization_code';
-      errorDetails = 'Authorization code expired or invalid';
-    } else if (error?.message?.includes('redirect_uri_mismatch')) {
-      errorType = 'redirect_uri_mismatch';
-      errorDetails = 'Redirect URI does not match Google Console configuration';
-    } else {
-      errorDetails = error?.message || 'Unknown OAuth error';
+    if (errorMessage.includes('invalid_client')) {
+      errorType = 'configuration_error';
+    } else if (errorMessage.includes('invalid_grant')) {
+      errorType = 'expired_authorization';
+    } else if (errorMessage.includes('redirect_uri_mismatch')) {
+      errorType = 'configuration_error';
     }
-    
-    console.error(`OAuth Error Details: ${errorType} - ${errorDetails}`);
     
     if (method === 'POST') {
-      return NextResponse.json({ error: errorType, details: errorDetails }, { status: 500 });
+      return NextResponse.json({ error: errorType }, { status: 500 });
     }
-    return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}&details=${encodeURIComponent(errorDetails)}`);
+    
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app';
+    return NextResponse.redirect(`${baseUrl}/ai?error=${errorType}`);
   }
 }

@@ -17,9 +17,33 @@ env:
       - BUILD
       - RUNTIME
   
-  # Complete Firebase Config as JSON
-  - variable: NEXT_PUBLIC_FIREBASE_CONFIG
-    value: '{"apiKey":"AIzaSyCVbO-u__2o-AF6IAQYZVeJ14vuMssxGXk","authDomain":"drivemind-q69b7.firebaseapp.com","projectId":"drivemind-q69b7","storageBucket":"drivemind-q69b7.firebasestorage.app","messagingSenderId":"687330755440","appId":"1:687330755440:web:3ce0727b1a2afc16fac5b5"}'
+  # Firebase configuration (use environment-specific values)
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: FIREBASE_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+  
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: drivemind-q69b7.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: drivemind-q69b7.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: FIREBASE_MESSAGING_SENDER_ID
+    availability:
+      - BUILD
+      - RUNTIME
+  
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: FIREBASE_APP_ID
     availability:
       - BUILD
       - RUNTIME

@@ -38,6 +38,9 @@
     "node_modules",
     "functions",
     "drivemind",
-    "src/__tests__"
+    "src/__tests__",
+    "artifacts",
+    "codexcore",
+    "reports"
   ]
 }
