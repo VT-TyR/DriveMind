@@ -1,0 +1,657 @@
+{
+  "version": "1.0.0",
+  "project": "drivemind",
+  "description": "Design system tokens for DriveMind Google Drive management platform",
+  "standards": "ALPHA-CODENAME v1.4 compliant",
+  "lastUpdated": "2024-12-13T10:30:00Z",
+  
+  "colors": {
+    "description": "Dark-first color system with Material Design 3 influence",
+    "mode": "dark-first",
+    
+    "semantic": {
+      "primary": {
+        "50": "#f0f9ff",
+        "100": "#e0f2fe", 
+        "200": "#bae6fd",
+        "300": "#7dd3fc",
+        "400": "#38bdf8",
+        "500": "#0ea5e9",
+        "600": "#0284c7",
+        "700": "#0369a1",
+        "800": "#075985",
+        "900": "#0c4a6e",
+        "950": "#082f49",
+        "DEFAULT": "#0ea5e9"
+      },
+      
+      "secondary": {
+        "50": "#f8fafc",
+        "100": "#f1f5f9",
+        "200": "#e2e8f0", 
+        "300": "#cbd5e1",
+        "400": "#94a3b8",
+        "500": "#64748b",
+        "600": "#475569",
+        "700": "#334155",
+        "800": "#1e293b",
+        "900": "#0f172a",
+        "950": "#020617",
+        "DEFAULT": "#64748b"
+      },
+      
+      "success": {
+        "50": "#f0fdf4",
+        "100": "#dcfce7",
+        "200": "#bbf7d0", 
+        "300": "#86efac",
+        "400": "#4ade80",
+        "500": "#22c55e",
+        "600": "#16a34a",
+        "700": "#15803d",
+        "800": "#166534",
+        "900": "#14532d",
+        "950": "#052e16",
+        "DEFAULT": "#22c55e"
+      },
+      
+      "warning": {
+        "50": "#fffbeb",
+        "100": "#fef3c7",
+        "200": "#fde68a",
+        "300": "#fcd34d", 
+        "400": "#fbbf24",
+        "500": "#f59e0b",
+        "600": "#d97706",
+        "700": "#b45309",
+        "800": "#92400e",
+        "900": "#78350f",
+        "950": "#451a03",
+        "DEFAULT": "#f59e0b"
+      },
+      
+      "error": {
+        "50": "#fef2f2",
+        "100": "#fee2e2",
+        "200": "#fecaca",
+        "300": "#fca5a5",
+        "400": "#f87171",
+        "500": "#ef4444",
+        "600": "#dc2626", 
+        "700": "#b91c1c",
+        "800": "#991b1b",
+        "900": "#7f1d1d",
+        "950": "#450a0a",
+        "DEFAULT": "#ef4444"
+      },
+      
+      "info": {
+        "50": "#f0f9ff",
+        "100": "#e0f2fe",
+        "200": "#bae6fd",
+        "300": "#7dd3fc",
+        "400": "#38bdf8", 
+        "500": "#0ea5e9",
+        "600": "#0284c7",
+        "700": "#0369a1",
+        "800": "#075985",
+        "900": "#0c4a6e",
+        "950": "#082f49",
+        "DEFAULT": "#0ea5e9"
+      }
+    },
+    
+    "neutral": {
+      "description": "Grayscale system optimized for dark mode readability",
+      "50": "#f8fafc",
+      "100": "#f1f5f9", 
+      "200": "#e2e8f0",
+      "300": "#cbd5e1",
+      "400": "#94a3b8",
+      "500": "#64748b",
+      "600": "#475569",
+      "700": "#334155",
+      "800": "#1e293b",
+      "900": "#0f172a",
+      "950": "#020617",
+      "white": "#ffffff",
+      "black": "#000000"
+    },
+    
+    "google": {
+      "description": "Google brand colors for OAuth and Drive integration",
+      "blue": "#4285f4",
+      "red": "#ea4335", 
+      "yellow": "#fbbc05",
+      "green": "#34a853",
+      "drive": "#4285f4"
+    },
+    
+    "themes": {
+      "dark": {
+        "background": {
+          "primary": "#0f172a",
+          "secondary": "#1e293b",
+          "tertiary": "#334155",
+          "elevated": "#475569",
+          "overlay": "rgba(15, 23, 42, 0.9)",
+          "surface": "#1e293b"
+        },
+        
+        "foreground": {
+          "primary": "#f8fafc",
+          "secondary": "#cbd5e1",
+          "tertiary": "#94a3b8",
+          "muted": "#64748b",
+          "disabled": "#475569",
+          "inverse": "#0f172a"
+        },
+        
+        "border": {
+          "primary": "#334155",
+          "secondary": "#475569",
+          "focus": "#0ea5e9",
+          "error": "#ef4444",
+          "success": "#22c55e"
+        },
+        
+        "accent": {
+          "ai": "#8b5cf6",
+          "scan": "#06b6d4",
+          "duplicate": "#f59e0b", 
+          "organize": "#10b981"
+        }
+      },
+      
+      "light": {
+        "background": {
+          "primary": "#ffffff",
+          "secondary": "#f8fafc",
+          "tertiary": "#f1f5f9",
+          "elevated": "#e2e8f0",
+          "overlay": "rgba(255, 255, 255, 0.9)",
+          "surface": "#f8fafc"
+        },
+        
+        "foreground": {
+          "primary": "#0f172a",
+          "secondary": "#334155",
+          "tertiary": "#475569",
+          "muted": "#64748b",
+          "disabled": "#94a3b8",
+          "inverse": "#f8fafc"
+        },
+        
+        "border": {
+          "primary": "#e2e8f0",
+          "secondary": "#cbd5e1",
+          "focus": "#0ea5e9",
+          "error": "#ef4444",
+          "success": "#22c55e"
+        },
+        
+        "accent": {
+          "ai": "#8b5cf6",
+          "scan": "#06b6d4",
+          "duplicate": "#f59e0b",
+          "organize": "#10b981"
+        }
+      }
+    }
+  },
+  
+  "typography": {
+    "description": "Type scale optimized for readability and hierarchy",
+    
+    "fontFamily": {
+      "sans": ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+      "mono": ["JetBrains Mono", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+      "display": ["Inter", "system-ui", "sans-serif"]
+    },
+    
+    "fontSize": {
+      "xs": "12px",
+      "sm": "14px", 
+      "base": "16px",
+      "lg": "18px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "28px",
+      "4xl": "32px",
+      "5xl": "40px",
+      "6xl": "48px"
+    },
+    
+    "lineHeight": {
+      "xs": "16px",
+      "sm": "20px",
+      "base": "24px", 
+      "lg": "28px",
+      "xl": "28px",
+      "2xl": "32px",
+      "3xl": "36px",
+      "4xl": "40px",
+      "5xl": "48px",
+      "6xl": "56px"
+    },
+    
+    "fontWeight": {
+      "light": "300",
+      "normal": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700",
+      "extrabold": "800"
+    },
+    
+    "scale": {
+      "display-lg": {
+        "fontSize": "48px",
+        "lineHeight": "56px",
+        "fontWeight": "700",
+        "letterSpacing": "-0.02em"
+      },
+      "display": {
+        "fontSize": "40px", 
+        "lineHeight": "48px",
+        "fontWeight": "700",
+        "letterSpacing": "-0.02em"
+      },
+      "h1": {
+        "fontSize": "32px",
+        "lineHeight": "40px",
+        "fontWeight": "700",
+        "letterSpacing": "-0.01em"
+      },
+      "h2": {
+        "fontSize": "28px",
+        "lineHeight": "36px", 
+        "fontWeight": "600",
+        "letterSpacing": "-0.01em"
+      },
+      "h3": {
+        "fontSize": "24px",
+        "lineHeight": "32px",
+        "fontWeight": "600",
+        "letterSpacing": "0"
+      },
+      "h4": {
+        "fontSize": "20px",
+        "lineHeight": "28px",
+        "fontWeight": "500",
+        "letterSpacing": "0"
+      },
+      "h5": {
+        "fontSize": "18px",
+        "lineHeight": "24px",
+        "fontWeight": "500",
+        "letterSpacing": "0"
+      },
+      "h6": {
+        "fontSize": "16px",
+        "lineHeight": "20px",
+        "fontWeight": "500", 
+        "letterSpacing": "0"
+      },
+      "body-lg": {
+        "fontSize": "18px",
+        "lineHeight": "28px",
+        "fontWeight": "400",
+        "letterSpacing": "0"
+      },
+      "body": {
+        "fontSize": "16px",
+        "lineHeight": "24px",
+        "fontWeight": "400",
+        "letterSpacing": "0"
+      },
+      "body-sm": {
+        "fontSize": "14px",
+        "lineHeight": "20px",
+        "fontWeight": "400",
+        "letterSpacing": "0"
+      },
+      "caption": {
+        "fontSize": "12px",
+        "lineHeight": "16px",
+        "fontWeight": "400",
+        "letterSpacing": "0.01em"
+      },
+      "overline": {
+        "fontSize": "12px",
+        "lineHeight": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "0.08em",
+        "textTransform": "uppercase"
+      }
+    }
+  },
+  
+  "spacing": {
+    "description": "Consistent spacing scale based on 4px base unit",
+    "base": "4px",
+    
+    "scale": {
+      "0": "0px",
+      "0.5": "2px",
+      "1": "4px",
+      "1.5": "6px", 
+      "2": "8px",
+      "2.5": "10px",
+      "3": "12px",
+      "3.5": "14px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "7": "28px",
+      "8": "32px",
+      "9": "36px",
+      "10": "40px",
+      "11": "44px",
+      "12": "48px",
+      "14": "56px",
+      "16": "64px",
+      "18": "72px",
+      "20": "80px",
+      "24": "96px",
+      "28": "112px",
+      "32": "128px",
+      "36": "144px",
+      "40": "160px",
+      "44": "176px",
+      "48": "192px",
+      "52": "208px",
+      "56": "224px",
+      "60": "240px",
+      "64": "256px",
+      "72": "288px",
+      "80": "320px",
+      "96": "384px"
+    },
+    
+    "semantic": {
+      "section": "64px",
+      "component": "32px",
+      "element": "16px",
+      "inline": "8px",
+      "tight": "4px"
+    }
+  },
+  
+  "borderRadius": {
+    "description": "Rounded corner system for modern, friendly UI",
+    
+    "scale": {
+      "none": "0px",
+      "sm": "4px",
+      "default": "8px", 
+      "md": "12px",
+      "lg": "16px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "32px",
+      "full": "9999px"
+    },
+    
+    "semantic": {
+      "button": "8px",
+      "card": "12px",
+      "modal": "16px",
+      "input": "8px",
+      "avatar": "9999px",
+      "badge": "4px"
+    }
+  },
+  
+  "elevation": {
+    "description": "Box shadow system for depth and layering",
+    
+    "shadows": {
+      "none": "none",
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+      "default": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+      "inner": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)"
+    },
+    
+    "dark": {
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+      "default": "0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2)",
+      "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.6)"
+    },
+    
+    "semantic": {
+      "card": "md",
+      "modal": "2xl", 
+      "dropdown": "lg",
+      "tooltip": "sm",
+      "button": "sm",
+      "elevated": "lg"
+    }
+  },
+  
+  "animation": {
+    "description": "Motion system for smooth, purposeful animations",
+    
+    "duration": {
+      "fast": "150ms",
+      "normal": "200ms",
+      "slow": "300ms",
+      "slower": "500ms"
+    },
+    
+    "easing": {
+      "linear": "linear",
+      "ease": "ease", 
+      "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
+      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
+      "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    },
+    
+    "transitions": {
+      "all": "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+      "colors": "color 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+      "opacity": "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+      "shadow": "box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+      "transform": "transform 200ms cubic-bezier(0.4, 0, 0.2, 1)"
+    }
+  },
+  
+  "layout": {
+    "description": "Grid system and layout constraints",
+    
+    "breakpoints": {
+      "mobile": "0px",
+      "tablet": "768px",
+      "desktop": "1024px",
+      "xl": "1440px",
+      "2xl": "1920px"
+    },
+    
+    "container": {
+      "mobile": "100%",
+      "tablet": "768px", 
+      "desktop": "1024px",
+      "xl": "1200px",
+      "2xl": "1200px",
+      "padding": "16px"
+    },
+    
+    "grid": {
+      "columns": 12,
+      "gutter": "16px",
+      "margin": "16px"
+    },
+    
+    "sidebar": {
+      "mobile": "280px",
+      "tablet": "240px", 
+      "desktop": "280px"
+    },
+    
+    "header": {
+      "mobile": "56px",
+      "tablet": "64px",
+      "desktop": "64px"
+    },
+    
+    "zIndex": {
+      "base": "0",
+      "dropdown": "1000",
+      "modal": "2000",
+      "tooltip": "3000",
+      "toast": "4000",
+      "loading": "5000"
+    }
+  },
+  
+  "components": {
+    "description": "Component-specific design tokens",
+    
+    "button": {
+      "height": {
+        "sm": "32px",
+        "md": "40px", 
+        "lg": "48px"
+      },
+      "padding": {
+        "sm": "8px 12px",
+        "md": "12px 16px",
+        "lg": "16px 24px"
+      },
+      "borderRadius": "8px",
+      "fontWeight": "500"
+    },
+    
+    "input": {
+      "height": {
+        "sm": "32px",
+        "md": "40px",
+        "lg": "48px"
+      },
+      "padding": "12px 16px",
+      "borderRadius": "8px",
+      "borderWidth": "1px"
+    },
+    
+    "card": {
+      "padding": "24px",
+      "borderRadius": "12px",
+      "borderWidth": "1px"
+    },
+    
+    "modal": {
+      "borderRadius": "16px",
+      "padding": "32px",
+      "maxWidth": "600px"
+    },
+    
+    "table": {
+      "rowHeight": "48px",
+      "padding": "12px 16px",
+      "headerHeight": "56px"
+    },
+    
+    "sidebar": {
+      "width": "280px",
+      "itemHeight": "40px",
+      "padding": "8px 16px"
+    },
+    
+    "toast": {
+      "borderRadius": "8px",
+      "padding": "16px 20px",
+      "maxWidth": "400px"
+    }
+  },
+  
+  "states": {
+    "description": "Interactive state definitions for components",
+    
+    "opacity": {
+      "hover": "0.8",
+      "active": "0.9",
+      "disabled": "0.4",
+      "loading": "0.6"
+    },
+    
+    "focus": {
+      "outline": "2px solid #0ea5e9",
+      "outlineOffset": "2px",
+      "borderRadius": "8px"
+    },
+    
+    "selection": {
+      "background": "rgba(14, 165, 233, 0.1)",
+      "border": "#0ea5e9"
+    }
+  },
+  
+  "accessibility": {
+    "description": "WCAG AA+ compliance tokens",
+    
+    "contrast": {
+      "minimum": "4.5:1",
+      "enhanced": "7:1"
+    },
+    
+    "touch": {
+      "minimumTarget": "44px",
+      "recommendedTarget": "48px",
+      "spacing": "8px"
+    },
+    
+    "motion": {
+      "reduceMotion": "prefers-reduced-motion: reduce"
+    },
+    
+    "focus": {
+      "visible": "2px solid #0ea5e9",
+      "offset": "2px"
+    }
+  },
+  
+  "icons": {
+    "description": "Icon system sizing and styling",
+    
+    "sizes": {
+      "xs": "12px",
+      "sm": "16px",
+      "md": "20px", 
+      "lg": "24px",
+      "xl": "32px",
+      "2xl": "48px"
+    },
+    
+    "strokeWidth": {
+      "thin": "1px",
+      "normal": "1.5px",
+      "thick": "2px"
+    }
+  },
+  
+  "fileTypes": {
+    "description": "File type specific colors and icons",
+    
+    "colors": {
+      "document": "#3b82f6",
+      "spreadsheet": "#10b981",
+      "presentation": "#f59e0b", 
+      "image": "#8b5cf6",
+      "video": "#ef4444",
+      "audio": "#06b6d4",
+      "archive": "#6b7280",
+      "code": "#f97316",
+      "pdf": "#dc2626",
+      "folder": "#64748b",
+      "unknown": "#9ca3af"
+    }
+  }
+}

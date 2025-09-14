@@ -1,0 +1,607 @@
+{
+  "auth": {
+    "oauth_begin_success": {
+      "url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=123456789&redirect_uri=https%3A%2F%2Fstudio--drivemind-q69b7.us-central1.hosted.app%2Fapi%2Fauth%2Fdrive%2Fcallback&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive&access_type=offline&response_type=code&state=test-user-123&prompt=consent",
+      "state": "test-user-123"
+    },
+    "oauth_callback_success": {
+      "success": true,
+      "message": "Drive connected successfully",
+      "userId": "test-user-123"
+    },
+    "auth_status_authenticated": {
+      "authenticated": true,
+      "hasValidToken": true,
+      "tokenExpiry": "2024-12-13T14:30:00Z",
+      "scopes": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.metadata.readonly"
+      ]
+    },
+    "auth_status_expired": {
+      "authenticated": true,
+      "hasValidToken": false,
+      "tokenExpiry": "2024-12-13T08:30:00Z",
+      "scopes": [
+        "https://www.googleapis.com/auth/drive"
+      ]
+    },
+    "auth_status_unauthenticated": {
+      "authenticated": false,
+      "hasValidToken": false,
+      "tokenExpiry": null,
+      "scopes": []
+    },
+    "sync_tokens_success": {
+      "success": true,
+      "message": "Tokens synchronized to persistent storage"
+    }
+  },
+  "workflows": {
+    "scan_result_small": {
+      "scanId": "scan_small_123",
+      "totalFiles": 45,
+      "totalSize": 125829120,
+      "filesByType": {
+        "PDF": 12,
+        "Image": 18,
+        "Document": 10,
+        "Spreadsheet": 3,
+        "Presentation": 2
+      },
+      "folderDepth": 3,
+      "duplicateFiles": 4,
+      "unusedFiles": 8,
+      "largestFiles": [
+        {
+          "id": "1a2b3c4d5e6f",
+          "name": "Presentation_Large.pptx",
+          "type": "Presentation",
+          "size": 15728640,
+          "lastModified": "2024-12-10T09:15:00Z",
+          "path": ["Documents", "Presentations"],
+          "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        },
+        {
+          "id": "2b3c4d5e6f7g",
+          "name": "Video_Tutorial.mp4",
+          "type": "Video",
+          "size": 12582912,
+          "lastModified": "2024-12-08T14:30:00Z",
+          "path": ["Media", "Videos"],
+          "mimeType": "video/mp4"
+        }
+      ],
+      "completedAt": "2024-12-13T10:45:30Z",
+      "processingTime": 23.45
+    },
+    "scan_result_large": {
+      "scanId": "scan_large_456",
+      "totalFiles": 2847,
+      "totalSize": 8589934592,
+      "filesByType": {
+        "PDF": 421,
+        "Image": 1205,
+        "Document": 598,
+        "Spreadsheet": 156,
+        "Presentation": 89,
+        "Video": 142,
+        "Audio": 78,
+        "Archive": 34,
+        "Other": 124
+      },
+      "folderDepth": 8,
+      "duplicateFiles": 187,
+      "unusedFiles": 456,
+      "largestFiles": [
+        {
+          "id": "large_file_1",
+          "name": "Training_Video_Complete.mp4",
+          "type": "Video", 
+          "size": 1073741824,
+          "lastModified": "2024-11-15T16:20:00Z",
+          "path": ["Media", "Training", "2024"],
+          "mimeType": "video/mp4"
+        },
+        {
+          "id": "large_file_2",
+          "name": "Database_Backup.sql",
+          "type": "Other",
+          "size": 536870912,
+          "lastModified": "2024-12-01T02:00:00Z",
+          "path": ["Backups", "Database"],
+          "mimeType": "application/sql"
+        }
+      ],
+      "completedAt": "2024-12-13T11:23:15Z",
+      "processingTime": 187.92
+    },
+    "background_scan_initiated": {
+      "scanId": "bg_scan_789",
+      "status": "queued",
+      "estimatedCompletion": "2024-12-13T12:00:00Z"
+    },
+    "background_scan_running": {
+      "scanId": "bg_scan_789",
+      "status": "running",
+      "progress": 34,
+      "startTime": "2024-12-13T10:30:00Z",
+      "filesProcessed": 486,
+      "totalFiles": 1429,
+      "error": null
+    },
+    "background_scan_completed": {
+      "scanId": "bg_scan_789",
+      "status": "completed",
+      "progress": 100,
+      "startTime": "2024-12-13T10:30:00Z",
+      "completedAt": "2024-12-13T11:15:45Z",
+      "filesProcessed": 1429,
+      "totalFiles": 1429,
+      "error": null,
+      "results": {
+        "totalFiles": 1429,
+        "totalSize": 3221225472,
+        "filesByType": {
+          "PDF": 186,
+          "Image": 542,
+          "Document": 298,
+          "Other": 403
+        },
+        "duplicateFiles": 73,
+        "unusedFiles": 156
+      }
+    },
+    "duplicates_detection_result": {
+      "duplicateGroups": [
+        {
+          "groupId": "dup_group_1",
+          "files": [
+            {
+              "id": "file_original",
+              "name": "Invoice_Template.pdf",
+              "type": "PDF",
+              "size": 245760,
+              "lastModified": "2024-11-20T10:00:00Z",
+              "path": ["Documents", "Templates"],
+              "mimeType": "application/pdf"
+            },
+            {
+              "id": "file_duplicate_1",
+              "name": "Invoice Template (1).pdf",
+              "type": "PDF",
+              "size": 245760,
+              "lastModified": "2024-11-20T10:05:00Z",
+              "path": ["Downloads"],
+              "mimeType": "application/pdf"
+            },
+            {
+              "id": "file_duplicate_2",
+              "name": "Invoice_Template_Copy.pdf",
+              "type": "PDF",
+              "size": 245760,
+              "lastModified": "2024-11-22T09:15:00Z",
+              "path": ["Desktop"],
+              "mimeType": "application/pdf"
+            }
+          ],
+          "duplicateType": "exact_match",
+          "similarityScore": 1.0,
+          "recommendation": "keep_newest",
+          "spaceWasted": 491520
+        },
+        {
+          "groupId": "dup_group_2", 
+          "files": [
+            {
+              "id": "file_version_1",
+              "name": "Project_Proposal_v1.docx",
+              "type": "Document",
+              "size": 1048576,
+              "lastModified": "2024-12-01T14:00:00Z",
+              "path": ["Documents", "Projects"],
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
+            {
+              "id": "file_version_2",
+              "name": "Project_Proposal_v2.docx",
+              "type": "Document",
+              "size": 1126400,
+              "lastModified": "2024-12-05T16:30:00Z",
+              "path": ["Documents", "Projects"],
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
+          ],
+          "duplicateType": "version_series",
+          "similarityScore": 0.89,
+          "recommendation": "keep_largest",
+          "spaceWasted": 1048576
+        }
+      ],
+      "summary": {
+        "totalFiles": 2847,
+        "duplicateFiles": 187,
+        "spaceWasted": 125829120,
+        "duplicateGroups": 62
+      }
+    },
+    "organize_suggestions": {
+      "suggestions": [
+        {
+          "id": "suggestion_1",
+          "type": "folder_creation",
+          "title": "Create 'Invoices' folder in Documents",
+          "description": "Organize 23 PDF files that appear to be invoices into a dedicated folder structure",
+          "confidence": 0.94,
+          "impact": "high",
+          "affectedFiles": 23,
+          "estimatedTimeMinutes": 5,
+          "prerequisites": []
+        },
+        {
+          "id": "suggestion_2",
+          "type": "file_move",
+          "title": "Move media files to organized structure",
+          "description": "Relocate 47 image files from Downloads to appropriate Media folders based on content and date",
+          "confidence": 0.87,
+          "impact": "medium",
+          "affectedFiles": 47,
+          "estimatedTimeMinutes": 12,
+          "prerequisites": ["Create Media folder structure"]
+        },
+        {
+          "id": "suggestion_3",
+          "type": "structure_optimization",
+          "title": "Flatten deeply nested folder structure",
+          "description": "Simplify folder hierarchy in 'Documents/Work/Projects/2024/Q4/Reports' (7 levels deep) to improve accessibility",
+          "confidence": 0.76,
+          "impact": "medium",
+          "affectedFiles": 15,
+          "estimatedTimeMinutes": 8,
+          "prerequisites": ["Review folder contents", "Create simplified structure"]
+        }
+      ],
+      "folderStructure": {
+        "recommended": {
+          "Documents": {
+            "Invoices": {},
+            "Contracts": {},
+            "Reports": {}
+          },
+          "Media": {
+            "Images": {
+              "2024": {},
+              "Screenshots": {}
+            },
+            "Videos": {}
+          },
+          "Projects": {
+            "Active": {},
+            "Archive": {}
+          }
+        }
+      },
+      "rules": [
+        {
+          "id": "rule_1",
+          "name": "Invoice Auto-Organization",
+          "description": "Automatically move PDF files containing invoice keywords to Invoices folder",
+          "pattern": "*.pdf",
+          "action": "move",
+          "target": "/Documents/Invoices",
+          "conditions": {
+            "fileTypes": ["pdf"],
+            "namePattern": ".*(invoice|bill|receipt).*",
+            "sizeRange": {
+              "min": 10240,
+              "max": 10485760
+            }
+          },
+          "priority": 10
+        }
+      ]
+    }
+  },
+  "ai": {
+    "classification_result": {
+      "classifications": [
+        {
+          "fileId": "file_classify_1",
+          "fileName": "Monthly_Invoice_December.pdf",
+          "category": "Invoice",
+          "confidence": 0.96,
+          "tags": ["finance", "invoice", "december", "monthly"],
+          "reasoning": "Document contains standard invoice elements including amounts, vendor information, invoice number, and payment terms. Clear financial document structure with line items and totals."
+        },
+        {
+          "fileId": "file_classify_2",
+          "fileName": "Employment_Agreement_Smith.pdf",
+          "category": "Contract",
+          "confidence": 0.91,
+          "tags": ["legal", "contract", "employment", "agreement"],
+          "reasoning": "Legal document with contract structure including parties, terms and conditions, signatures, and standard employment clauses. Contains legal language typical of employment agreements."
+        },
+        {
+          "fileId": "file_classify_3",
+          "fileName": "Family_Vacation_Photos.jpg",
+          "category": "Personal",
+          "confidence": 0.83,
+          "tags": ["personal", "photos", "vacation", "family"],
+          "reasoning": "Image file with personal content based on filename suggesting family vacation photos. Classified as personal documentation not related to business activities."
+        },
+        {
+          "fileId": "file_classify_4",
+          "fileName": "Project_Requirements_2024.docx",
+          "category": "Work Document",
+          "confidence": 0.88,
+          "tags": ["work", "project", "requirements", "documentation"],
+          "reasoning": "Business document containing project specifications and requirements. Structure and content indicate professional work-related documentation with technical requirements and project details."
+        }
+      ]
+    },
+    "rule_proposal": {
+      "id": "proposed_rule_1",
+      "name": "Invoice Auto-Filing Rule",
+      "description": "Automatically organize PDF invoices based on vendor and date",
+      "pattern": "*.pdf",
+      "action": "move",
+      "target": "/Documents/Invoices/{vendor}/{year}",
+      "conditions": {
+        "fileTypes": ["pdf"],
+        "namePattern": ".*(invoice|bill).*",
+        "sizeRange": {
+          "min": 10240,
+          "max": 5242880
+        },
+        "dateRange": {
+          "after": "2024-01-01T00:00:00Z"
+        }
+      },
+      "isActive": true,
+      "priority": 20,
+      "createdAt": "2024-12-13T10:30:00Z"
+    },
+    "health_check_healthy": {
+      "status": "healthy",
+      "services": {
+        "gemini": {
+          "status": "operational",
+          "latency": 185,
+          "quotaRemaining": 2847
+        }
+      }
+    },
+    "health_check_degraded": {
+      "status": "degraded",
+      "services": {
+        "gemini": {
+          "status": "slow",
+          "latency": 1250,
+          "quotaRemaining": 156
+        }
+      }
+    },
+    "health_check_unavailable": {
+      "status": "unhealthy",
+      "services": {
+        "gemini": {
+          "status": "unavailable",
+          "latency": 0,
+          "quotaRemaining": 0
+        }
+      }
+    }
+  },
+  "system": {
+    "health_check_healthy": {
+      "status": "healthy",
+      "version": "1.0.0",
+      "uptime": 7256.892,
+      "timestamp": "2024-12-13T10:30:00Z",
+      "environment": "production",
+      "dependencies": {
+        "firebase": {
+          "status": "healthy",
+          "message": "Connected to Firestore",
+          "latency": 45,
+          "lastCheck": "2024-12-13T10:29:55Z"
+        },
+        "google_auth": {
+          "status": "healthy",
+          "message": "OAuth client configured",
+          "latency": 89,
+          "lastCheck": "2024-12-13T10:29:58Z"
+        },
+        "google_drive": {
+          "status": "healthy",
+          "message": "Drive API accessible",
+          "latency": 156,
+          "lastCheck": "2024-12-13T10:29:59Z"
+        },
+        "gemini": {
+          "status": "healthy",
+          "message": "AI services operational",
+          "latency": 234,
+          "lastCheck": "2024-12-13T10:29:57Z"
+        }
+      },
+      "metrics": {
+        "memory": {
+          "rss": 104857600,
+          "heapTotal": 67108864,
+          "heapUsed": 45088768,
+          "external": 8388608
+        },
+        "cpu": {
+          "user": 12500000,
+          "system": 5600000
+        }
+      }
+    },
+    "health_check_unhealthy": {
+      "status": "unhealthy",
+      "version": "1.0.0",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "dependencies": {
+        "firebase": {
+          "status": "unhealthy",
+          "message": "Connection timeout",
+          "lastCheck": "2024-12-13T10:29:55Z"
+        },
+        "google_drive": {
+          "status": "degraded",
+          "message": "High latency detected",
+          "latency": 3500,
+          "lastCheck": "2024-12-13T10:29:59Z"
+        }
+      },
+      "error": "Multiple service dependencies are failing"
+    },
+    "metrics": {
+      "timestamp": "2024-12-13T10:30:00Z",
+      "application": {
+        "name": "drivemind",
+        "version": "1.0.0",
+        "environment": "production",
+        "uptime": 7256.892
+      },
+      "system": {
+        "memory": {
+          "rss": 104857600,
+          "heapTotal": 67108864,
+          "heapUsed": 45088768,
+          "external": 8388608
+        },
+        "cpu": {
+          "user": 12500000,
+          "system": 5600000
+        },
+        "platform": "linux",
+        "nodeVersion": "18.19.0"
+      },
+      "business": {
+        "activeUsers": 42,
+        "filesProcessed": 15847,
+        "duplicatesDetected": 892,
+        "aiInsightsGenerated": 156
+      }
+    },
+    "metric_logged": {
+      "success": true,
+      "message": "Metric recorded",
+      "timestamp": "2024-12-13T10:30:00Z"
+    }
+  },
+  "errors": {
+    "bad_request": {
+      "error": "invalid_request",
+      "message": "Request validation failed",
+      "details": "Required field 'userId' is missing or invalid",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_abc123def456"
+    },
+    "unauthorized": {
+      "error": "unauthorized",
+      "message": "Authentication required",
+      "details": "No valid authorization token provided",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_def456ghi789"
+    },
+    "forbidden": {
+      "error": "forbidden",
+      "message": "Access denied",
+      "details": "Insufficient permissions for requested resource",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_ghi789jkl012"
+    },
+    "not_found": {
+      "error": "not_found",
+      "message": "Resource not found",
+      "details": "The requested scan ID does not exist",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_jkl012mno345"
+    },
+    "rate_limited": {
+      "error": "rate_limit_exceeded",
+      "message": "Too many requests",
+      "details": "Rate limit of 50 requests per minute exceeded",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_mno345pqr678",
+      "retryAfter": 60
+    },
+    "service_unavailable": {
+      "error": "service_unavailable",
+      "message": "External service temporarily unavailable",
+      "details": "Google Drive API returned 503 status",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_pqr678stu901"
+    },
+    "internal_error": {
+      "error": "internal_server_error",
+      "message": "An unexpected error occurred",
+      "details": "Database connection pool exhausted",
+      "timestamp": "2024-12-13T10:30:00Z",
+      "requestId": "req_stu901vwx234"
+    }
+  },
+  "google_drive_api": {
+    "file_list_small": {
+      "files": [
+        {
+          "id": "1a2b3c4d5e6f7g8h9i0j",
+          "name": "Project_Proposal.pdf",
+          "mimeType": "application/pdf",
+          "size": "1048576",
+          "modifiedTime": "2024-12-10T14:30:00Z",
+          "parents": ["1parent_folder_id"],
+          "webViewLink": "https://drive.google.com/file/d/1a2b3c4d5e6f7g8h9i0j/view"
+        },
+        {
+          "id": "2b3c4d5e6f7g8h9i0j1k",
+          "name": "Budget_Spreadsheet.xlsx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size": "524288",
+          "modifiedTime": "2024-12-08T09:15:00Z",
+          "parents": ["1parent_folder_id"],
+          "webViewLink": "https://drive.google.com/file/d/2b3c4d5e6f7g8h9i0j1k/view"
+        }
+      ],
+      "nextPageToken": null
+    },
+    "file_list_paginated": {
+      "files": [
+        {
+          "id": "page1_file1",
+          "name": "File_Page1_001.pdf",
+          "mimeType": "application/pdf",
+          "size": "2097152",
+          "modifiedTime": "2024-12-12T10:00:00Z",
+          "parents": ["folder_page1"]
+        }
+      ],
+      "nextPageToken": "next_page_token_abc123"
+    },
+    "folder_structure": {
+      "files": [
+        {
+          "id": "root_folder",
+          "name": "My Drive",
+          "mimeType": "application/vnd.google-apps.folder",
+          "parents": []
+        },
+        {
+          "id": "documents_folder",
+          "name": "Documents",
+          "mimeType": "application/vnd.google-apps.folder",
+          "parents": ["root_folder"]
+        },
+        {
+          "id": "downloads_folder",
+          "name": "Downloads",
+          "mimeType": "application/vnd.google-apps.folder",
+          "parents": ["root_folder"]
+        }
+      ]
+    }
+  }
+}

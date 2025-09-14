@@ -1,0 +1,982 @@
+{
+  "info": {
+    "name": "DriveMind API - Production Test Collection",
+    "description": "Comprehensive API test collection for DriveMind backend services following ALPHA standards",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://studio--drivemind-q69b7.us-central1.hosted.app/api",
+      "type": "string"
+    },
+    {
+      "key": "local_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "test_user_123",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "oauth_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scan_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System Health & Monitoring",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health check returns 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Health response has required fields', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('version');",
+                  "    pm.expect(response).to.have.property('uptime');",
+                  "    pm.expect(response).to.have.property('dependencies');",
+                  "});",
+                  "",
+                  "pm.test('All dependencies are healthy', () => {",
+                  "    const response = pm.response.json();",
+                  "    const deps = response.dependencies;",
+                  "    Object.keys(deps).forEach(dep => {",
+                  "        pm.expect(deps[dep].status).to.be.oneOf(['healthy', 'degraded']);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Response time is acceptable', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["metrics"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Metrics endpoint returns 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Metrics have required structure', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('application');",
+                  "    pm.expect(response).to.have.property('system');",
+                  "    pm.expect(response).to.have.property('business');",
+                  "});",
+                  "",
+                  "pm.test('Business metrics are present', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.business).to.have.property('activeUsers');",
+                  "    pm.expect(response.business).to.have.property('filesProcessed');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log Custom Metric",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"api_test_run\",\n  \"data\": {\n    \"collection\": \"postman\",\n    \"environment\": \"{{environment}}\",\n    \"timestamp\": \"{{$isoTimestamp}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["metrics"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Custom metric logged successfully', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication Flow",
+      "item": [
+        {
+          "name": "Begin OAuth",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/begin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "begin"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OAuth begin returns 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains OAuth URL', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('url');",
+                  "    pm.expect(response.url).to.include('accounts.google.com');",
+                  "});",
+                  "",
+                  "pm.test('OAuth URL contains required parameters', () => {",
+                  "    const response = pm.response.json();",
+                  "    const url = new URL(response.url);",
+                  "    pm.expect(url.searchParams.get('client_id')).to.not.be.null;",
+                  "    pm.expect(url.searchParams.get('scope')).to.include('drive');",
+                  "    pm.expect(url.searchParams.get('access_type')).to.equal('offline');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OAuth Callback (Mock)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"mock_authorization_code\",\n  \"state\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/callback",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "callback"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Note: This will likely fail in production without real OAuth code",
+                  "// but tests the endpoint structure",
+                  "pm.test('OAuth callback endpoint responds', () => {",
+                  "    pm.expect([200, 400, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Successful callback has required fields', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('success');",
+                  "        pm.expect(response).to.have.property('message');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/drive/status",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "status"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Auth status returns response', () => {",
+                  "    pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Auth status has required fields', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('authenticated');",
+                  "        pm.expect(response).to.have.property('hasValidToken');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sync Tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/sync",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "sync"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Token sync responds appropriately', () => {",
+                  "    pm.expect([200, 400, 401]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Drive Workflows",
+      "item": [
+        {
+          "name": "Drive Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxDepth\": 10,\n  \"includeTrashed\": false,\n  \"scanSharedDrives\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflows/scan",
+              "host": ["{{base_url}}"],
+              "path": ["workflows", "scan"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Scan endpoint responds', () => {",
+                  "    pm.expect([200, 202, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Scan result has required fields', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('scanId');",
+                  "        pm.expect(response).to.have.property('totalFiles');",
+                  "        pm.expect(response).to.have.property('completedAt');",
+                  "    });",
+                  "    ",
+                  "    // Store scan ID for later use",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('scan_id', response.scanId);",
+                  "}",
+                  "",
+                  "if (pm.response.code === 202) {",
+                  "    pm.test('Async scan initiated', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('scanId');",
+                  "        pm.expect(response).to.have.property('status');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Background Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"maxDepth\": 20,\n  \"includeTrashed\": false,\n  \"scanSharedDrives\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflows/background-scan",
+              "host": ["{{base_url}}"],
+              "path": ["workflows", "background-scan"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Background scan initiated', () => {",
+                  "    pm.expect([202, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 202) {",
+                  "    pm.test('Background scan response valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('scanId');",
+                  "        pm.expect(response).to.have.property('status');",
+                  "    });",
+                  "    ",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('scan_id', response.scanId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Background Scan Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workflows/background-scan/state?userId={{user_id}}&scanId={{scan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["workflows", "background-scan", "state"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "scanId",
+                  "value": "{{scan_id}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Scan status endpoint responds', () => {",
+                  "    pm.expect([200, 404, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Scan status has required fields', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('scanId');",
+                  "        pm.expect(response).to.have.property('status');",
+                  "        pm.expect(response).to.have.property('progress');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detect Duplicates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"algorithm\": \"combined\",\n  \"threshold\": 0.85,\n  \"includeVersions\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflows/duplicates",
+              "host": ["{{base_url}}"],
+              "path": ["workflows", "duplicates"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate detection responds', () => {",
+                  "    pm.expect([200, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Duplicate detection result valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('duplicateGroups');",
+                  "        pm.expect(response).to.have.property('summary');",
+                  "        pm.expect(response.summary).to.have.property('totalFiles');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Organization Suggestions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"analysisType\": \"both\",\n  \"maxSuggestions\": 10,\n  \"focusArea\": \"all\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/workflows/organize",
+              "host": ["{{base_url}}"],
+              "path": ["workflows", "organize"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Organization suggestions respond', () => {",
+                  "    pm.expect([200, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Organization response valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('suggestions');",
+                  "        pm.expect(response).to.have.property('folderStructure');",
+                  "        pm.expect(response).to.have.property('rules');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AI Services",
+      "item": [
+        {
+          "name": "AI Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/health-check",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "health-check"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AI health check responds', () => {",
+                  "    pm.expect([200, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('AI service health valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('status');",
+                  "        pm.expect(response).to.have.property('services');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Classify Files",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileIds\": [\"sample_file_id_1\", \"sample_file_id_2\"],\n  \"categories\": [\"document\", \"image\", \"spreadsheet\"],\n  \"includeContent\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/classify",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "classify"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AI classification responds', () => {",
+                  "    pm.expect([200, 400, 401, 429, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Classification result valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('classifications');",
+                  "        pm.expect(response.classifications).to.be.an('array');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Propose Organization Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Move all PDF invoices to the Finance/Invoices folder automatically\",\n  \"sampleFiles\": [\"sample_invoice_1\", \"sample_invoice_2\"],\n  \"targetFolder\": \"/Finance/Invoices\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/propose-rule",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "propose-rule"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rule proposal responds', () => {",
+                  "    pm.expect([200, 400, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Proposed rule valid', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('id');",
+                  "        pm.expect(response).to.have.property('name');",
+                  "        pm.expect(response).to.have.property('action');",
+                  "        pm.expect(response).to.have.property('conditions');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Error Handling Tests",
+      "item": [
+        {
+          "name": "Invalid Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/nonexistent/endpoint",
+              "host": ["{{base_url}}"],
+              "path": ["nonexistent", "endpoint"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid endpoint returns 404', () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed Request Body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invalid\": \"json\",\n  \"missing_required_fields\": true,\n  \"extra_field\": \"should_be_rejected\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/sync",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "sync"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Malformed request returns 400', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response has proper structure', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('error');",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('timestamp');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate Limit Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Send multiple requests rapidly to test rate limiting",
+                  "// Note: This is a simplified test - real rate limit testing",
+                  "// would require multiple concurrent requests"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rate limiting configured', () => {",
+                  "    // Should return either 200 or 429 depending on rate limit status",
+                  "    pm.expect([200, 429]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('Rate limit response includes retry headers', () => {",
+                  "        pm.expect(pm.response.headers.has('Retry-After')).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Performance Tests",
+      "item": [
+        {
+          "name": "Response Time Test - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health check P95 < 250ms (ALPHA requirement)', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(250);",
+                  "});",
+                  "",
+                  "pm.test('Health check P99 < 500ms', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Response Time Test - OAuth Begin",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/begin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "begin"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OAuth begin P95 < 250ms (ALPHA requirement)', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(250);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script for collection-wide setup",
+          "console.log('Running DriveMind API test:', pm.info.requestName);",
+          "",
+          "// Set default headers for all requests",
+          "pm.request.headers.add({",
+          "    key: 'User-Agent',",
+          "    value: 'DriveMind-Postman-Tests/1.0.0'",
+          "});",
+          "",
+          "// Generate request ID for tracing",
+          "const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);",
+          "pm.request.headers.add({",
+          "    key: 'X-Request-ID', ",
+          "    value: requestId",
+          "});",
+          "",
+          "pm.globals.set('current_request_id', requestId);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script for collection-wide assertions",
+          "",
+          "pm.test('Response has request ID header', () => {",
+          "    // Check if the API returns request ID in response headers",
+          "    pm.expect(pm.response.headers.has('X-Request-ID') || pm.response.headers.has('x-request-id')).to.be.true;",
+          "});",
+          "",
+          "pm.test('Response has proper content type', () => {",
+          "    if (pm.response.code !== 404) {",
+          "        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "    }",
+          "});",
+          "",
+          "pm.test('Response time is reasonable', () => {",
+          "    pm.expect(pm.response.responseTime).to.be.below(10000); // 10s max",
+          "});",
+          "",
+          "// Log performance data",
+          "if (pm.response.code === 200) {",
+          "    console.log(`✅ ${pm.info.requestName}: ${pm.response.responseTime}ms`);",
+          "} else {",
+          "    console.log(`⚠️  ${pm.info.requestName}: ${pm.response.code} - ${pm.response.responseTime}ms`);",
+          "}",
+          "",
+          "// Collect metrics for reporting",
+          "const testResults = pm.globals.get('test_results') || [];",
+          "testResults.push({",
+          "    name: pm.info.requestName,",
+          "    status: pm.response.code,",
+          "    responseTime: pm.response.responseTime,",
+          "    timestamp: new Date().toISOString(),",
+          "    requestId: pm.globals.get('current_request_id')",
+          "});",
+          "pm.globals.set('test_results', testResults);"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,290 @@
+diff --git a/src/lib/encryption.ts b/src/lib/encryption.ts
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/src/lib/encryption.ts
+@@ -0,0 +1,89 @@
++// SECURITY PATCH: Implement AES-256-GCM encryption for OAuth refresh tokens
++// Addresses: UNIFIED-001 - Unencrypted OAuth Refresh Token Storage
++// Risk Score Reduction: 9.5 → 2.0
++// Timeline: Week 1, Priority P0
++
++import crypto from 'crypto';
++import { getAdminFirestore } from './admin';
++
++const ALGORITHM = 'aes-256-gcm';
++const IV_LENGTH = 16; // 128 bits
++const TAG_LENGTH = 16; // 128 bits
++const KEY_LENGTH = 32; // 256 bits
++
++/**
++ * Encrypts a refresh token using AES-256-GCM
++ * @param plaintext - The refresh token to encrypt
++ * @returns Encrypted token in format: iv:encrypted:tag (base64 encoded)
++ */
++export function encryptRefreshToken(plaintext: string): string {
++  const keyB64 = process.env.ENCRYPTION_KEY_PRIMARY;
++  if (!keyB64) {
++    throw new Error('ENCRYPTION_KEY_PRIMARY not configured');
++  }
++  
++  const key = Buffer.from(keyB64, 'base64');
++  if (key.length !== KEY_LENGTH) {
++    throw new Error(`Invalid encryption key length: expected ${KEY_LENGTH}, got ${key.length}`);
++  }
++  
++  const iv = crypto.randomBytes(IV_LENGTH);
++  const cipher = crypto.createCipherGCM(ALGORITHM, key);
++  cipher.setIVLength(IV_LENGTH);
++  cipher.setAAD(Buffer.from('oauth_refresh_token', 'utf8'));
++  
++  let encrypted = cipher.update(plaintext, 'utf8');
++  encrypted = Buffer.concat([encrypted, cipher.final()]);
++  const tag = cipher.getAuthTag();
++  
++  // Return format: iv:encrypted:tag (all base64 encoded)
++  return `${iv.toString('base64')}:${encrypted.toString('base64')}:${tag.toString('base64')}`;
++}
++
++/**
++ * Decrypts a refresh token using AES-256-GCM
++ * @param ciphertext - The encrypted token from encryptRefreshToken
++ * @returns The original plaintext refresh token
++ */
++export function decryptRefreshToken(ciphertext: string): string {
++  const keyB64 = process.env.ENCRYPTION_KEY_PRIMARY;
++  if (!keyB64) {
++    throw new Error('ENCRYPTION_KEY_PRIMARY not configured');
++  }
++  
++  const key = Buffer.from(keyB64, 'base64');
++  const parts = ciphertext.split(':');
++  
++  if (parts.length !== 3) {
++    throw new Error('Invalid encrypted token format');
++  }
++  
++  const [ivB64, encryptedB64, tagB64] = parts;
++  const iv = Buffer.from(ivB64, 'base64');
++  const encrypted = Buffer.from(encryptedB64, 'base64');
++  const tag = Buffer.from(tagB64, 'base64');
++  
++  const decipher = crypto.createDecipherGCM(ALGORITHM, key);
++  decipher.setIVLength(IV_LENGTH);
++  decipher.setAuthTag(tag);
++  decipher.setAAD(Buffer.from('oauth_refresh_token', 'utf8'));
++  
++  let decrypted = decipher.update(encrypted);
++  decrypted = Buffer.concat([decrypted, decipher.final()]);
++  return decrypted.toString('utf8');
++}
++
++/**
++ * Validates if a token is encrypted (contains colons) vs plaintext
++ * @param token - Token to check
++ * @returns true if token appears to be encrypted
++ */
++export function isTokenEncrypted(token: string): boolean {
++  return token.includes(':') && token.split(':').length === 3;
++}
++
++/**
++ * Securely generates a new encryption key for use with this module
++ * @returns Base64 encoded 256-bit key
++ */
++export function generateEncryptionKey(): string {
++  return crypto.randomBytes(KEY_LENGTH).toString('base64');
++}
+
+diff --git a/src/lib/token-store.ts b/src/lib/token-store.ts
+index abcd123..efgh456 100644
+--- a/src/lib/token-store.ts
++++ b/src/lib/token-store.ts
+@@ -1,5 +1,6 @@
+ // Server-only: User token persistence for Google Drive OAuth
+-
++// SECURITY PATCH: Add encryption for stored refresh tokens
+ import { getAdminFirestore } from '@/lib/admin';
++import { encryptRefreshToken, decryptRefreshToken, isTokenEncrypted } from './encryption';
+ 
+ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+@@ -12,12 +13,25 @@ const docId = 'googleDrive';
+ export async function saveUserRefreshToken(uid: string, refreshToken: string) {
+   const db = getAdminFirestore();
+   if (!db) throw new Error('Failed to initialize Firestore');
++  
++  // SECURITY: Encrypt refresh token before storage
++  const encryptedToken = encryptRefreshToken(refreshToken);
++  
+   const ref = db.collection(collectionPathForUser(uid)).doc(docId);
+-  await ref.set(
+-    {
+-      refreshToken,
+-      updatedAt: new Date(),
+-    },
+-    { merge: true }
++  await ref.set({
++      refreshToken: encryptedToken,
++      encrypted: true, // Flag to identify encrypted tokens
++      updatedAt: new Date(),
++      // Audit fields for security tracking
++      encryptionVersion: '1.0',
++      encryptedAt: new Date()
++    }, { merge: true }
+   );
+-  tokenCache.set(uid, { token: refreshToken, ts: Date.now() });
++  
++  // Cache the plaintext token for performance
++  tokenCache.set(uid, { token: refreshToken, ts: Date.now() });
++  
++  // Security audit log
++  console.log(`[SECURITY] Encrypted refresh token stored for user: ${uid}`, {
++    timestamp: new Date().toISOString()
++  });
+ }
+
+@@ -26,11 +40,32 @@ export async function getUserRefreshToken(uid: string): Promise<string | null>
+   // Check cache first
+   const cached = tokenCache.get(uid);
+   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.token;
+ 
+   const db = getAdminFirestore();
+   if (!db) throw new Error('Failed to initialize Firestore');
+   const snap = await db.collection(collectionPathForUser(uid)).doc(docId).get();
+   const data = snap.exists ? (snap.data() as any) : null;
+-  const token = data?.refreshToken ?? null;
+-  if (token) tokenCache.set(uid, { token, ts: Date.now() });
+-  return token;
++  
++  let token = data?.refreshToken ?? null;
++  
++  if (token) {
++    // SECURITY: Decrypt token if it's encrypted
++    if (data?.encrypted === true || isTokenEncrypted(token)) {
++      try {
++        token = decryptRefreshToken(token);
++        console.log(`[SECURITY] Decrypted refresh token for user: ${uid}`);
++      } catch (error) {
++        console.error(`[SECURITY] Failed to decrypt token for user ${uid}:`, error);
++        // If decryption fails, token may be corrupted - return null to force re-auth
++        return null;
++      }
++    } else {
++      // Legacy plaintext token - log for migration tracking
++      console.warn(`[SECURITY] Found unencrypted token for user ${uid} - migration needed`);
++    }
++    
++    tokenCache.set(uid, { token, ts: Date.now() });
++  }
++  
++  return token;
+ }
+
+@@ -44,12 +79,23 @@ export function clearTokenCache(uid?: string) {
+ export async function deleteUserRefreshToken(uid: string): Promise<boolean> {
+   const db = getAdminFirestore();
+   if (!db) throw new Error('Failed to initialize Firestore');
+   const ref = db.collection(collectionPathForUser(uid)).doc(docId);
+   try {
+     const { FieldValue } = require('firebase-admin/firestore');
+-    await ref.set({ refreshToken: FieldValue.delete(), updatedAt: new Date() }, { merge: true });
++    await ref.set({ 
++      refreshToken: FieldValue.delete(), 
++      encrypted: FieldValue.delete(),
++      updatedAt: new Date(),
++      deletedAt: new Date() // Audit trail
++    }, { merge: true });
++    
++    console.log(`[SECURITY] Deleted refresh token for user: ${uid}`, {
++      timestamp: new Date().toISOString()
++    });
+   } catch (e) {
+     // If doc doesn't exist, treat as already deleted
++    console.log(`[SECURITY] Token deletion attempted for non-existent user: ${uid}`);
+   }
+   tokenCache.delete(uid);
+   return true;
+ }
++
++/**
++ * SECURITY: Migration function to encrypt existing plaintext tokens
++ * Should be run once during deployment to encrypt legacy tokens
++ */
++export async function migrateUnencryptedTokens(): Promise<{ migrated: number; errors: number }> {
++  const db = getAdminFirestore();
++  if (!db) throw new Error('Failed to initialize Firestore');
++  
++  let migrated = 0;
++  let errors = 0;
++  
++  console.log('[SECURITY] Starting migration of unencrypted refresh tokens...');
++  
++  // Get all user documents
++  const usersSnapshot = await db.collection('users').get();
++  
++  for (const userDoc of usersSnapshot.docs) {
++    const userId = userDoc.id;
++    const secretsRef = userDoc.ref.collection('secrets').doc('googleDrive');
++    const secretDoc = await secretsRef.get();
++    
++    if (secretDoc.exists) {
++      const data = secretDoc.data();
++      const refreshToken = data?.refreshToken;
++      
++      // Check if token exists and is not already encrypted
++      if (refreshToken && typeof refreshToken === 'string' && !isTokenEncrypted(refreshToken)) {
++        try {
++          // Encrypt the plaintext token
++          const encryptedToken = encryptRefreshToken(refreshToken);
++          
++          await secretsRef.update({
++            refreshToken: encryptedToken,
++            encrypted: true,
++            migratedAt: new Date(),
++            encryptionVersion: '1.0'
++          });
++          
++          migrated++;
++          console.log(`[SECURITY] Migrated token for user: ${userId}`);
++        } catch (error) {
++          errors++;
++          console.error(`[SECURITY] Failed to migrate token for user ${userId}:`, error);
++        }
++      }
++    }
++  }
++  
++  console.log(`[SECURITY] Migration complete: ${migrated} tokens migrated, ${errors} errors`);
++  return { migrated, errors };
++}
+
+diff --git a/src/lib/admin.ts b/src/lib/admin.ts
+index xyz789..abc123 100644
+--- a/src/lib/admin.ts
++++ b/src/lib/admin.ts
+@@ -1,4 +1,5 @@
+ // Admin SDK utilities
++// SECURITY PATCH: Add encryption key validation
+ 
+ import admin from 'firebase-admin';
+ 
+@@ -30,6 +31,19 @@ export function getAdminFirestore() {
+   return admin.firestore();
+ }
+ 
++/**
++ * SECURITY: Validates that required encryption keys are configured
++ * Should be called during application startup
++ */
++export function validateEncryptionConfig(): void {
++  const primaryKey = process.env.ENCRYPTION_KEY_PRIMARY;
++  
++  if (!primaryKey) {
++    throw new Error('ENCRYPTION_KEY_PRIMARY environment variable not configured');
++  }
++  
++  console.log('[SECURITY] Encryption configuration validated');
++}
++
+ // Export the auth object for token verification
+ export const auth = admin.auth();

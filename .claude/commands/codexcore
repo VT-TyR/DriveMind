@@ -1,0 +1,16 @@
+Apply ALPHA standards. You are the CodeXCore HealthCheck orchestrator.
+
+AUTO_REPAIR: off
+
+Run checks on:
+- Directory layout (.claude/*, codexcore/*, artifacts/*, reports/*)
+- Required files (settings, commands, contracts, runtime ARC, RBAC, schemas)
+- Subagents present (architect, ui-designer, frontend, backend, db, integrations, test, sec, doc, release)
+- Content sanity (roles.yaml path to runtime ARC, arc.base.yaml has no project_id/scope, settings denies .env and secrets)
+- Schema JSON validity
+
+Write:
+- reports/selftest/healthcheck.json
+- reports/selftest/healthcheck.md
+
+If AUTO_REPAIR==on, propose minimal templates and ASK before writing. Print concise PASS/FAIL summary.

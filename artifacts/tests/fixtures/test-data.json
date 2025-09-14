@@ -1,0 +1,574 @@
+{
+  "users": {
+    "test_user_basic": {
+      "uid": "test_user_basic_123",
+      "email": "basic.user@test.drivemind.ai",
+      "displayName": "Basic Test User",
+      "role": "user",
+      "driveQuota": {
+        "limit": 15000000000,
+        "used": 2500000000
+      },
+      "preferences": {
+        "aiMode": true,
+        "theme": "light",
+        "language": "en"
+      },
+      "createdAt": "2024-12-01T10:00:00Z",
+      "lastLoginAt": "2024-12-13T09:30:00Z"
+    },
+    "test_user_premium": {
+      "uid": "test_user_premium_456",
+      "email": "premium.user@test.drivemind.ai", 
+      "displayName": "Premium Test User",
+      "role": "premium",
+      "driveQuota": {
+        "limit": 100000000000,
+        "used": 25000000000
+      },
+      "preferences": {
+        "aiMode": true,
+        "theme": "dark",
+        "language": "en",
+        "advancedFeatures": true
+      },
+      "createdAt": "2024-11-15T14:20:00Z",
+      "lastLoginAt": "2024-12-13T08:45:00Z"
+    },
+    "test_user_admin": {
+      "uid": "test_user_admin_789",
+      "email": "admin.user@test.drivemind.ai",
+      "displayName": "Admin Test User", 
+      "role": "admin",
+      "permissions": ["read", "write", "admin", "system"],
+      "createdAt": "2024-10-01T12:00:00Z",
+      "lastLoginAt": "2024-12-13T07:15:00Z"
+    }
+  },
+  "oauth_tokens": {
+    "valid_tokens": {
+      "access_token": "ya29.test_access_token_valid_123456789",
+      "refresh_token": "1//test_refresh_token_valid_987654321",
+      "expiry_date": 1702474200000,
+      "scope": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.metadata.readonly"
+      ],
+      "token_type": "Bearer"
+    },
+    "expired_tokens": {
+      "access_token": "ya29.test_access_token_expired_123456789",
+      "refresh_token": "1//test_refresh_token_valid_987654321",
+      "expiry_date": 1702387800000,
+      "scope": [
+        "https://www.googleapis.com/auth/drive"
+      ],
+      "token_type": "Bearer"
+    },
+    "invalid_tokens": {
+      "access_token": "invalid_token",
+      "refresh_token": "invalid_refresh_token",
+      "expiry_date": 0,
+      "scope": [],
+      "token_type": "Bearer"
+    }
+  },
+  "drive_files": {
+    "small_dataset": {
+      "totalFiles": 25,
+      "files": [
+        {
+          "id": "small_file_1",
+          "name": "Meeting_Notes.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 87456,
+          "createdTime": "2024-12-01T10:30:00Z",
+          "modifiedTime": "2024-12-01T11:15:00Z",
+          "parents": ["documents_folder"],
+          "owners": [{"displayName": "Test User", "emailAddress": "test@example.com"}],
+          "lastModifyingUser": {"displayName": "Test User"},
+          "shared": false,
+          "trashed": false,
+          "starred": false,
+          "properties": {
+            "category": "work",
+            "project": "quarterly_review"
+          }
+        },
+        {
+          "id": "small_file_2", 
+          "name": "Invoice_2024_Q4.pdf",
+          "mimeType": "application/pdf",
+          "size": 245760,
+          "createdTime": "2024-12-05T14:20:00Z",
+          "modifiedTime": "2024-12-05T14:25:00Z", 
+          "parents": ["documents_folder"],
+          "owners": [{"displayName": "Test User", "emailAddress": "test@example.com"}],
+          "shared": false,
+          "trashed": false,
+          "starred": true,
+          "properties": {
+            "category": "finance",
+            "type": "invoice"
+          }
+        },
+        {
+          "id": "small_file_3",
+          "name": "Team_Photo.jpg",
+          "mimeType": "image/jpeg",
+          "size": 2097152,
+          "createdTime": "2024-11-28T16:45:00Z",
+          "modifiedTime": "2024-11-28T16:45:00Z",
+          "parents": ["images_folder"], 
+          "owners": [{"displayName": "Test User", "emailAddress": "test@example.com"}],
+          "shared": true,
+          "trashed": false,
+          "starred": false,
+          "imageMediaMetadata": {
+            "width": 1920,
+            "height": 1080,
+            "location": {
+              "latitude": 37.7749,
+              "longitude": -122.4194
+            }
+          }
+        }
+      ]
+    },
+    "large_dataset": {
+      "totalFiles": 1500,
+      "sampleFiles": [
+        {
+          "id": "large_file_1",
+          "name": "Project_Archive.zip",
+          "mimeType": "application/zip", 
+          "size": 104857600,
+          "createdTime": "2024-10-15T09:00:00Z",
+          "modifiedTime": "2024-10-15T09:30:00Z",
+          "parents": ["archives_folder"],
+          "trashed": false,
+          "properties": {
+            "category": "archive",
+            "project": "legacy_migration"
+          }
+        },
+        {
+          "id": "large_file_2",
+          "name": "Training_Video_Complete.mp4",
+          "mimeType": "video/mp4",
+          "size": 536870912,
+          "createdTime": "2024-09-20T11:15:00Z", 
+          "modifiedTime": "2024-09-20T12:00:00Z",
+          "parents": ["media_folder"],
+          "trashed": false,
+          "videoMediaMetadata": {
+            "width": 1920,
+            "height": 1080,
+            "durationMillis": 3600000
+          }
+        }
+      ]
+    },
+    "duplicate_files": [
+      {
+        "group": "exact_duplicates",
+        "files": [
+          {
+            "id": "dup_exact_1",
+            "name": "Contract_Template.pdf",
+            "mimeType": "application/pdf",
+            "size": 524288,
+            "md5Checksum": "5d41402abc4b2a76b9719d911017c592",
+            "parents": ["templates_folder"],
+            "trashed": false
+          },
+          {
+            "id": "dup_exact_2", 
+            "name": "Contract Template (1).pdf",
+            "mimeType": "application/pdf",
+            "size": 524288,
+            "md5Checksum": "5d41402abc4b2a76b9719d911017c592",
+            "parents": ["downloads_folder"],
+            "trashed": false
+          }
+        ]
+      },
+      {
+        "group": "similar_files",
+        "files": [
+          {
+            "id": "sim_1",
+            "name": "Report_Draft_v1.docx", 
+            "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "size": 1048576,
+            "parents": ["drafts_folder"],
+            "trashed": false
+          },
+          {
+            "id": "sim_2",
+            "name": "Report_Draft_v2.docx",
+            "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+            "size": 1126400,
+            "parents": ["drafts_folder"],
+            "trashed": false
+          }
+        ]
+      }
+    ],
+    "folder_structure": {
+      "root": {
+        "id": "root",
+        "name": "My Drive",
+        "children": {
+          "Documents": {
+            "id": "documents_folder",
+            "children": {
+              "Templates": {"id": "templates_folder"},
+              "Contracts": {"id": "contracts_folder"},
+              "Invoices": {"id": "invoices_folder"}
+            }
+          },
+          "Media": {
+            "id": "media_folder", 
+            "children": {
+              "Images": {"id": "images_folder"},
+              "Videos": {"id": "videos_folder"},
+              "Audio": {"id": "audio_folder"}
+            }
+          },
+          "Downloads": {"id": "downloads_folder"},
+          "Archive": {"id": "archives_folder"}
+        }
+      }
+    }
+  },
+  "scan_results": {
+    "comprehensive_scan": {
+      "scanId": "comprehensive_scan_abc123",
+      "userId": "test_user_basic_123",
+      "startTime": "2024-12-13T10:00:00Z",
+      "completedAt": "2024-12-13T10:45:30Z", 
+      "status": "completed",
+      "configuration": {
+        "maxDepth": 20,
+        "includeTrashed": false,
+        "scanSharedDrives": false
+      },
+      "results": {
+        "totalFiles": 847,
+        "totalSize": 5368709120,
+        "totalFolders": 34,
+        "filesByType": {
+          "PDF": 156,
+          "Document": 234,
+          "Spreadsheet": 67,
+          "Presentation": 23,
+          "Image": 245,
+          "Video": 45,
+          "Audio": 28,
+          "Archive": 15,
+          "Other": 34
+        },
+        "filesBySize": {
+          "tiny": {"count": 234, "totalSize": 23592960},
+          "small": {"count": 345, "totalSize": 167772160},
+          "medium": {"count": 189, "totalSize": 2013265920},
+          "large": {"count": 67, "totalSize": 2684354560},
+          "huge": {"count": 12, "totalSize": 503316480}
+        },
+        "folderDepth": {
+          "maxDepth": 8,
+          "averageDepth": 3.4,
+          "deepestPath": ["Documents", "Projects", "2024", "Q4", "Proposals", "Client_A", "Drafts", "Archive"]
+        },
+        "duplicateAnalysis": {
+          "totalDuplicates": 73,
+          "duplicateGroups": 28,
+          "spaceWasted": 402653184,
+          "types": {
+            "exact_match": 45,
+            "content_hash": 18,
+            "fuzzy_match": 10
+          }
+        },
+        "unusedFiles": {
+          "count": 156,
+          "totalSize": 1073741824,
+          "criteria": "Not accessed in 6+ months",
+          "oldestFile": {
+            "id": "unused_old_1",
+            "lastAccessed": "2024-03-15T10:00:00Z"
+          }
+        },
+        "largestFiles": [
+          {
+            "id": "large_1",
+            "name": "Complete_Training_Suite.mp4",
+            "size": 1073741824,
+            "type": "Video"
+          },
+          {
+            "id": "large_2", 
+            "name": "Project_Database_Backup.sql",
+            "size": 536870912,
+            "type": "Other"
+          }
+        ]
+      }
+    },
+    "background_scan_progress": [
+      {
+        "timestamp": "2024-12-13T10:00:00Z",
+        "status": "initiated",
+        "progress": 0,
+        "filesProcessed": 0,
+        "currentFolder": null
+      },
+      {
+        "timestamp": "2024-12-13T10:05:30Z",
+        "status": "running",
+        "progress": 15,
+        "filesProcessed": 127,
+        "currentFolder": "Documents"
+      },
+      {
+        "timestamp": "2024-12-13T10:15:45Z", 
+        "status": "running",
+        "progress": 45,
+        "filesProcessed": 381,
+        "currentFolder": "Media/Images"
+      },
+      {
+        "timestamp": "2024-12-13T10:30:12Z",
+        "status": "running", 
+        "progress": 78,
+        "filesProcessed": 661,
+        "currentFolder": "Archive"
+      },
+      {
+        "timestamp": "2024-12-13T10:45:30Z",
+        "status": "completed",
+        "progress": 100, 
+        "filesProcessed": 847,
+        "currentFolder": null
+      }
+    ]
+  },
+  "ai_analysis": {
+    "file_classifications": [
+      {
+        "fileId": "ai_class_1",
+        "fileName": "Q4_Sales_Report.pdf",
+        "originalPath": ["Documents", "Reports"],
+        "classification": {
+          "category": "Business Report",
+          "subcategory": "Sales Analysis",
+          "confidence": 0.94,
+          "tags": ["finance", "sales", "quarterly", "2024"],
+          "reasoning": "Document contains financial data, sales figures, quarterly analysis, and business metrics typical of sales reports"
+        },
+        "suggestedActions": [
+          {
+            "action": "move",
+            "target": "Documents/Reports/Sales/2024/Q4",
+            "reason": "Organize by report type and time period"
+          },
+          {
+            "action": "tag",
+            "tags": ["important", "financial-record"],
+            "reason": "Key business document for tax/audit purposes"
+          }
+        ]
+      },
+      {
+        "fileId": "ai_class_2",
+        "fileName": "vacation_pics_beach.jpg",
+        "originalPath": ["Downloads"],
+        "classification": {
+          "category": "Personal Photo",
+          "subcategory": "Vacation", 
+          "confidence": 0.87,
+          "tags": ["personal", "vacation", "beach", "photos"],
+          "reasoning": "Image file with vacation-related filename and metadata suggesting personal photography"
+        },
+        "suggestedActions": [
+          {
+            "action": "move",
+            "target": "Media/Photos/Personal/Vacations",
+            "reason": "Organize personal photos by category"
+          },
+          {
+            "action": "tag",
+            "tags": ["personal", "memories"],
+            "reason": "Personal content for easy retrieval"
+          }
+        ]
+      }
+    ],
+    "organization_insights": {
+      "folderStructureAnalysis": {
+        "score": 6.2,
+        "issues": [
+          {
+            "type": "deep_nesting",
+            "severity": "medium",
+            "paths": ["Documents/Work/Projects/2024/Q4/Client_Work/Proposals/Drafts"],
+            "recommendation": "Flatten folder structure to 4-5 levels maximum"
+          },
+          {
+            "type": "scattered_files",
+            "severity": "high", 
+            "description": "47 PDF files in Downloads folder should be organized by type/purpose",
+            "recommendation": "Create dedicated folders for different document types"
+          }
+        ],
+        "strengths": [
+          "Good separation between personal and work content",
+          "Consistent naming conventions for most files"
+        ]
+      },
+      "duplicatePatterns": [
+        {
+          "pattern": "version_naming",
+          "examples": ["file_v1.docx", "file_v2.docx", "file_final.docx"],
+          "recommendation": "Use version control system or date-based naming"
+        },
+        {
+          "pattern": "download_copies",
+          "examples": ["document.pdf", "document (1).pdf", "document (2).pdf"],
+          "recommendation": "Review and remove unnecessary download copies"
+        }
+      ],
+      "unusedContentAnalysis": {
+        "temporaryFiles": {
+          "count": 23,
+          "examples": ["temp_file.tmp", "~$document.docx"],
+          "recommendation": "Safe to delete temporary and system files"
+        },
+        "oldBackups": {
+          "count": 12,
+          "oldestDate": "2023-06-15T10:00:00Z",
+          "recommendation": "Archive or delete outdated backup files"
+        }
+      }
+    },
+    "automation_rules": [
+      {
+        "id": "rule_invoices",
+        "name": "Invoice Organization",
+        "trigger": "file_added",
+        "conditions": {
+          "fileType": "pdf",
+          "nameContains": ["invoice", "bill", "receipt"],
+          "sizeRange": {"min": 10240, "max": 10485760}
+        },
+        "actions": [
+          {
+            "type": "move",
+            "target": "Documents/Finance/Invoices/{year}/{month}"
+          },
+          {
+            "type": "tag", 
+            "tags": ["finance", "invoice", "tax-document"]
+          }
+        ],
+        "confidence": 0.91,
+        "estimatedMatches": 23
+      },
+      {
+        "id": "rule_screenshots",
+        "name": "Screenshot Organization", 
+        "trigger": "file_added",
+        "conditions": {
+          "fileType": "image",
+          "namePattern": "^(Screenshot|Screen Shot).*",
+          "location": "Desktop|Downloads"
+        },
+        "actions": [
+          {
+            "type": "move",
+            "target": "Media/Screenshots/{year}"
+          },
+          {
+            "type": "tag",
+            "tags": ["screenshot", "reference"]
+          }
+        ],
+        "confidence": 0.88,
+        "estimatedMatches": 67
+      }
+    ]
+  },
+  "performance_test_data": {
+    "large_file_list": {
+      "description": "Dataset for testing large file list handling",
+      "count": 10000,
+      "sizeRange": {"min": 1024, "max": 104857600},
+      "types": ["pdf", "docx", "xlsx", "jpg", "png", "mp4", "zip"],
+      "generated": true,
+      "pattern": "Generated file {index} of type {type}"
+    },
+    "concurrent_users": {
+      "description": "Simulation data for concurrent user testing",
+      "userCount": 50,
+      "actionsPerUser": 10,
+      "actionTypes": ["scan", "classify", "organize", "detect_duplicates"],
+      "timespan": "5 minutes"
+    },
+    "memory_intensive_operations": {
+      "largeScanResults": {
+        "fileCount": 50000,
+        "duplicateGroups": 500,
+        "memoryEstimate": "512MB"
+      },
+      "bulkClassification": {
+        "fileCount": 1000,
+        "averageFileSize": 2097152,
+        "memoryEstimate": "256MB"
+      }
+    }
+  },
+  "error_scenarios": {
+    "network_failures": [
+      {
+        "type": "timeout",
+        "service": "google_drive_api",
+        "duration": 30000,
+        "errorMessage": "Request timeout after 30 seconds"
+      },
+      {
+        "type": "connection_refused",
+        "service": "firestore",
+        "errorMessage": "Connection refused - service unavailable"
+      }
+    ],
+    "auth_failures": [
+      {
+        "type": "token_expired",
+        "errorCode": 401,
+        "message": "Access token expired"
+      },
+      {
+        "type": "insufficient_permissions",
+        "errorCode": 403,
+        "message": "Insufficient permissions to access Google Drive"
+      }
+    ],
+    "rate_limit_scenarios": [
+      {
+        "service": "google_drive_api",
+        "limit": 100,
+        "window": "100 seconds",
+        "errorCode": 429,
+        "retryAfter": 60
+      },
+      {
+        "service": "gemini_ai",
+        "limit": 60,
+        "window": "60 seconds", 
+        "errorCode": 429,
+        "retryAfter": 30
+      }
+    ]
+  }
+}

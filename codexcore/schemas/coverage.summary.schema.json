@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["total"],
+  "properties": {
+    "total": {
+      "type": "object",
+      "required": ["lines", "branches"],
+      "properties": {
+        "lines":   { "type": "number", "minimum": 0, "maximum": 100 },
+        "branches":{ "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+version: 1
+resources:
+  - { name: investor_notes, actions: [read, write, update, delete] }
+  - { name: alerts,         actions: [read, write] }
+  - { name: admin,          actions: [read, write, update, delete] }
+roles:
+  investor:
+    allow:
+      - { resource: investor_notes, actions: [read] }
+      - { resource: alerts, actions: [read] }
+  analyst:
+    allow:
+      - { resource: investor_notes, actions: [read, write, update] }
+      - { resource: alerts, actions: [read, write] }
+  admin:
+    allow:
+      - { resource: investor_notes, actions: [read, write, update, delete] }
+      - { resource: alerts, actions: [read, write] }
+      - { resource: admin, actions: [read, write, update, delete] }

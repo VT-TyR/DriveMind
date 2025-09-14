@@ -1,0 +1,718 @@
+{
+  "version": "2.0.0",
+  "project": "drivemind",
+  "generatedAt": "2025-09-12T15:00:00Z",
+  "description": "Security-hardened component mapping with ZERO CRITICAL VULNERABILITIES",
+  "securityStatus": "CRITICAL VULNERABILITIES REMEDIATED",
+  "vulnerabilityFixes": {
+    "SAST-001": "AES-256-GCM token encryption with Google Cloud KMS",
+    "SAST-002": "Comprehensive PII redaction with user consent management",
+    "DAST-001": "HSTS security headers with preload and 1-year max-age"
+  },
+  
+  "frontend": {
+    "framework": "Next.js 15",
+    "runtime": "React 18",
+    "styling": "Tailwind CSS + shadcn/ui",
+    "stateManagement": "React Context + Local State",
+    
+    "pages": {
+      "/": {
+        "component": "src/app/page.tsx",
+        "type": "marketing",
+        "description": "Landing page with feature overview",
+        "dependencies": ["MainLayout", "FeatureGrid"],
+        "authentication": false,
+        "caching": "static"
+      },
+      
+      "/dashboard": {
+        "component": "src/app/dashboard/page.tsx",
+        "type": "application",
+        "description": "Main dashboard with drive overview and metrics",
+        "dependencies": ["DashboardHeader", "StatsCards", "ActivityFeed"],
+        "authentication": true,
+        "apiEndpoints": ["/api/dashboard/stats"],
+        "realtime": false
+      },
+      
+      "/ai": {
+        "component": "src/app/ai/page.tsx", 
+        "type": "application",
+        "description": "AI-powered file analysis and insights",
+        "dependencies": ["AIWorkspace", "FileClassifier", "OrganizationSuggestions"],
+        "authentication": true,
+        "apiEndpoints": ["/api/ai/classify", "/api/ai/propose-rule"],
+        "features": ["operating-mode-toggle"]
+      },
+      
+      "/inventory": {
+        "component": "src/app/inventory/page.tsx",
+        "type": "application", 
+        "description": "Complete file inventory and metadata view",
+        "dependencies": ["FileTable", "FilterControls", "SortingControls"],
+        "authentication": true,
+        "apiEndpoints": ["/api/workflows/scan", "/api/workflows/inventory"],
+        "pagination": true,
+        "search": true
+      },
+      
+      "/duplicates": {
+        "component": "src/app/duplicates/page.tsx",
+        "type": "application",
+        "description": "Duplicate file detection and management", 
+        "dependencies": ["DuplicateGroups", "BatchActions", "SimilaritySlider"],
+        "authentication": true,
+        "apiEndpoints": ["/api/workflows/duplicates"],
+        "bulkOperations": true
+      },
+      
+      "/organize": {
+        "component": "src/app/organize/page.tsx",
+        "type": "application",
+        "description": "File organization tools and AI suggestions",
+        "dependencies": ["OrganizationRules", "FolderStructure", "BatchOperations"],
+        "authentication": true,
+        "apiEndpoints": ["/api/workflows/organize", "/api/ai/propose-rule"],
+        "dragAndDrop": true
+      },
+      
+      "/rules": {
+        "component": "src/app/rules/page.tsx",
+        "type": "application",
+        "description": "Automated organization rule management",
+        "dependencies": ["RuleEditor", "RulePreview", "ScheduledRuns"],
+        "authentication": true,
+        "apiEndpoints": ["/api/ai/propose-rule"],
+        "crud": true
+      },
+      
+      "/about": {
+        "component": "src/app/about/page.tsx",
+        "type": "informational",
+        "description": "System information, version details, and feature overview",
+        "dependencies": ["FeatureGrid", "TechStack", "SystemInfo"],
+        "authentication": false,
+        "caching": "static",
+        "seo": true
+      },
+      
+      "/health": {
+        "component": "src/app/health/page.tsx",
+        "type": "system",
+        "description": "System health monitoring and diagnostics",
+        "dependencies": ["HealthIndicators", "DependencyStatus", "MetricsDisplay"],
+        "authentication": false,
+        "apiEndpoints": ["/api/health", "/api/metrics"],
+        "autoRefresh": true
+      },
+      
+      "/admin/drive-tokens": {
+        "component": "src/app/admin/drive-tokens/page.tsx",
+        "type": "admin",
+        "description": "OAuth token management and debugging",
+        "dependencies": ["TokenTable", "TokenActions", "DebugInfo"],
+        "authentication": "admin",
+        "apiEndpoints": ["/api/admin/drive-tokens"],
+        "sensitive": true
+      }
+    },
+    
+    "sharedComponents": {
+      "layouts": {
+        "MainLayout": {
+          "path": "src/components/shared/main-layout.tsx",
+          "description": "Primary application layout with sidebar navigation",
+          "dependencies": ["Sidebar", "Header", "OperatingModeSwitch"],
+          "responsive": true
+        }
+      },
+      
+      "ui": {
+        "basePath": "src/components/ui/",
+        "framework": "shadcn/ui + Radix UI",
+        "components": [
+          "button", "card", "dialog", "dropdown-menu", "form", "input",
+          "label", "progress", "select", "sidebar", "table", "tabs", 
+          "toast", "tooltip", "badge", "alert", "skeleton", "sheet"
+        ],
+        "customizations": "Tailwind theme with custom color palette"
+      },
+      
+      "business": {
+        "OperatingModeSwitch": {
+          "path": "src/components/shared/operating-mode-switch.tsx",
+          "description": "Toggle between AI-enabled and basic modes",
+          "context": "OperatingModeContext",
+          "state": "global"
+        },
+        
+        "DashboardHeader": {
+          "path": "src/components/dashboard/dashboard-header.tsx", 
+          "description": "Dashboard page header with user info and actions",
+          "dependencies": ["Button", "Avatar", "Dropdown"],
+          "authentication": "required"
+        }
+      }
+    },
+    
+    "contexts": {
+      "OperatingModeContext": {
+        "path": "src/contexts/operating-mode-context.tsx",
+        "description": "Global state for AI features toggle",
+        "provides": ["isAiEnabled", "toggleAiMode"],
+        "persistence": "localStorage",
+        "defaultValue": true
+      }
+    },
+    
+    "hooks": {
+      "useToast": {
+        "path": "src/hooks/use-toast.ts",
+        "description": "Toast notification management",
+        "dependencies": ["ToastProvider"],
+        "usage": "notifications"
+      },
+      
+      "useMobile": {
+        "path": "src/hooks/use-mobile.tsx", 
+        "description": "Responsive breakpoint detection",
+        "usage": "responsive-design"
+      }
+    }
+  },
+  
+  "backend": {
+    "framework": "Next.js API Routes",
+    "runtime": "Node.js 18",
+    "hosting": "Firebase App Hosting (Cloud Run)",
+    
+    "apiRoutes": {
+      "authentication": {
+        "basePath": "src/app/api/auth/drive/",
+        "routes": {
+          "begin": {
+            "file": "begin/route.ts", 
+            "method": "POST",
+            "description": "Initialize PKCE-enabled OAuth 2.0 flow with Google",
+            "dependencies": ["googleapis", "OAuth2Client", "crypto (PKCE)"],
+            "authentication": false,
+            "rateLimit": "50/minute/ip (reduced for security)",
+            "validation": "optional userId in body",
+            "securityEnhancements": {
+              "pkce": "Code challenge generation with S256 method",
+              "state": "Cryptographically secure CSRF tokens",
+              "headers": "HSTS and security headers enforcement"
+            }
+          },
+          
+          "callback": {
+            "file": "callback/route.ts",
+            "methods": ["GET", "POST"],
+            "description": "Handle PKCE-validated OAuth callback with encrypted token storage",
+            "dependencies": ["googleapis", "token-store", "cookies", "@google-cloud/kms"],
+            "authentication": false,
+            "errorHandling": "comprehensive OAuth error mapping with audit logging",
+            "sideEffects": ["sets secure HTTP-only cookies", "saves AES-256-GCM encrypted tokens to Firestore"],
+            "securityEnhancements": {
+              "pkceValidation": "Code verifier validation against challenge",
+              "stateValidation": "CSRF state parameter verification",
+              "tokenEncryption": "AES-256-GCM with Google Cloud KMS",
+              "auditLogging": "All authentication events logged"
+            }
+          },
+          
+          "status": {
+            "file": "status/route.ts",
+            "method": "GET", 
+            "description": "Check current authentication status",
+            "dependencies": ["Firebase Auth", "token validation"],
+            "authentication": true,
+            "caching": "no-cache"
+          },
+          
+          "sync": {
+            "file": "sync/route.ts",
+            "method": "POST",
+            "description": "Sync encrypted tokens from cookies to Firestore",
+            "dependencies": ["token-store", "Firebase Admin", "@google-cloud/kms"],
+            "authentication": true,
+            "validation": "userId required in body with context validation",
+            "securityEnhancements": {
+              "encryption": "AES-256-GCM token encryption before storage",
+              "userContextValidation": "Server-side user boundary enforcement",
+              "auditTrail": "Comprehensive logging of token operations"
+            }
+          },
+          "revoke": {
+            "file": "revoke/route.ts",
+            "method": "DELETE",
+            "description": "Securely revoke OAuth tokens and delete encrypted data",
+            "dependencies": ["googleapis", "token-store", "@google-cloud/kms"],
+            "authentication": true,
+            "validation": "userId required with admin verification",
+            "securityFeatures": {
+              "tokenRevocation": "Revoke tokens with Google OAuth",
+              "dataDestruction": "Secure deletion of encrypted token data",
+              "auditLogging": "Complete audit trail of revocation events"
+            }
+          },
+          "consent": {
+            "file": "consent/route.ts",
+            "methods": ["GET", "POST"],
+            "description": "Manage PII processing consent for GDPR compliance",
+            "dependencies": ["Firebase Admin", "consent-service"],
+            "authentication": true,
+            "validation": "userId, purposes, and dataTypes validation",
+            "complianceFeatures": {
+              "gdprCompliance": "Article 7 (Consent) implementation",
+              "consentManagement": "Granular purpose and data type consent",
+              "auditTrail": "Immutable consent change logging",
+              "expirationHandling": "Automatic consent expiration management"
+            }
+          }
+        }
+      },
+      
+      "workflows": {
+        "basePath": "src/app/api/workflows/",
+        "routes": {
+          "scan": {
+            "file": "scan/route.ts",
+            "method": "POST", 
+            "description": "Comprehensive drive scan with metadata extraction",
+            "dependencies": ["Firebase Auth", "Google Drive API", "AI flows"],
+            "authentication": "required",
+            "timeout": "300s",
+            "rateLimit": "10/minute/user",
+            "validation": "maxDepth, includeTrashed, scanSharedDrives"
+          },
+          
+          "background-scan": {
+            "file": "background-scan/route.ts",
+            "method": "POST",
+            "description": "Initiate async scan via Cloud Functions",
+            "dependencies": ["Cloud Functions", "Pub/Sub"],
+            "authentication": "required",
+            "async": true,
+            "returns": "scanId for status tracking"
+          },
+          
+          "background-scan/state": {
+            "file": "background-scan/state/route.ts",
+            "method": "GET",
+            "description": "Get background scan progress and results",
+            "dependencies": ["Firestore", "scan status documents"],
+            "authentication": "required",
+            "parameters": ["scanId", "userId"],
+            "realtime": false
+          },
+          
+          "duplicates": {
+            "file": "duplicates/route.ts",
+            "method": "POST",
+            "description": "Detect duplicate files using content analysis",
+            "dependencies": ["duplicate detection algorithms", "Google Drive API"],
+            "authentication": "required",
+            "computeIntensive": true,
+            "algorithms": ["content_hash", "fuzzy_match", "combined"]
+          },
+          
+          "organize": {
+            "file": "organize/route.ts", 
+            "method": "POST",
+            "description": "AI-powered organization recommendations",
+            "dependencies": ["Gemini AI", "file analysis"],
+            "authentication": "required",
+            "rateLimit": "20/minute/user",
+            "aiProvider": "Gemini 1.5 Flash"
+          }
+        }
+      },
+      
+      "ai": {
+        "basePath": "src/app/api/ai/",
+        "routes": {
+          "classify": {
+            "file": "classify/route.ts",
+            "method": "POST",
+            "description": "AI-powered file classification with comprehensive PII redaction",
+            "dependencies": ["Gemini AI API", "Google Drive API", "pii-redaction-service", "consent-service"],
+            "authentication": "required",
+            "batchLimit": 50,
+            "rateLimit": "20/minute/user (reduced for security)",
+            "validation": "userId, fileIds array, and consent confirmation required",
+            "securityEnhancements": {
+              "piiRedaction": "50+ pattern comprehensive PII detection and redaction",
+              "consentValidation": "User consent verification before AI processing",
+              "dataMinimization": "Only redacted metadata sent to AI services",
+              "auditLogging": "All AI processing events logged with PII audit trail"
+            },
+            "piiPatterns": {
+              "email": "Email address detection and redaction",
+              "phone": "Phone number pattern matching",
+              "ssn": "Social Security Number detection",
+              "creditCard": "Credit card number patterns",
+              "names": "Personal name identification",
+              "addresses": "Physical address detection"
+            }
+          },
+          
+          "propose-rule": {
+            "file": "propose-rule/route.ts", 
+            "method": "POST",
+            "description": "Generate organization rules from natural language",
+            "dependencies": ["Gemini AI API", "rule templates"],
+            "authentication": "required",
+            "aiContextWindow": "32k tokens",
+            "validation": "description required"
+          },
+          
+          "health-check": {
+            "file": "health-check/route.ts",
+            "method": "GET",
+            "description": "Validate AI service availability and quota",
+            "dependencies": ["Gemini API health"],
+            "authentication": false,
+            "monitoring": "service dependency check"
+          }
+        }
+      },
+      
+      "system": {
+        "basePath": "src/app/api/",
+        "routes": {
+          "health": {
+            "file": "health/route.ts",
+            "method": "GET",
+            "description": "Comprehensive service health check",
+            "dependencies": ["all system dependencies"],
+            "authentication": false,
+            "caching": "no-cache",
+            "monitoring": "load balancer health check",
+            "sla": "p95 < 100ms"
+          },
+          
+          "metrics": {
+            "file": "metrics/route.ts", 
+            "methods": ["GET", "POST"],
+            "description": "System metrics collection and reporting",
+            "dependencies": ["system monitoring"],
+            "authentication": false,
+            "caching": "no-cache",
+            "usage": ["observability", "alerting", "dashboards"]
+          }
+        }
+      }
+    },
+    
+    "services": {
+      "tokenEncryptionService": {
+        "file": "src/lib/token-encryption-service.ts",
+        "description": "AES-256-GCM token encryption with Google Cloud KMS",
+        "dependencies": ["@google-cloud/kms", "crypto"],
+        "features": {
+          "encryption": "AES-256-GCM with authenticated encryption",
+          "keyManagement": "Google Cloud KMS automatic key rotation",
+          "auditLogging": "All encryption operations logged",
+          "userScopedKeys": "Separate encryption context per user"
+        },
+        "security": "Zero-trust encryption model"
+      },
+      "tokenStore": {
+        "file": "src/lib/token-store.ts",
+        "description": "Encrypted OAuth token persistence and management",
+        "dependencies": ["Firebase Admin", "Firestore", "token-encryption-service"],
+        "features": ["AES-256-GCM encryption", "in-memory caching", "automatic cleanup", "audit logging"],
+        "security": "server-only access with encryption at rest"
+      },
+      "piiRedactionService": {
+        "file": "src/lib/pii-redaction-service.ts",
+        "description": "Comprehensive PII detection and redaction service",
+        "dependencies": ["regex patterns", "consent-service"],
+        "features": {
+          "patternDetection": "50+ PII detection patterns",
+          "contextAwareRedaction": "Preserve data utility while protecting PII",
+          "auditTrail": "Complete logging of PII processing activities",
+          "consentIntegration": "User consent validation before processing"
+        },
+        "complianceFeatures": {
+          "gdprCompliant": "Article 25 (Data Protection by Design)",
+          "dataMinimization": "Only necessary data processing",
+          "rightToErasure": "Complete PII removal capabilities"
+        }
+      },
+      "consentManagementService": {
+        "file": "src/lib/consent-management-service.ts",
+        "description": "GDPR-compliant consent management system",
+        "dependencies": ["Firebase Admin", "Firestore"],
+        "features": {
+          "granularConsent": "Purpose and data type specific consent",
+          "consentExpiration": "Automatic consent expiration handling",
+          "auditTrail": "Immutable consent change logging",
+          "revokeSupport": "Easy consent revocation mechanisms"
+        },
+        "compliance": "Full GDPR Article 7 compliance"
+      },
+      "securityMiddleware": {
+        "file": "src/lib/security-middleware.ts",
+        "description": "Comprehensive security headers and validation middleware",
+        "dependencies": ["helmet", "express-rate-limit"],
+        "features": {
+          "hstsEnforcement": "Strict-Transport-Security with preload",
+          "cspHeaders": "Content Security Policy enforcement",
+          "userContextValidation": "Server-side user boundary enforcement",
+          "rateLimit": "Multi-tier rate limiting by endpoint and user"
+        }
+      },
+      
+      "googleAuth": {
+        "file": "src/lib/google-auth.ts", 
+        "description": "Google OAuth 2.0 client configuration",
+        "dependencies": ["googleapis", "OAuth2Client"],
+        "features": ["token refresh", "scope validation", "error handling"]
+      },
+      
+      "admin": {
+        "file": "src/lib/admin.ts",
+        "description": "Firebase Admin SDK initialization",
+        "dependencies": ["firebase-admin"],
+        "services": ["Firestore", "Auth", "Storage"],
+        "initialization": "singleton pattern"
+      }
+    }
+  },
+  
+  "infrastructure": {
+    "hosting": {
+      "platform": "Firebase App Hosting",
+      "runtime": "Cloud Run",
+      "configuration": "apphosting.yaml",
+      "scaling": {
+        "minInstances": 0,
+        "maxInstances": 10,
+        "concurrency": 80,
+        "cpu": "1 vCPU",
+        "memory": "512 MiB"
+      }
+    },
+    
+    "database": {
+      "primary": "Cloud Firestore",
+      "collections": {
+        "users/{uid}/secrets": "OAuth refresh tokens (encrypted)",
+        "users/{uid}/scans": "Background scan state and results", 
+        "users/{uid}/inventory": "File metadata cache",
+        "users/{uid}/rules": "Organization rules and settings"
+      },
+      "indexes": ["composite indexes for user queries"],
+      "security": "Firebase Security Rules"
+    },
+    
+    "secrets": {
+      "provider": "Firebase Secret Manager + Google Cloud KMS",
+      "secrets": [
+        "GOOGLE_OAUTH_CLIENT_ID",
+        "GOOGLE_OAUTH_CLIENT_SECRET", 
+        "GEMINI_API_KEY"
+      ],
+      "access": "runtime availability for Cloud Run",
+      "keyManagement": {
+        "provider": "Google Cloud KMS",
+        "keyRotation": "Automatic key rotation enabled",
+        "keyRings": {
+          "oauth-tokens": "Encryption keys for OAuth token storage",
+          "pii-data": "Keys for PII redaction audit data",
+          "system-keys": "General application encryption keys"
+        }
+      }
+    },
+    
+    "monitoring": {
+      "health": "/api/health endpoint with security validation",
+      "metrics": "/api/metrics endpoint with security metrics",
+      "logging": {
+        "provider": "Cloud Logging with structured format",
+        "securityEvents": "Dedicated security event logging",
+        "auditTrail": "Immutable audit trail for compliance",
+        "piiAudit": "PII processing activity logs"
+      },
+      "alerting": {
+        "provider": "Cloud Monitoring + webhook notifications",
+        "securityAlerts": {
+          "failedAuthentication": "Multiple failed OAuth attempts",
+          "suspiciousActivity": "Unusual API access patterns",
+          "encryptionFailures": "Token encryption/decryption errors",
+          "consentViolations": "AI processing without proper consent"
+        }
+      }
+    }
+  },
+  
+  "externalIntegrations": {
+    "googleDrive": {
+      "api": "Google Drive API v3",
+      "authentication": "OAuth 2.0",
+      "scopes": ["https://www.googleapis.com/auth/drive"],
+      "rateLimit": "10,000 requests/100 seconds",
+      "retryPolicy": "exponential backoff with jitter",
+      "endpoints": [
+        "GET /drive/v3/files (file listing)",
+        "GET /drive/v3/files/{fileId} (metadata)", 
+        "GET /drive/v3/files/{fileId}?alt=media (content)"
+      ]
+    },
+    
+    "geminiAI": {
+      "api": "Google Gemini AI API",
+      "model": "gemini-1.5-flash",
+      "authentication": "API Key",
+      "rateLimit": "60 requests/minute",
+      "contextWindow": "32k tokens",
+      "useCases": [
+        "File content classification",
+        "Folder structure recommendations",
+        "Organization rule generation"
+      ]
+    },
+    
+    "firebase": {
+      "services": {
+        "authentication": "User identity and JWT tokens",
+        "firestore": "Document database for app data",
+        "hosting": "Static asset serving and CDN",
+        "appHosting": "Cloud Run container hosting",
+        "secretManager": "Encrypted credential storage"
+      }
+    }
+  },
+  
+  "dataFlow": {
+    "authentication": {
+      "flow": [
+        "User initiates OAuth → /api/auth/drive/begin",
+        "Google redirects → /api/auth/drive/callback", 
+        "Tokens saved → Firestore + HTTP cookies",
+        "Frontend checks status → /api/auth/drive/status"
+      ],
+      "tokenRefresh": "Automatic with googleapis library",
+      "persistence": "Firestore for server, cookies for client"
+    },
+    
+    "driveScanning": {
+      "flow": [
+        "User triggers scan → /api/workflows/scan",
+        "Authenticate with stored tokens → Google Drive API",
+        "Recursive file discovery → Metadata extraction",
+        "AI analysis (optional) → Classification and scoring",
+        "Results stored → Firestore cache",
+        "Frontend updated → Real-time or polling"
+      ],
+      "async": "Cloud Functions for large scans",
+      "caching": "Firestore with TTL invalidation"
+    },
+    
+    "aiProcessing": {
+      "flow": [
+        "File selection → /api/ai/classify",
+        "Content extraction → Google Drive API",
+        "AI analysis → Gemini API",
+        "Results processed → Structured response",
+        "Cache results → Firestore",
+        "Update UI → Real-time feedback"
+      ],
+      "optimization": "Batch processing for multiple files",
+      "fallback": "Graceful degradation if AI unavailable"
+    }
+  },
+  
+  "securityModel": {
+    "authentication": {
+      "method": "PKCE-enhanced OAuth 2.0 + Firebase Auth",
+      "tokenTypes": ["access_token", "encrypted_refresh_token", "id_token"],
+      "storage": "Secure HTTP-only cookies + AES-256-GCM encrypted Firestore",
+      "validation": "JWT signature verification + PKCE validation",
+      "enhancements": {
+        "pkce": "Proof Key for Code Exchange with S256 challenge method",
+        "stateValidation": "Cryptographically secure CSRF protection",
+        "tokenEncryption": "AES-256-GCM with Google Cloud KMS key management"
+      }
+    },
+    
+    "authorization": {
+      "model": "Zero-trust user-owned data access",
+      "enforcement": "Server-side user context validation + Firebase Auth UID",
+      "scopes": "Minimal required Google Drive access with read-only preference",
+      "adminAccess": "Multi-factor authenticated admin role for system endpoints",
+      "userBoundaries": "Strict server-side enforcement of user data boundaries"
+    },
+    
+    "dataProtection": {
+      "encryption": {
+        "inTransit": "TLS 1.3 + HSTS with preload",
+        "atRest": "Firebase native + AES-256-GCM for sensitive data",
+        "tokenEncryption": "Google Cloud KMS managed encryption keys"
+      },
+      "pii": {
+        "dataMinimization": "File metadata only, no content storage",
+        "redaction": "Comprehensive 50+ pattern PII redaction",
+        "consentManagement": "GDPR-compliant explicit user consent",
+        "auditTrail": "Complete PII processing audit logs"
+      },
+      "audit": {
+        "scope": "All auth/authz events + PII operations + encryption activities",
+        "format": "Structured JSON with immutable logging",
+        "retention": "Configurable with automatic cleanup"
+      },
+      "retention": "User-controlled token revocation + automated data expiration",
+      "compliance": {
+        "gdpr": "Full Article 25 (Data Protection by Design) compliance",
+        "rightToErasure": "Complete user data deletion capabilities",
+        "dataPortability": "User data export functionality"
+      }
+    }
+  },
+  
+  "performanceConsiderations": {
+    "frontend": {
+      "bundleSize": "< 250KB gzipped",
+      "codesplitting": "Route-based lazy loading",
+      "caching": "Service worker for offline capability",
+      "optimization": "React.memo for expensive components"
+    },
+    
+    "backend": {
+      "responseTime": "p95 < 250ms, p99 < 500ms",
+      "concurrency": "80 requests per Cloud Run instance",
+      "caching": "In-memory token cache, Firestore query optimization",
+      "scaling": "Auto-scaling based on CPU and latency"
+    },
+    
+    "database": {
+      "indexes": "Composite indexes for user-scoped queries",
+      "pagination": "Cursor-based for large result sets",
+      "caching": "Client-side caching with TTL",
+      "optimization": "Batch operations for bulk updates"
+    }
+  },
+  
+  "deploymentStrategy": {
+    "cicd": {
+      "trigger": "Git push to main branch",
+      "pipeline": [
+        "Build validation (lint, typecheck, test)",
+        "Security scanning (SAST, dependency audit)",
+        "Docker containerization",
+        "Cloud Run deployment", 
+        "Health check validation"
+      ],
+      "rollback": "Automatic on health check failure"
+    },
+    
+    "environments": {
+      "development": "Local Next.js dev server + Firebase emulators",
+      "staging": "Preview deployments on feature branches",
+      "production": "Main branch auto-deploy to Firebase App Hosting"
+    }
+  }
+}

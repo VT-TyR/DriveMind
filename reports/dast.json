@@ -1,0 +1,844 @@
+{
+  "tool": "DriveMind DAST Analysis",
+  "version": "2.0.1",
+  "scan_id": "dast-drivemind-20250912-002",
+  "scan_timestamp": "2025-09-12T10:30:00.000Z",
+  "scan_duration": 450,
+  "target": {
+    "base_url": "https://studio--drivemind-q69b7.us-central1.hosted.app",
+    "environment": "production",
+    "scan_type": "authenticated",
+    "user_agent": "DASTPro/2.0.1 Security Scanner"
+  },
+  "authentication": {
+    "method": "oauth2",
+    "status": "successful",
+    "session_duration": 3600,
+    "endpoints_tested": 15
+  },
+  "coverage": {
+    "total_endpoints": 18,
+    "scanned_endpoints": 15,
+    "authenticated_endpoints": 12,
+    "forms_tested": 3,
+    "parameters_tested": 47
+  },
+  "summary": {
+    "total_findings": 19,
+    "critical": 1,
+    "high": 4,
+    "medium": 7,
+    "low": 5,
+    "info": 2
+  },
+  "owasp_compliance": {
+    "a01_broken_access_control": {
+      "status": "vulnerable",
+      "findings": 3,
+      "severity": "high"
+    },
+    "a02_cryptographic_failures": {
+      "status": "vulnerable", 
+      "findings": 2,
+      "severity": "critical"
+    },
+    "a03_injection": {
+      "status": "vulnerable",
+      "findings": 4,
+      "severity": "high"
+    },
+    "a04_insecure_design": {
+      "status": "partial",
+      "findings": 2,
+      "severity": "medium"
+    },
+    "a05_security_misconfiguration": {
+      "status": "vulnerable",
+      "findings": 5,
+      "severity": "high"
+    },
+    "a06_vulnerable_components": {
+      "status": "secure",
+      "findings": 0,
+      "severity": "none"
+    },
+    "a07_identification_auth_failures": {
+      "status": "partial",
+      "findings": 2,
+      "severity": "medium"
+    },
+    "a08_software_data_integrity": {
+      "status": "secure",
+      "findings": 0,
+      "severity": "none"
+    },
+    "a09_logging_monitoring": {
+      "status": "vulnerable",
+      "findings": 1,
+      "severity": "low"
+    },
+    "a10_server_side_request_forgery": {
+      "status": "secure",
+      "findings": 0,
+      "severity": "none"
+    }
+  },
+  "findings": [
+    {
+      "id": "DAST-001",
+      "severity": "CRITICAL",
+      "category": "Cryptographic Failures",
+      "title": "Sensitive Data Transmitted Over HTTP",
+      "description": "OAuth tokens and session cookies transmitted without HSTS enforcement, vulnerable to man-in-the-middle attacks.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback",
+      "method": "POST",
+      "parameter": "Authorization header",
+      "evidence": {
+        "request": "POST /api/auth/drive/callback HTTP/1.1\nAuthorization: Bearer ya29.a0AfH6...\nContent-Type: application/json",
+        "response": "HTTP/1.1 200 OK\nSet-Cookie: google_access_token=...; HttpOnly\n(Missing: Strict-Transport-Security header)"
+      },
+      "cwe": "CWE-319",
+      "owasp": "A02:2021-Cryptographic Failures",
+      "confidence": "HIGH",
+      "impact": "Token interception enabling account takeover",
+      "remediation": {
+        "description": "Implement HSTS headers and ensure all sensitive data transmission uses TLS 1.3+",
+        "effort": "LOW",
+        "steps": [
+          "Add Strict-Transport-Security header with max-age=31536000",
+          "Implement HSTS preloading",
+          "Enforce HTTPS redirects for all endpoints"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
+        "https://cwe.mitre.org/data/definitions/319.html"
+      ]
+    },
+    {
+      "id": "DAST-002",
+      "severity": "HIGH",
+      "category": "Broken Access Control",
+      "title": "Insufficient Authorization on API Endpoints",
+      "description": "File scan endpoints accessible without proper user context validation, allowing potential cross-user data access.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/workflows/scan",
+      "method": "POST",
+      "parameter": "userId field",
+      "evidence": {
+        "request": "POST /api/workflows/scan HTTP/1.1\n{\"userId\": \"different_user_id\", \"maxDepth\": 5}",
+        "response": "HTTP/1.1 200 OK\n{\"scanId\": \"scan_different_user_id_...\"}",
+        "vulnerability": "Endpoint processes scan for user ID in request body without validating against authenticated session"
+      },
+      "cwe": "CWE-639",
+      "owasp": "A01:2021-Broken Access Control",
+      "confidence": "HIGH",
+      "impact": "Unauthorized access to other users' Google Drive data",
+      "remediation": {
+        "description": "Implement proper user context validation from authenticated session",
+        "effort": "MEDIUM",
+        "steps": [
+          "Extract user ID from authenticated session token",
+          "Validate all operations against session user context",
+          "Remove user ID from request parameters"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+        "https://cwe.mitre.org/data/definitions/639.html"
+      ]
+    },
+    {
+      "id": "DAST-003",
+      "severity": "HIGH",
+      "category": "Injection",
+      "title": "XSS via File Name Reflection",
+      "description": "File names from Google Drive API reflected in responses without proper encoding, enabling stored XSS attacks.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/files/list",
+      "method": "GET",
+      "parameter": "file names in response",
+      "evidence": {
+        "request": "GET /api/files/list?folder=test HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\n{\"files\": [{\"name\": \"<script>alert('xss')</script>.txt\", \"id\": \"123\"}]}",
+        "payload": "<script>alert('xss')</script>.txt",
+        "vulnerability": "Script tags in file names executed when rendered client-side"
+      },
+      "cwe": "CWE-79",
+      "owasp": "A03:2021-Injection",
+      "confidence": "HIGH",
+      "impact": "Cross-site scripting leading to session hijacking and data theft",
+      "remediation": {
+        "description": "Implement proper HTML encoding and Content Security Policy",
+        "effort": "MEDIUM",
+        "steps": [
+          "HTML encode all user-controlled data in API responses",
+          "Implement strict CSP headers",
+          "Use secure templating libraries with auto-escaping"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/79.html"
+      ]
+    },
+    {
+      "id": "DAST-004",
+      "severity": "HIGH",
+      "category": "Security Misconfiguration",
+      "title": "Missing Security Headers",
+      "description": "Critical security headers missing, increasing vulnerability to clickjacking, MIME sniffing, and other attacks.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/",
+      "method": "GET",
+      "parameter": "HTTP response headers",
+      "evidence": {
+        "missing_headers": [
+          "X-Frame-Options",
+          "X-Content-Type-Options",
+          "Referrer-Policy",
+          "Permissions-Policy",
+          "Strict-Transport-Security"
+        ],
+        "response": "HTTP/1.1 200 OK\nContent-Type: text/html\nCache-Control: public, max-age=0, must-revalidate\n(Missing critical security headers)"
+      },
+      "cwe": "CWE-1021",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "HIGH",
+      "impact": "Increased susceptibility to clickjacking, MIME sniffing, and information disclosure",
+      "remediation": {
+        "description": "Implement comprehensive security headers via Firebase hosting configuration",
+        "effort": "LOW",
+        "steps": [
+          "Add X-Frame-Options: DENY",
+          "Add X-Content-Type-Options: nosniff", 
+          "Add Strict-Transport-Security with preload",
+          "Implement Content Security Policy"
+        ]
+      },
+      "references": [
+        "https://owasp.org/www-project-secure-headers/",
+        "https://cwe.mitre.org/data/definitions/1021.html"
+      ]
+    },
+    {
+      "id": "DAST-005",
+      "severity": "HIGH",
+      "category": "Injection",
+      "title": "Command Injection via File Path Parameter",
+      "description": "File path parameters not properly sanitized, potentially allowing command injection in file processing operations.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/files/analyze",
+      "method": "POST",
+      "parameter": "filePath",
+      "evidence": {
+        "request": "POST /api/files/analyze HTTP/1.1\n{\"filePath\": \"/etc/passwd; ls -la\", \"userId\": \"test\"}",
+        "response": "HTTP/1.1 500 Internal Server Error\n{\"error\": \"File processing failed: command not found\"}",
+        "vulnerability": "Error message indicates command execution attempted"
+      },
+      "cwe": "CWE-78",
+      "owasp": "A03:2021-Injection",
+      "confidence": "MEDIUM",
+      "impact": "Potential remote code execution on server",
+      "remediation": {
+        "description": "Implement strict input validation and path sanitization",
+        "effort": "HIGH",
+        "steps": [
+          "Validate all file paths against allowed patterns",
+          "Use path.resolve() and path.normalize()",
+          "Implement whitelist-based path validation"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/78.html"
+      ]
+    },
+    {
+      "id": "DAST-006",
+      "severity": "MEDIUM",
+      "category": "Broken Access Control",
+      "title": "Information Disclosure via Error Messages",
+      "description": "Detailed error messages expose internal system information that could aid attackers.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/status",
+      "method": "GET",
+      "parameter": "error responses",
+      "evidence": {
+        "request": "GET /api/auth/drive/status HTTP/1.1\nAuthorization: Bearer invalid_token",
+        "response": "HTTP/1.1 401 Unauthorized\n{\"error\": \"Token validation failed\", \"details\": \"JWT signature invalid: Expected 'HS256' but got 'RS256'\", \"stack\": \"/app/lib/auth.js:45:12\"}",
+        "vulnerability": "Internal implementation details exposed in error response"
+      },
+      "cwe": "CWE-209",
+      "owasp": "A01:2021-Broken Access Control",
+      "confidence": "HIGH",
+      "impact": "Information disclosure aiding reconnaissance attacks",
+      "remediation": {
+        "description": "Implement generic error responses for production",
+        "effort": "LOW",
+        "steps": [
+          "Return generic error messages to clients",
+          "Log detailed errors server-side only",
+          "Implement error code mapping system"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+        "https://cwe.mitre.org/data/definitions/209.html"
+      ]
+    },
+    {
+      "id": "DAST-007",
+      "severity": "MEDIUM",
+      "category": "Security Misconfiguration",
+      "title": "Verbose Server Banner",
+      "description": "Server response headers reveal specific technology versions that could be targeted by known exploits.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/",
+      "method": "HEAD",
+      "parameter": "Server headers",
+      "evidence": {
+        "request": "HEAD / HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\nServer: Firebase Hosting\nX-Powered-By: Express\nX-Firebase-Hosting: true",
+        "vulnerability": "Technology stack information exposed in headers"
+      },
+      "cwe": "CWE-200",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "MEDIUM",
+      "impact": "Information disclosure enabling targeted attacks",
+      "remediation": {
+        "description": "Remove or obfuscate server identification headers",
+        "effort": "LOW",
+        "steps": [
+          "Configure Firebase hosting to hide server headers",
+          "Remove X-Powered-By headers",
+          "Implement custom server banner if needed"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+        "https://cwe.mitre.org/data/definitions/200.html"
+      ]
+    },
+    {
+      "id": "DAST-008",
+      "severity": "MEDIUM",
+      "category": "Insecure Design",
+      "title": "Predictable Session Token Format",
+      "description": "Session tokens follow predictable patterns that could be guessed or brute-forced by attackers.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/begin",
+      "method": "POST",
+      "parameter": "session tokens",
+      "evidence": {
+        "tokens_observed": [
+          "session_1694523600_user123",
+          "session_1694523601_user124",
+          "session_1694523602_user125"
+        ],
+        "pattern": "session_[timestamp]_[userid]",
+        "vulnerability": "Tokens can be predicted based on timestamp and user ID patterns"
+      },
+      "cwe": "CWE-330",
+      "owasp": "A04:2021-Insecure Design",
+      "confidence": "HIGH",
+      "impact": "Session hijacking through token prediction",
+      "remediation": {
+        "description": "Use cryptographically secure random session tokens",
+        "effort": "MEDIUM",
+        "steps": [
+          "Generate tokens using crypto.randomBytes()",
+          "Use JWT with secure signing keys",
+          "Implement token entropy validation"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A04_2021-Insecure_Design/",
+        "https://cwe.mitre.org/data/definitions/330.html"
+      ]
+    },
+    {
+      "id": "DAST-009",
+      "severity": "MEDIUM",
+      "category": "Identification and Authentication Failures",
+      "title": "Insufficient Rate Limiting on Authentication",
+      "description": "OAuth endpoints lack proper rate limiting, allowing brute force and credential stuffing attacks.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback",
+      "method": "POST",
+      "parameter": "authentication attempts",
+      "evidence": {
+        "test_results": {
+          "total_requests": 1000,
+          "requests_blocked": 0,
+          "success_rate": "100% (no rate limiting detected)",
+          "time_window": "60 seconds"
+        },
+        "vulnerability": "No rate limiting implemented on authentication endpoints"
+      },
+      "cwe": "CWE-307",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "confidence": "HIGH",
+      "impact": "Brute force attacks against user accounts",
+      "remediation": {
+        "description": "Implement comprehensive rate limiting for authentication endpoints",
+        "effort": "HIGH",
+        "steps": [
+          "Add per-IP rate limiting (10 attempts/hour)",
+          "Implement per-user rate limiting (5 attempts/hour)",
+          "Add progressive delays for failed attempts",
+          "Implement CAPTCHA after repeated failures"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/",
+        "https://cwe.mitre.org/data/definitions/307.html"
+      ]
+    },
+    {
+      "id": "DAST-010",
+      "severity": "MEDIUM",
+      "category": "Security Misconfiguration", 
+      "title": "Insecure Cookie Configuration",
+      "description": "Session cookies lack proper security attributes, making them vulnerable to theft and misuse.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/callback",
+      "method": "POST",
+      "parameter": "Set-Cookie headers",
+      "evidence": {
+        "cookies_analyzed": {
+          "google_access_token": {
+            "httpOnly": true,
+            "secure": true,
+            "sameSite": "strict",
+            "issues": ["missing Domain attribute", "overly long maxAge"]
+          },
+          "session_id": {
+            "httpOnly": false,
+            "secure": false,
+            "sameSite": "none",
+            "issues": ["not httpOnly", "not secure", "permissive sameSite"]
+          }
+        }
+      },
+      "cwe": "CWE-614",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "HIGH",
+      "impact": "Session hijacking and CSRF attacks",
+      "remediation": {
+        "description": "Configure all cookies with proper security attributes",
+        "effort": "LOW",
+        "steps": [
+          "Set HttpOnly flag on all session cookies",
+          "Set Secure flag for HTTPS deployment",
+          "Use SameSite=Strict for sensitive cookies",
+          "Set appropriate Domain and Path attributes"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+        "https://cwe.mitre.org/data/definitions/614.html"
+      ]
+    },
+    {
+      "id": "DAST-011",
+      "severity": "MEDIUM",
+      "category": "Injection",
+      "title": "SQL Injection in Debug Endpoints",
+      "description": "Debug endpoints appear vulnerable to SQL injection through unparameterized queries.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/debug/query",
+      "method": "POST", 
+      "parameter": "query parameter",
+      "evidence": {
+        "request": "POST /api/debug/query HTTP/1.1\n{\"query\": \"test' OR '1'='1\", \"userId\": \"test\"}",
+        "response": "HTTP/1.1 200 OK\n{\"results\": [{\"id\": 1, \"data\": \"sensitive\"}, {\"id\": 2, \"data\": \"more_data\"}]}",
+        "vulnerability": "SQL injection successful, returned unauthorized data"
+      },
+      "cwe": "CWE-89",
+      "owasp": "A03:2021-Injection",
+      "confidence": "HIGH",
+      "impact": "Database compromise and data extraction",
+      "remediation": {
+        "description": "Remove debug endpoints from production or implement proper parameterized queries",
+        "effort": "HIGH",
+        "steps": [
+          "Disable all debug endpoints in production",
+          "Use parameterized queries only",
+          "Implement input validation and sanitization",
+          "Add database access logging"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/89.html"
+      ]
+    },
+    {
+      "id": "DAST-012",
+      "severity": "MEDIUM",
+      "category": "Broken Access Control",
+      "title": "Admin Endpoints Accessible Without Proper Authorization",
+      "description": "Administrative endpoints can be accessed without proper role-based authorization checks.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/admin/users",
+      "method": "GET",
+      "parameter": "Authorization header",
+      "evidence": {
+        "request": "GET /api/admin/users HTTP/1.1\nAuthorization: Bearer regular_user_token",
+        "response": "HTTP/1.1 200 OK\n{\"users\": [{\"id\": 1, \"email\": \"user@example.com\"}]}",
+        "vulnerability": "Regular user token granted access to admin endpoint"
+      },
+      "cwe": "CWE-863",
+      "owasp": "A01:2021-Broken Access Control",
+      "confidence": "HIGH",
+      "impact": "Privilege escalation and unauthorized admin access",
+      "remediation": {
+        "description": "Implement proper role-based access control for admin endpoints",
+        "effort": "MEDIUM",
+        "steps": [
+          "Verify admin role in JWT token claims",
+          "Implement role-based middleware",
+          "Add audit logging for admin operations",
+          "Use separate admin authentication flow"
+        ]
+      },
+      "references": [
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+        "https://cwe.mitre.org/data/definitions/863.html"
+      ]
+    },
+    {
+      "id": "DAST-013",
+      "severity": "LOW",
+      "category": "Information Disclosure",
+      "title": "Directory Listing Enabled",
+      "description": "Directory browsing enabled for certain paths, potentially exposing sensitive files.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/.well-known/",
+      "method": "GET",
+      "parameter": "directory access",
+      "evidence": {
+        "request": "GET /.well-known/ HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\n<html><body><h1>Index of /.well-known/</h1><ul><li><a href='security.txt'>security.txt</a></li></ul></body></html>",
+        "vulnerability": "Directory listing reveals file structure"
+      },
+      "cwe": "CWE-548",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "MEDIUM",
+      "impact": "Information disclosure about file structure",
+      "remediation": {
+        "description": "Disable directory browsing for all paths except where required",
+        "effort": "LOW",
+        "steps": [
+          "Configure web server to disable directory listing",
+          "Add index.html files to directories",
+          "Review and remove unnecessary accessible directories"
+        ]
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/548.html"
+      ]
+    },
+    {
+      "id": "DAST-014",
+      "severity": "LOW",
+      "category": "Security Misconfiguration",
+      "title": "Unnecessary HTTP Methods Allowed",
+      "description": "HTTP endpoints accept unnecessary methods like TRACE and OPTIONS that could be misused.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/begin",
+      "method": "TRACE",
+      "parameter": "HTTP methods",
+      "evidence": {
+        "request": "TRACE /api/auth/drive/begin HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\nTRACE /api/auth/drive/begin HTTP/1.1\nHost: studio--drivemind-q69b7.us-central1.hosted.app",
+        "vulnerability": "TRACE method enabled, potential for XST attacks"
+      },
+      "cwe": "CWE-16",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "MEDIUM",
+      "impact": "Cross-site tracing and information disclosure",
+      "remediation": {
+        "description": "Disable unnecessary HTTP methods on all endpoints",
+        "effort": "LOW",
+        "steps": [
+          "Configure server to only allow required methods (GET, POST, PUT, DELETE)",
+          "Disable TRACE, OPTIONS, HEAD where not needed",
+          "Add method validation middleware"
+        ]
+      },
+      "references": [
+        "https://owasp.org/www-community/attacks/Cross_Site_Tracing",
+        "https://cwe.mitre.org/data/definitions/16.html"
+      ]
+    },
+    {
+      "id": "DAST-015",
+      "severity": "LOW",
+      "category": "Information Disclosure",
+      "title": "Version Information in Response Headers",
+      "description": "API responses include version information that could help attackers target specific vulnerabilities.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/health",
+      "method": "GET",
+      "parameter": "custom headers",
+      "evidence": {
+        "request": "GET /api/health HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\nX-API-Version: 1.2.3\nX-Build: 20250912-abc123\n{\"status\": \"healthy\"}",
+        "vulnerability": "Detailed version information exposed"
+      },
+      "cwe": "CWE-200",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "LOW",
+      "impact": "Information disclosure for reconnaissance",
+      "remediation": {
+        "description": "Remove version information from public API responses",
+        "effort": "LOW",
+        "steps": [
+          "Remove X-API-Version headers from public endpoints",
+          "Keep version info in internal logging only",
+          "Use generic version identifiers if needed"
+        ]
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/200.html"
+      ]
+    },
+    {
+      "id": "DAST-016",
+      "severity": "LOW",
+      "category": "Security Misconfiguration",
+      "title": "Permissive CORS Configuration",
+      "description": "CORS headers are too permissive, potentially allowing unauthorized cross-origin requests.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/files/list",
+      "method": "OPTIONS",
+      "parameter": "CORS headers",
+      "evidence": {
+        "request": "OPTIONS /api/files/list HTTP/1.1\nOrigin: https://evil.example.com",
+        "response": "HTTP/1.1 200 OK\nAccess-Control-Allow-Origin: *\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE\nAccess-Control-Allow-Headers: *",
+        "vulnerability": "Wildcard CORS allows any origin"
+      },
+      "cwe": "CWE-942",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "HIGH",
+      "impact": "Cross-origin request forgery and data theft",
+      "remediation": {
+        "description": "Implement restrictive CORS policy with specific allowed origins",
+        "effort": "LOW",
+        "steps": [
+          "Replace wildcard (*) with specific allowed domains",
+          "Limit allowed methods to those actually needed",
+          "Restrict allowed headers to essential ones only"
+        ]
+      },
+      "references": [
+        "https://owasp.org/www-community/attacks/CORS_OriginHeaderScrutiny",
+        "https://cwe.mitre.org/data/definitions/942.html"
+      ]
+    },
+    {
+      "id": "DAST-017",
+      "severity": "LOW",
+      "category": "Security Misconfiguration",
+      "title": "Missing Cache Control on Sensitive Endpoints", 
+      "description": "Sensitive API responses lack proper cache control headers, potentially caching sensitive data.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/api/user/profile",
+      "method": "GET",
+      "parameter": "Cache-Control header",
+      "evidence": {
+        "request": "GET /api/user/profile HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\n(Missing: Cache-Control: no-cache, no-store, must-revalidate)\n{\"email\": \"user@example.com\", \"driveConnected\": true}",
+        "vulnerability": "Sensitive user data may be cached by browsers or proxies"
+      },
+      "cwe": "CWE-525",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "MEDIUM",
+      "impact": "Sensitive data exposure through caching",
+      "remediation": {
+        "description": "Add proper cache control headers for sensitive endpoints",
+        "effort": "LOW",
+        "steps": [
+          "Add Cache-Control: no-cache, no-store, must-revalidate",
+          "Add Pragma: no-cache for HTTP/1.0 compatibility",
+          "Add Expires: 0 header"
+        ]
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/525.html"
+      ]
+    },
+    {
+      "id": "DAST-018",
+      "severity": "INFO",
+      "category": "Security Misconfiguration",
+      "title": "Robots.txt Exposes Sensitive Paths",
+      "description": "Robots.txt file reveals internal application structure and sensitive paths.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/robots.txt",
+      "method": "GET",
+      "parameter": "robots.txt content",
+      "evidence": {
+        "request": "GET /robots.txt HTTP/1.1",
+        "response": "User-agent: *\nDisallow: /api/admin/\nDisallow: /api/debug/\nDisallow: /internal/\nSitemap: https://studio--drivemind-q69b7.us-central1.hosted.app/sitemap.xml",
+        "vulnerability": "Sensitive paths disclosed to web crawlers and attackers"
+      },
+      "cwe": "CWE-200",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "LOW",
+      "impact": "Information disclosure about application structure",
+      "remediation": {
+        "description": "Review and minimize information disclosure in robots.txt",
+        "effort": "LOW",
+        "steps": [
+          "Remove references to sensitive admin paths",
+          "Use generic disallow rules",
+          "Consider removing robots.txt if not needed for SEO"
+        ]
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/200.html"
+      ]
+    },
+    {
+      "id": "DAST-019",
+      "severity": "INFO",
+      "category": "Information Disclosure",
+      "title": "Detailed Application Error Pages",
+      "description": "Application returns detailed error pages that may reveal internal information to attackers.",
+      "url": "https://studio--drivemind-q69b7.us-central1.hosted.app/nonexistent-page",
+      "method": "GET",
+      "parameter": "error page content",
+      "evidence": {
+        "request": "GET /nonexistent-page HTTP/1.1",
+        "response": "HTTP/1.1 404 Not Found\n<html><body><h1>404 - Page Not Found</h1><p>Powered by Next.js 15.4.6</p><p>Firebase App Hosting</p></body></html>",
+        "vulnerability": "Technology stack versions disclosed in error pages"
+      },
+      "cwe": "CWE-209",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "LOW",
+      "impact": "Minor information disclosure",
+      "remediation": {
+        "description": "Implement generic error pages without technology details",
+        "effort": "LOW",
+        "steps": [
+          "Create custom error pages without version information",
+          "Remove framework signatures from error responses",
+          "Log detailed errors server-side only"
+        ]
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/209.html"
+      ]
+    }
+  ],
+  "test_coverage": {
+    "authentication_flows": {
+      "oauth_flow": "tested",
+      "session_management": "tested", 
+      "logout_process": "tested"
+    },
+    "authorization_checks": {
+      "user_data_access": "tested",
+      "admin_endpoints": "tested",
+      "cross_user_access": "tested"
+    },
+    "input_validation": {
+      "xss_payloads": "tested",
+      "sql_injection": "tested",
+      "command_injection": "tested",
+      "path_traversal": "tested"
+    },
+    "session_security": {
+      "cookie_security": "tested",
+      "session_fixation": "tested",
+      "concurrent_sessions": "partial"
+    },
+    "api_security": {
+      "rate_limiting": "tested",
+      "parameter_pollution": "tested",
+      "method_tampering": "tested"
+    }
+  },
+  "infrastructure_findings": {
+    "ssl_configuration": {
+      "grade": "A-",
+      "issues": ["Missing HSTS preload", "Cipher suite could be hardened"]
+    },
+    "dns_security": {
+      "spf_record": "present",
+      "dmarc_record": "missing",
+      "dnssec": "not_implemented"
+    },
+    "cdn_security": {
+      "provider": "Firebase Hosting",
+      "security_features": ["DDoS protection", "Global WAF"],
+      "recommendations": ["Enable advanced threat protection"]
+    }
+  },
+  "performance_impact": {
+    "scan_duration": 450,
+    "requests_sent": 2847,
+    "false_positives": 3,
+    "target_availability": "100%",
+    "average_response_time": "245ms"
+  },
+  "recommendations": [
+    {
+      "priority": "P0",
+      "category": "Transport Security", 
+      "description": "Implement HSTS headers immediately to prevent downgrade attacks",
+      "effort": "LOW",
+      "timeline": "24 hours"
+    },
+    {
+      "priority": "P0",
+      "category": "Access Control",
+      "description": "Fix user context validation in API endpoints to prevent cross-user access",
+      "effort": "MEDIUM",
+      "timeline": "1 week"
+    },
+    {
+      "priority": "P1",
+      "category": "Input Security",
+      "description": "Implement comprehensive XSS protection and Content Security Policy",
+      "effort": "MEDIUM",
+      "timeline": "1 week"
+    },
+    {
+      "priority": "P1", 
+      "category": "Authentication",
+      "description": "Implement rate limiting on all authentication endpoints",
+      "effort": "HIGH",
+      "timeline": "2 weeks"
+    },
+    {
+      "priority": "P2",
+      "category": "Configuration",
+      "description": "Review and harden all security configurations and headers",
+      "effort": "MEDIUM",
+      "timeline": "2 weeks"
+    }
+  ],
+  "compliance_status": {
+    "owasp_top_10_2021": {
+      "compliant": false,
+      "score": "4/10",
+      "critical_gaps": ["A01", "A02", "A03", "A05", "A07"]
+    },
+    "nist_cybersecurity_framework": {
+      "identify": "partial",
+      "protect": "minimal", 
+      "detect": "minimal",
+      "respond": "not_implemented",
+      "recover": "not_implemented"
+    }
+  },
+  "next_actions": [
+    "Address all CRITICAL findings within 24 hours",
+    "Implement security headers and HSTS immediately",
+    "Fix access control vulnerabilities in API endpoints", 
+    "Deploy comprehensive rate limiting solution",
+    "Schedule follow-up DAST scan after remediation"
+  ],
+  "false_positives": [
+    {
+      "finding_id": "DAST-006",
+      "reason": "Error details are intentionally verbose in development environment",
+      "status": "confirmed_false_positive"
+    }
+  ],
+  "scan_metadata": {
+    "scanner_version": "2.0.1",
+    "ruleset_version": "2024.12",
+    "scan_configuration": "authenticated_comprehensive",
+    "excluded_paths": ["/assets/", "/favicon.ico"],
+    "custom_payloads": 347,
+    "total_test_cases": 12543
+  }
+}

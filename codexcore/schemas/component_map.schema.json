@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["frontend", "backend"],
+  "properties": {
+    "frontend": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name","path","type"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "type": { "type": "string", "enum": ["page","layout","component","store","service"] }
+        }
+      }
+    },
+    "backend": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name","path","kind"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "kind": { "type": "string", "enum": ["handler","router","service","client","middleware"] }
+        }
+      }
+    }
+  }
+}

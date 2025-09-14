@@ -1,0 +1,6 @@
+Apply ALPHA standards.
+If PROJECT_ID or SCOPE is missing, ask and stop.
+Compute project_slug; write codexcore/runtime/arc.yaml from codexcore/contracts/arc.base.yaml injecting:
+  project_id: "<PROJECT_ID>"
+  scope: "<SCOPE>"
+Respond with a short summary of the resolved ARC and the project_slug. Do not run other agents.

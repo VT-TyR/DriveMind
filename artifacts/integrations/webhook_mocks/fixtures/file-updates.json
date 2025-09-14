@@ -1,0 +1,257 @@
+{
+  "file_modified": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T14:30:00.000Z",
+    "removed": false,
+    "fileId": "1ModifiedFile12345",
+    "file": {
+      "kind": "drive#file",
+      "id": "1ModifiedFile12345",
+      "name": "Updated_Report_v2.docx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": "356789",
+      "modifiedTime": "2024-12-13T14:30:00.000Z",
+      "createdTime": "2024-12-10T09:15:00.000Z",
+      "parents": ["1ReportsFolderId"],
+      "webViewLink": "https://docs.google.com/document/d/1ModifiedFile12345/view",
+      "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "shared": true,
+      "ownedByMe": true,
+      "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "John Doe",
+        "emailAddress": "john.doe@example.com",
+        "photoLink": "https://lh3.googleusercontent.com/a/default-user"
+      },
+      "version": "3",
+      "modifiedByMe": true,
+      "modifiedByMeTime": "2024-12-13T14:30:00.000Z",
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": true
+      },
+      "properties": {
+        "importance": "high",
+        "category": "business",
+        "project": "Q4-2024"
+      }
+    }
+  },
+  "file_created": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T15:00:00.000Z",
+    "removed": false,
+    "fileId": "2NewFile67890",
+    "file": {
+      "kind": "drive#file",
+      "id": "2NewFile67890",
+      "name": "Meeting_Notes_Dec13.md",
+      "mimeType": "text/markdown",
+      "size": "15678",
+      "modifiedTime": "2024-12-13T15:00:00.000Z",
+      "createdTime": "2024-12-13T15:00:00.000Z",
+      "parents": ["2MeetingNotesFolderId"],
+      "webViewLink": "https://drive.google.com/file/d/2NewFile67890/view",
+      "shared": false,
+      "ownedByMe": true,
+      "owners": [
+        {
+          "kind": "drive#user",
+          "displayName": "Jane Smith",
+          "emailAddress": "jane.smith@example.com",
+          "photoLink": "https://lh3.googleusercontent.com/a/jane-smith"
+        }
+      ],
+      "version": "1",
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": true
+      }
+    }
+  },
+  "file_deleted": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T15:30:00.000Z",
+    "removed": true,
+    "fileId": "3DeletedFile11111",
+    "file": null
+  },
+  "file_renamed": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T16:00:00.000Z",
+    "removed": false,
+    "fileId": "4RenamedFile22222",
+    "file": {
+      "kind": "drive#file",
+      "id": "4RenamedFile22222",
+      "name": "Final_Presentation_2024.pptx",
+      "originalFilename": "Draft_Presentation.pptx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "size": "8945632",
+      "modifiedTime": "2024-12-13T16:00:00.000Z",
+      "createdTime": "2024-12-08T11:30:00.000Z",
+      "parents": ["3PresentationsFolderId"],
+      "webViewLink": "https://docs.google.com/presentation/d/4RenamedFile22222/view",
+      "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "shared": true,
+      "ownedByMe": true,
+      "version": "5",
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": true
+      }
+    }
+  },
+  "file_shared": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T16:30:00.000Z",
+    "removed": false,
+    "fileId": "5SharedFile33333",
+    "file": {
+      "kind": "drive#file",
+      "id": "5SharedFile33333",
+      "name": "Confidential_Strategy.pdf",
+      "mimeType": "application/pdf",
+      "size": "1247890",
+      "modifiedTime": "2024-12-13T16:30:00.000Z",
+      "createdTime": "2024-12-13T14:00:00.000Z",
+      "parents": ["4StrategyFolderId"],
+      "webViewLink": "https://drive.google.com/file/d/5SharedFile33333/view",
+      "shared": true,
+      "ownedByMe": true,
+      "permissions": [
+        {
+          "kind": "drive#permission",
+          "id": "permission1",
+          "type": "user",
+          "emailAddress": "colleague@example.com",
+          "role": "reader",
+          "displayName": "Colleague Name"
+        },
+        {
+          "kind": "drive#permission",
+          "id": "permission2",
+          "type": "domain",
+          "domain": "example.com",
+          "role": "commenter"
+        }
+      ],
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": true
+      }
+    }
+  },
+  "file_moved": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T17:00:00.000Z",
+    "removed": false,
+    "fileId": "6MovedFile44444",
+    "file": {
+      "kind": "drive#file",
+      "id": "6MovedFile44444",
+      "name": "Archive_Data_2023.zip",
+      "mimeType": "application/zip",
+      "size": "52428800",
+      "modifiedTime": "2024-12-13T17:00:00.000Z",
+      "createdTime": "2024-01-15T10:00:00.000Z",
+      "parents": ["5ArchiveFolderId"],
+      "previousParents": ["1DownloadsFolderId"],
+      "webViewLink": "https://drive.google.com/file/d/6MovedFile44444/view",
+      "shared": false,
+      "ownedByMe": true,
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": false,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": false
+      }
+    }
+  },
+  "folder_created": {
+    "kind": "drive#change",
+    "type": "folder",
+    "time": "2024-12-13T17:30:00.000Z",
+    "removed": false,
+    "fileId": "7NewFolder55555",
+    "file": {
+      "kind": "drive#file",
+      "id": "7NewFolder55555",
+      "name": "Project Alpha - Resources",
+      "mimeType": "application/vnd.google-apps.folder",
+      "modifiedTime": "2024-12-13T17:30:00.000Z",
+      "createdTime": "2024-12-13T17:30:00.000Z",
+      "parents": ["6ProjectsFolderId"],
+      "webViewLink": "https://drive.google.com/drive/folders/7NewFolder55555",
+      "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.folder",
+      "shared": false,
+      "ownedByMe": true,
+      "capabilities": {
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canAddChildren": true,
+        "canListChildren": true
+      }
+    }
+  },
+  "google_workspace_file": {
+    "kind": "drive#change",
+    "type": "file",
+    "time": "2024-12-13T18:00:00.000Z",
+    "removed": false,
+    "fileId": "8GoogleDocFile66666",
+    "file": {
+      "kind": "drive#file",
+      "id": "8GoogleDocFile66666",
+      "name": "Team Brainstorm Session",
+      "mimeType": "application/vnd.google-apps.document",
+      "modifiedTime": "2024-12-13T18:00:00.000Z",
+      "createdTime": "2024-12-13T17:45:00.000Z",
+      "parents": ["7CollaborationFolderId"],
+      "webViewLink": "https://docs.google.com/document/d/8GoogleDocFile66666/edit",
+      "webContentLink": "https://docs.google.com/document/d/8GoogleDocFile66666/export?format=pdf",
+      "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.document",
+      "shared": true,
+      "ownedByMe": true,
+      "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Team Member",
+        "emailAddress": "team.member@example.com"
+      },
+      "capabilities": {
+        "canDownload": true,
+        "canEdit": true,
+        "canShare": true,
+        "canDelete": true,
+        "canComment": true,
+        "canCopy": true
+      },
+      "exportLinks": {
+        "application/pdf": "https://docs.google.com/document/d/8GoogleDocFile66666/export?format=pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "https://docs.google.com/document/d/8GoogleDocFile66666/export?format=docx",
+        "text/html": "https://docs.google.com/document/d/8GoogleDocFile66666/export?format=html",
+        "text/plain": "https://docs.google.com/document/d/8GoogleDocFile66666/export?format=txt"
+      }
+    }
+  }
+}

@@ -1,0 +1,351 @@
+diff --git a/src/lib/pkce.ts b/src/lib/pkce.ts
+new file mode 100644
+index 0000000..pkce123
+--- /dev/null
++++ b/src/lib/pkce.ts
+@@ -0,0 +1,89 @@
++// SECURITY PATCH: PKCE (Proof Key for Code Exchange) implementation for OAuth 2.0
++// Addresses: UNIFIED-004 - Missing PKCE in OAuth Flow
++// Risk Score Reduction: 7.5 → 2.5
++// Reference: RFC 7636 - Proof Key for Code Exchange
++
++import crypto from 'crypto';
++import { getAdminFirestore } from './admin';
++
++export interface PKCEChallenge {
++  codeVerifier: string;
++  codeChallenge: string;
++  codeChallengeMethod: 'S256';
++  state: string;
++}
++
++export interface PKCESession {
++  codeVerifier: string;
++  state: string;
++  userId?: string;
++  createdAt: Date;
++  expiresAt: Date;
++}
++
++/**
++ * Generates a PKCE challenge according to RFC 7636
++ * @returns PKCEChallenge object with verifier, challenge, and method
++ */
++export function generatePKCEChallenge(): PKCEChallenge {
++  // Generate code verifier (43-128 characters, base64url encoded)
++  const codeVerifier = crypto.randomBytes(32).toString('base64url');
++  
++  // Generate code challenge (SHA256 hash of verifier, base64url encoded)
++  const codeChallenge = crypto
++    .createHash('sha256')
++    .update(codeVerifier)
++    .digest('base64url');
++  
++  // Generate cryptographically secure state parameter
++  const state = crypto.randomBytes(16).toString('base64url');
++  
++  return {
++    codeVerifier,
++    codeChallenge,
++    codeChallengeMethod: 'S256',
++    state
++  };
++}
++
++/**
++ * Stores PKCE session data for later verification
++ * @param state - State parameter from OAuth flow
++ * @param session - PKCE session data to store
++ */
++export async function storePKCESession(state: string, session: PKCESession): Promise<void> {
++  const db = getAdminFirestore();
++  if (!db) throw new Error('Failed to initialize Firestore');
++  
++  // Store in a temporary collection with TTL
++  await db.collection('pkce_sessions').doc(state).set(session);
++  
++  console.log(`[SECURITY] Stored PKCE session for state: ${state}`);
++}
++
++/**
++ * Retrieves and validates PKCE session data
++ * @param state - State parameter from OAuth callback
++ * @returns PKCESession if valid, null if not found or expired
++ */
++export async function getPKCESession(state: string): Promise<PKCESession | null> {
++  const db = getAdminFirestore();
++  if (!db) throw new Error('Failed to initialize Firestore');
++  
++  const doc = await db.collection('pkce_sessions').doc(state).get();
++  
++  if (!doc.exists) {
++    console.warn(`[SECURITY] PKCE session not found for state: ${state}`);
++    return null;
++  }
++  
++  const session = doc.data() as PKCESession;
++  
++  // Check if session has expired (5 minutes max)
++  if (new Date() > session.expiresAt) {
++    console.warn(`[SECURITY] PKCE session expired for state: ${state}`);
++    // Clean up expired session
++    await doc.ref.delete();
++    return null;
++  }
++  
++  return session;
++}
++
++/**
++ * Cleans up PKCE session after successful token exchange
++ * @param state - State parameter to clean up
++ */
++export async function cleanupPKCESession(state: string): Promise<void> {
++  const db = getAdminFirestore();
++  if (!db) return;
++  
++  await db.collection('pkce_sessions').doc(state).delete();
++  console.log(`[SECURITY] Cleaned up PKCE session for state: ${state}`);
++}
++
++/**
++ * Validates code verifier against challenge (RFC 7636 Section 4.6)
++ * @param codeVerifier - Code verifier from stored session
++ * @param codeChallenge - Code challenge from original OAuth request
++ * @returns True if verifier matches challenge
++ */
++export function validatePKCEChallenge(codeVerifier: string, codeChallenge: string): boolean {
++  const computedChallenge = crypto
++    .createHash('sha256')
++    .update(codeVerifier)
++    .digest('base64url');
++    
++  return computedChallenge === codeChallenge;
++}
+
+diff --git a/src/app/api/auth/drive/begin/route.ts b/src/app/api/auth/drive/begin/route.ts
+index begin1..begin2 100644
+--- a/src/app/api/auth/drive/begin/route.ts
++++ b/src/app/api/auth/drive/begin/route.ts
+@@ -1,5 +1,7 @@
+ import { NextRequest, NextResponse } from 'next/server';
+ import { google } from 'googleapis';
++// SECURITY: Import PKCE implementation
++import { generatePKCEChallenge, storePKCESession } from '@/lib/pkce';
+ 
+ export async function POST(request: NextRequest) {
+   try {
+@@ -32,15 +34,35 @@ export async function POST(request: NextRequest) {
+       redirectUri
+     );
+     
++    // SECURITY: Generate PKCE challenge
++    const pkceChallenge = generatePKCEChallenge();
++    
++    // Store PKCE session data
++    const sessionData = {
++      codeVerifier: pkceChallenge.codeVerifier,
++      state: pkceChallenge.state,
++      userId: userId,
++      createdAt: new Date(),
++      expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
++    };
++    
++    await storePKCESession(pkceChallenge.state, sessionData);
++    
++    console.log('OAuth begin - PKCE challenge generated:', { 
++      state: pkceChallenge.state,
++      hasUserId: !!userId 
++    });
++    
+     // Generate the auth URL
+     const authUrl = oauth2Client.generateAuthUrl({
+       access_type: 'offline',
+       prompt: 'consent', // Force consent to get refresh token
+       scope: [
+-        'https://www.googleapis.com/auth/drive'
++        // SECURITY: Use read-only scope (principle of least privilege)
++        'https://www.googleapis.com/auth/drive.readonly'
+       ],
+-      include_granted_scopes: true,
+-      // Pass state so callback can associate token with a userId when available
+-      state: userId || undefined,
++      include_granted_scopes: false, // SECURITY: Prevent scope creep
++      // PKCE parameters
++      code_challenge: pkceChallenge.codeChallenge,
++      code_challenge_method: pkceChallenge.codeChallengeMethod,
++      state: pkceChallenge.state
+     });
+
+@@ -47,6 +69,10 @@ export async function POST(request: NextRequest) {
+     return NextResponse.json({ url: authUrl });
+   } catch (error) {
+-    console.error('OAuth begin error:', error);
++    console.error('OAuth begin error:', {
++      error: error instanceof Error ? error.message : String(error),
++      timestamp: new Date().toISOString(),
++      userId: userId || 'anonymous'
++    });
+     return NextResponse.json(
+       { error: 'Failed to start OAuth flow' },
+
+diff --git a/src/app/api/auth/drive/callback/route.ts b/src/app/api/auth/drive/callback/route.ts
+index callback1..callback2 100644
+--- a/src/app/api/auth/drive/callback/route.ts
++++ b/src/app/api/auth/drive/callback/route.ts
+@@ -3,6 +3,8 @@ import { google } from 'googleapis';
+ import { cookies } from 'next/headers';
+ import { saveUserRefreshToken } from '@/lib/token-store';
+ 
++// SECURITY: Import PKCE validation
++import { getPKCESession, cleanupPKCESession, validatePKCEChallenge } from '@/lib/pkce';
++
+ // Handle both GET (direct redirects) and POST (from frontend) requests
+ export async function GET(request: NextRequest) {
+   return handleCallback(request, 'GET');
+@@ -19,6 +21,7 @@ async function handleCallback(request: NextRequest, method: string) {
+     let code: string | null;
+     let state: string | null;
+     let error: string | null;
++    let codeVerifier: string | null = null; // For PKCE
+     
+     if (method === 'POST') {
+       // Handle POST request from frontend
+@@ -26,6 +29,7 @@ async function handleCallback(request: NextRequest, method: string) {
+       code = body.code;
+       state = body.state;
+       error = body.error;
++      codeVerifier = body.code_verifier; // PKCE verifier from frontend
+     } else {
+       // Handle GET request (direct redirect from Google)
+       const { searchParams } = new URL(request.url);
+@@ -52,6 +56,33 @@ async function handleCallback(request: NextRequest, method: string) {
+       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=no_auth_code`);
+     }
+     
++    // SECURITY: Validate PKCE state and get session
++    if (!state) {
++      console.error('[SECURITY] Missing state parameter in OAuth callback');
++      if (method === 'POST') {
++        return NextResponse.json({ error: 'invalid_state' }, { status: 400 });
++      }
++      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=invalid_state`);
++    }
++    
++    const pkceSession = await getPKCESession(state);
++    if (!pkceSession) {
++      console.error(`[SECURITY] Invalid or expired PKCE session for state: ${state}`);
++      if (method === 'POST') {
++        return NextResponse.json({ error: 'invalid_session' }, { status: 400 });
++      }
++      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=invalid_session`);
++    }
++    
++    // For POST requests, get code verifier from request body
++    // For GET requests, use the stored code verifier from session
++    const actualCodeVerifier = method === 'POST' ? codeVerifier : pkceSession.codeVerifier;
++    
++    if (!actualCodeVerifier) {
++      console.error('[SECURITY] Missing code verifier for PKCE validation');
++      return NextResponse.json({ error: 'invalid_pkce' }, { status: 400 });
++    }
++    
+     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
+     
+@@ -88,7 +119,15 @@ async function handleCallback(request: NextRequest, method: string) {
+     console.log('OAuth callback - attempting token exchange...');
+     
+     // Exchange code for tokens
+-    const { tokens } = await oauth2Client.getToken(code);
++    // SECURITY: Include PKCE code verifier in token exchange
++    const { tokens } = await oauth2Client.getToken({
++      code: code,
++      codeVerifier: actualCodeVerifier
++    });
++    
++    // Clean up PKCE session after successful exchange
++    await cleanupPKCESession(state);
++    
+     
+     console.log('OAuth callback - tokens received:', {
+       hasAccessToken: !!tokens.access_token,
+@@ -131,9 +170,9 @@ async function handleCallback(request: NextRequest, method: string) {
+
+     // Persist refresh token to Firestore so server flows can use it
+     if (tokens.refresh_token) {
+-      if (state) {
+-        // We have a userId from the state parameter - save directly
++      if (pkceSession.userId) {
++        // We have a userId from the PKCE session - save directly
+         try {
+-          await saveUserRefreshToken(state, tokens.refresh_token);
+-          console.log(`✅ Saved refresh token to Firestore for user: ${state}`);
++          await saveUserRefreshToken(pkceSession.userId, tokens.refresh_token);
++          console.log(`✅ Saved refresh token to Firestore for user: ${pkceSession.userId}`);
+         } catch (e) {
+-          console.error('Failed to persist refresh token for user', state, e);
++          console.error('Failed to persist refresh token for user', pkceSession.userId, e);
+           // Don't let Firestore errors break the OAuth flow
+         }
+       } else {
+@@ -150,7 +189,12 @@ async function handleCallback(request: NextRequest, method: string) {
+   } catch (error: any) {
+     console.error('OAuth callback processing error:', {
+       error: error?.message,
+-      stack: error?.stack,
++      // SECURITY: Limit stack trace information in production logs
++      stack: process.env.NODE_ENV === 'development' ? error?.stack : '[REDACTED]',
+       name: error?.name,
+       code: error?.code || 'unknown',
+       timestamp: new Date().toISOString(),
+-      // Additional debugging info
+-      response: error?.response?.data,
+-      status: error?.response?.status,
+-      fullError: JSON.stringify(error, null, 2)
++      // SECURITY: Reduced debugging info to prevent information disclosure
++      status: error?.response?.status
+     });
+     
+     // More specific error handling
+@@ -168,6 +212,10 @@ async function handleCallback(request: NextRequest, method: string) {
+     } else if (error?.message?.includes('redirect_uri_mismatch')) {
+       errorType = 'redirect_uri_mismatch';
+       errorDetails = 'Redirect URI does not match Google Console configuration';
++    } else if (error?.message?.includes('invalid_grant')) {
++      errorType = 'invalid_authorization_code';
++      errorDetails = 'Authorization code is invalid or expired';
++      // This could indicate a PKCE validation failure
+     } else {
+       errorDetails = error?.message || 'Unknown OAuth error';
+     }
+@@ -175,6 +223,11 @@ async function handleCallback(request: NextRequest, method: string) {
+     console.error(`OAuth Error Details: ${errorType} - ${errorDetails}`);
+     
++    // SECURITY: Clean up any PKCE session on error
++    if (state) {
++      await cleanupPKCESession(state);
++    }
++    
+     if (method === 'POST') {
+-      return NextResponse.json({ error: errorType, details: errorDetails }, { status: 500 });
++      // SECURITY: Don't expose detailed error information to client
++      return NextResponse.json({ error: errorType }, { status: 500 });
+     }
+     return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=${errorType}&details=${encodeURIComponent(errorDetails)}`);
+
+diff --git a/firestore.rules b/firestore.rules
+index rules1..rules2 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -54,6 +54,12 @@ service cloud.firestore {
+     match /{document=**} {
+       allow read, write: if false;
+     }
++    
++    // SECURITY: PKCE sessions collection (temporary storage)
++    match /pkce_sessions/{sessionId} {
++      allow read, write: if false; // Only backend can access
++    }
+   }
+ }

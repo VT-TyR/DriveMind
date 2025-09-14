@@ -1,0 +1,205 @@
+{
+  "sync": {
+    "kind": "drive#changeList",
+    "nextPageToken": "12345",
+    "newStartPageToken": "67890",
+    "changes": [
+      {
+        "kind": "drive#change",
+        "type": "file",
+        "time": "2024-12-13T10:30:00.000Z",
+        "removed": false,
+        "fileId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+        "file": {
+          "kind": "drive#file",
+          "id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+          "name": "Project Proposal.docx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": "245760",
+          "modifiedTime": "2024-12-13T10:30:00.000Z",
+          "createdTime": "2024-12-10T14:15:00.000Z",
+          "parents": ["1DriveRootFolderId"],
+          "webViewLink": "https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/view",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "shared": false,
+          "ownedByMe": true,
+          "capabilities": {
+            "canDownload": true,
+            "canEdit": true,
+            "canShare": true,
+            "canDelete": true
+          }
+        }
+      },
+      {
+        "kind": "drive#change",
+        "type": "file",
+        "time": "2024-12-13T10:32:00.000Z",
+        "removed": false,
+        "fileId": "2CyjOWt1YSB6oGgvF3dCZkigmVVrqtubs85PowF3vqot",
+        "file": {
+          "kind": "drive#file",
+          "id": "2CyjOWt1YSB6oGgvF3dCZkigmVVrqtubs85PowF3vqot",
+          "name": "Budget Analysis 2024.xlsx",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size": "512000",
+          "modifiedTime": "2024-12-13T10:32:00.000Z",
+          "createdTime": "2024-12-05T09:20:00.000Z",
+          "parents": ["1DriveRootFolderId"],
+          "webViewLink": "https://docs.google.com/spreadsheets/d/2CyjOWt1YSB6oGgvF3dCZkigmVVrqtubs85PowF3vqot/view",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "shared": true,
+          "ownedByMe": true,
+          "capabilities": {
+            "canDownload": true,
+            "canEdit": true,
+            "canShare": true,
+            "canDelete": true
+          }
+        }
+      },
+      {
+        "kind": "drive#change",
+        "type": "folder",
+        "time": "2024-12-13T10:35:00.000Z",
+        "removed": false,
+        "fileId": "3FolderIdForPhotos2024Winter",
+        "file": {
+          "kind": "drive#file",
+          "id": "3FolderIdForPhotos2024Winter",
+          "name": "Photos - Winter 2024",
+          "mimeType": "application/vnd.google-apps.folder",
+          "modifiedTime": "2024-12-13T10:35:00.000Z",
+          "createdTime": "2024-12-13T10:35:00.000Z",
+          "parents": ["1DriveRootFolderId"],
+          "webViewLink": "https://drive.google.com/drive/folders/3FolderIdForPhotos2024Winter",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.folder",
+          "shared": false,
+          "ownedByMe": true,
+          "capabilities": {
+            "canEdit": true,
+            "canShare": true,
+            "canDelete": true,
+            "canAddChildren": true
+          }
+        }
+      }
+    ]
+  },
+  "large_dataset": {
+    "kind": "drive#changeList",
+    "nextPageToken": "98765",
+    "newStartPageToken": "43210",
+    "changes": [
+      {
+        "kind": "drive#change",
+        "type": "file",
+        "time": "2024-12-13T11:00:00.000Z",
+        "removed": false,
+        "fileId": "4LargeDatasetFile12345",
+        "file": {
+          "kind": "drive#file",
+          "id": "4LargeDatasetFile12345",
+          "name": "Machine_Learning_Dataset.csv",
+          "mimeType": "text/csv",
+          "size": "1073741824",
+          "modifiedTime": "2024-12-13T11:00:00.000Z",
+          "createdTime": "2024-12-12T08:00:00.000Z",
+          "parents": ["5FolderIdForData"],
+          "webViewLink": "https://drive.google.com/file/d/4LargeDatasetFile12345/view",
+          "shared": false,
+          "ownedByMe": true,
+          "capabilities": {
+            "canDownload": true,
+            "canEdit": false,
+            "canShare": true,
+            "canDelete": true
+          }
+        }
+      }
+    ]
+  },
+  "duplicate_files": {
+    "kind": "drive#changeList",
+    "nextPageToken": "11111",
+    "newStartPageToken": "22222",
+    "changes": [
+      {
+        "kind": "drive#change",
+        "type": "file",
+        "time": "2024-12-13T12:00:00.000Z",
+        "removed": false,
+        "fileId": "6DuplicateFile001",
+        "file": {
+          "kind": "drive#file",
+          "id": "6DuplicateFile001",
+          "name": "Invoice_Dec2024.pdf",
+          "mimeType": "application/pdf",
+          "size": "87532",
+          "modifiedTime": "2024-12-13T12:00:00.000Z",
+          "createdTime": "2024-12-13T12:00:00.000Z",
+          "parents": ["7FolderIdInvoices"],
+          "webViewLink": "https://drive.google.com/file/d/6DuplicateFile001/view",
+          "md5Checksum": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+          "shared": false,
+          "ownedByMe": true
+        }
+      },
+      {
+        "kind": "drive#change",
+        "type": "file",
+        "time": "2024-12-13T12:05:00.000Z",
+        "removed": false,
+        "fileId": "6DuplicateFile002",
+        "file": {
+          "kind": "drive#file",
+          "id": "6DuplicateFile002",
+          "name": "Invoice_Dec2024 (1).pdf",
+          "mimeType": "application/pdf",
+          "size": "87532",
+          "modifiedTime": "2024-12-13T12:05:00.000Z",
+          "createdTime": "2024-12-13T12:05:00.000Z",
+          "parents": ["7FolderIdInvoices"],
+          "webViewLink": "https://drive.google.com/file/d/6DuplicateFile002/view",
+          "md5Checksum": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+          "shared": false,
+          "ownedByMe": true
+        }
+      }
+    ]
+  },
+  "shared_drive_changes": {
+    "kind": "drive#changeList",
+    "nextPageToken": "33333",
+    "newStartPageToken": "44444",
+    "changes": [
+      {
+        "kind": "drive#change",
+        "type": "teamDrive",
+        "time": "2024-12-13T13:00:00.000Z",
+        "removed": false,
+        "teamDriveId": "8SharedDriveId001",
+        "teamDrive": {
+          "kind": "drive#teamDrive",
+          "id": "8SharedDriveId001",
+          "name": "Marketing Team Drive",
+          "createdTime": "2024-01-15T10:00:00.000Z",
+          "capabilities": {
+            "canAddChildren": true,
+            "canComment": true,
+            "canCopy": true,
+            "canDeleteTeamDrive": false,
+            "canDownload": true,
+            "canEdit": true,
+            "canListChildren": true,
+            "canManageMembers": false,
+            "canReadRevisions": true,
+            "canRename": false,
+            "canRenameTeamDrive": false,
+            "canShare": true
+          }
+        }
+      }
+    ]
+  }
+}

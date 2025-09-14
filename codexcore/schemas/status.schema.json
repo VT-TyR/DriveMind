@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["phase","agents"],
+  "properties": {
+    "project_slug": { "type": "string" },
+    "phase":        { "type": "string" },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["last_update","outputs","blockers"],
+        "properties": {
+          "last_update": { "type": "string" },
+          "outputs":     { "type": "array", "items": { "type": "string" } },
+          "blockers":    { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

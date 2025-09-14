@@ -28,20 +28,44 @@ service cloud.firestore {
 
     // DriveMind scan jobs - users can read/write their own scan jobs
     match /scanJobs/{jobId} {
-      allow read, write: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null && 
+        (resource.data.uid == request.auth.uid || 
+         resource.data.uid == request.auth.token.uid);
+      allow create: if request.auth != null && 
+        request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow delete: if false; // Prevent accidental deletion
     }
 
-    // DriveMind file index - users can read/write their own file index entries  
+    // DriveMind scan checkpoints - system managed
+    match /scanCheckpoints/{checkpointId} {
+      allow read: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow write: if false; // Only Cloud Functions can write
+    }
+    
+    // DriveMind job chains - system managed
+    match /jobChains/{chainId} {
+      allow read: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // DriveMind file index - users can read their own file index entries  
     match /fileIndex/{indexId} {
-      allow read, write: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow write: if false; // Only Cloud Functions can write for data integrity
+      allow create: if false; // Only Cloud Functions can create
     }
 
-    // DriveMind scan deltas - users can read/write their own deltas
+    // DriveMind scan deltas - users can read their own deltas
     match /scanDeltas/{deltaId} {
-      allow read, write: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow write: if false; // Only Cloud Functions can write for data integrity
+      allow create: if false; // Only Cloud Functions can create
     }
 
     // DriveMind action batches and other collections

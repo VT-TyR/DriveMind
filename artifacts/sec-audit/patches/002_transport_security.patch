@@ -1,0 +1,251 @@
+diff --git a/firebase.json b/firebase.json
+index abc123..def456 100644
+--- a/firebase.json
++++ b/firebase.json
+@@ -8,12 +8,80 @@
+     ],
+     "headers": [
+       {
+-        "source": "**",
++        "source": "**",
+         "headers": [
+           {
+             "key": "Cache-Control",
+             "value": "public, max-age=0, must-revalidate"
++          },
++          {
++            "key": "Strict-Transport-Security",
++            "value": "max-age=31536000; includeSubDomains; preload"
++          },
++          {
++            "key": "X-Content-Type-Options",
++            "value": "nosniff"
++          },
++          {
++            "key": "X-Frame-Options", 
++            "value": "DENY"
++          },
++          {
++            "key": "X-XSS-Protection",
++            "value": "1; mode=block"
++          },
++          {
++            "key": "Referrer-Policy",
++            "value": "strict-origin-when-cross-origin"
++          },
++          {
++            "key": "Permissions-Policy",
++            "value": "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
++          },
++          {
++            "key": "Content-Security-Policy",
++            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://api.gemini.google.com; font-src 'self' fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+           }
+         ]
+       },
++      {
++        "source": "/api/**",
++        "headers": [
++          {
++            "key": "Cache-Control",
++            "value": "no-cache, no-store, must-revalidate, private"
++          },
++          {
++            "key": "Pragma",
++            "value": "no-cache"
++          },
++          {
++            "key": "Expires",
++            "value": "0"
++          },
++          {
++            "key": "X-Content-Type-Options",
++            "value": "nosniff"
++          },
++          {
++            "key": "X-Robots-Tag",
++            "value": "noindex, nofollow, noarchive"
++          }
++        ]
++      },
++      {
++        "source": "/api/auth/**",
++        "headers": [
++          {
++            "key": "Cache-Control", 
++            "value": "no-cache, no-store, must-revalidate, private"
++          },
++          {
++            "key": "Cross-Origin-Opener-Policy",
++            "value": "same-origin"
++          },
++          {
++            "key": "Cross-Origin-Embedder-Policy",
++            "value": "require-corp"
++          }
++        ]
++      },
+       {
+         "source": "static/**",
+
+diff --git a/next.config.mjs b/next.config.mjs
+index oldconf..newconf 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -11,17 +11,49 @@ const nextConfig = {
+   },
+   // Security headers
+   async headers() {
+     return [
+       {
+         source: '/(.*)',
+         headers: [
+           {
+-            key: 'Cross-Origin-Opener-Policy',
+-            value: 'unsafe-none'
++            key: 'X-DNS-Prefetch-Control',
++            value: 'off'
++          },
++          {
++            key: 'X-Content-Type-Options',
++            value: 'nosniff'
++          },
++          {
++            key: 'X-Frame-Options',
++            value: 'DENY'
++          },
++          {
++            key: 'Cross-Origin-Opener-Policy',
++            value: 'same-origin'
++          },
++          {
++            key: 'Cross-Origin-Resource-Policy',
++            value: 'same-origin'
++          },
++          {
++            key: 'Cross-Origin-Embedder-Policy',
++            value: 'require-corp'
+           }
+         ],
+       },
++      {
++        source: '/api/(.*)',
++        headers: [
++          {
++            key: 'Cache-Control',
++            value: 'no-store, max-age=0'
++          },
++          {
++            key: 'X-Robots-Tag',
++            value: 'noindex'
++          }
++        ]
++      }
+     ];
+   },
+   // Ensure TypeScript path mapping works properly
+
+diff --git a/src/app/api/auth/drive/callback/route.ts b/src/app/api/auth/drive/callback/route.ts
+index callback1..callback2 100644
+--- a/src/app/api/auth/drive/callback/route.ts
++++ b/src/app/api/auth/drive/callback/route.ts
+@@ -110,6 +110,16 @@ async function handleCallback(request: NextRequest, method: string) {
+     // Set cookies for both request types
+     if (tokens.access_token) {
+       res.cookies.set('google_access_token', tokens.access_token, {
++        httpOnly: true,
++        secure: true, // Always secure in production and development
++        sameSite: 'strict',
++        maxAge: 3600, // 1 hour
++        path: '/',
++        // SECURITY: Add domain attribute for proper scoping
++        domain: process.env.NODE_ENV === 'production' 
++          ? '.drivemind-q69b7.us-central1.hosted.app' 
++          : undefined
++      });
++
++      // SECURITY: Set additional secure cookie for CSRF protection
++      res.cookies.set('_secure_auth', 'true', {
+         httpOnly: true,
+-        secure: process.env.NODE_ENV === 'production',
++        secure: true,
+         sameSite: 'strict',
+         maxAge: 3600, // 1 hour
+         path: '/',
+@@ -121,10 +131,18 @@ async function handleCallback(request: NextRequest, method: string) {
+     if (tokens.refresh_token) {
+       res.cookies.set('google_refresh_token', tokens.refresh_token, {
+         httpOnly: true,
+-        secure: process.env.NODE_ENV === 'production',
++        secure: true, // Always secure
+         sameSite: 'strict',
+-        maxAge: 60 * 60 * 24 * 30, // 30 days
++        maxAge: 60 * 60 * 24 * 7, // SECURITY: Reduced to 7 days from 30
+         path: '/',
++        // SECURITY: Add domain attribute
++        domain: process.env.NODE_ENV === 'production'
++          ? '.drivemind-q69b7.us-central1.hosted.app'
++          : undefined
+       });
+     }
+
+diff --git a/apphosting.yaml b/apphosting.yaml
+index hosting1..hosting2 100644
+--- a/apphosting.yaml
++++ b/apphosting.yaml
+@@ -10,6 +10,16 @@ env:
+     # OAuth credentials from Firebase App Hosting Secrets
+     - variable: GOOGLE_OAUTH_CLIENT_SECRET
+       secret: GOOGLE_OAUTH_CLIENT_SECRET
+       availability: [RUNTIME]
++    # SECURITY: Add encryption key for token storage
++    - variable: ENCRYPTION_KEY_PRIMARY
++      secret: ENCRYPTION_KEY_PRIMARY
++      availability: [RUNTIME]
++    - variable: ENCRYPTION_KEY_SECONDARY  
++      secret: ENCRYPTION_KEY_SECONDARY
++      availability: [RUNTIME]
++    # Security configuration
++    - variable: SECURITY_HEADERS_ENABLED
++      value: "true"
+
+diff --git a/src/app/api/health/route.ts b/src/app/api/health/route.ts
+index health1..health2 100644
+--- a/src/app/api/health/route.ts
++++ b/src/app/api/health/route.ts
+@@ -1,11 +1,28 @@
+ import { NextResponse } from 'next/server';
++import { validateEncryptionConfig } from '@/lib/admin';
+ 
+ export async function GET() {
++  const healthCheck = {
++    status: 'healthy',
++    timestamp: new Date().toISOString(),
++    version: process.env.npm_package_version || '1.0.0',
++    environment: process.env.NODE_ENV || 'development'
++  };
++
++  try {
++    // SECURITY: Validate encryption configuration
++    validateEncryptionConfig();
++    healthCheck.security = { encryption: 'configured' };
++  } catch (error) {
++    healthCheck.status = 'degraded';
++    healthCheck.security = { encryption: 'error' };
++  }
++
+   return NextResponse.json(
+-    { 
+-      status: 'healthy',
+-      timestamp: new Date().toISOString()
+-    },
+-    { status: 200 }
++    healthCheck,
++    { 
++      status: healthCheck.status === 'healthy' ? 200 : 503,
++      headers: {
++        'Cache-Control': 'no-cache, no-store, must-revalidate'
++      }
++    }
+   );
+ }

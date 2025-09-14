@@ -1,0 +1,274 @@
+# DriveMind Security Audit - Risk Waivers and Acceptances
+# Document ID: DM-SEC-WAIVE-20250912
+# Version: 1.0
+# Classification: CONFIDENTIAL
+
+# IMPORTANT: NO CRITICAL OR HIGH SEVERITY FINDINGS SHOULD BE WAIVED
+# All waivers require business justification, compensating controls, and expiry dates
+
+metadata:
+  audit_id: "drivemind-sec-audit-20250912"
+  created_date: "2025-09-12T12:00:00.000Z"
+  created_by: "Security Assessment Team"
+  review_date: "2025-10-12T12:00:00.000Z" # 30-day review cycle
+  approval_required: true
+  
+waivers:
+  # Medium severity waivers (require strong justification)
+  
+  - finding_id: "UNIFIED-018"
+    title: "Extended Session Timeout Configuration"
+    severity: "MEDIUM"
+    risk_score: 4.0
+    status: "CONDITIONAL_ACCEPTANCE"
+    business_justification: |
+      1-hour session timeout provides better user experience for Drive analysis tasks
+      which can take 30-45 minutes to complete. Shorter timeouts would require
+      frequent re-authentication disrupting user workflows.
+    compensating_controls:
+      - "Automatic session invalidation on browser close"
+      - "Session activity monitoring and logging"
+      - "Rate limiting on authentication endpoints"
+      - "CSRF protection via secure cookies"
+    conditions:
+      - "Implement sliding session renewal (extend on activity)"
+      - "Add session anomaly detection (unusual IP/location changes)"
+      - "Provide user session management dashboard"
+    expiry_date: "2025-12-12T12:00:00.000Z"
+    approved_by: "TBD"
+    approval_date: null
+    review_notes: |
+      Acceptance requires implementation of compensating controls.
+      Must be reviewed after Q4 2025 when enhanced session management is available.
+  
+  - finding_id: "UNIFIED-019"
+    title: "Debug Information Exposure in Production"
+    severity: "MEDIUM" 
+    risk_score: 4.5
+    status: "TEMPORARY_ACCEPTANCE"
+    business_justification: |
+      Debug logging currently needed for diagnosing OAuth integration issues
+      with Firebase App Hosting. Information exposure risk is minimal as logs
+      are only accessible to authenticated development team members.
+    compensating_controls:
+      - "Debug logs restricted to development team access only"
+      - "No PII or sensitive data in debug statements"
+      - "Log retention limited to 7 days"
+      - "Automated log scrubbing for sensitive patterns"
+    conditions:
+      - "Remove debug statements after OAuth issues resolved"
+      - "Implement structured logging with appropriate levels"
+      - "Add log sanitization to prevent sensitive data exposure"
+    expiry_date: "2025-10-31T12:00:00.000Z" # 6 weeks to resolve
+    approved_by: "TBD"
+    approval_date: null
+    review_notes: |
+      Temporary acceptance only. Debug statements must be removed or properly
+      gated behind environment checks within 6 weeks.
+  
+  # Low severity waivers (standard business risk acceptance)
+  
+  - finding_id: "UNIFIED-023" 
+    title: "Directory Listing Enabled"
+    severity: "LOW"
+    risk_score: 3.0
+    status: "ACCEPTED"
+    business_justification: |
+      Directory listing for /.well-known/ path is intentional and required
+      for security.txt file accessibility and future ACME certificate validation.
+      Information disclosure risk is minimal as only security contact info is exposed.
+    compensating_controls:
+      - "Directory listing restricted to /.well-known/ path only"
+      - "No sensitive files in accessible directories"
+      - "Regular review of exposed files"
+      - "security.txt file follows RFC 9116 standard"
+    conditions: []
+    expiry_date: "2026-09-12T12:00:00.000Z" # Annual review
+    approved_by: "TBD"
+    approval_date: null
+    review_notes: |
+      Standard business risk acceptance. Directory listing serves legitimate
+      security purposes and poses minimal information disclosure risk.
+  
+  - finding_id: "UNIFIED-024"
+    title: "Potential Memory Leak in Token Cache"
+    severity: "LOW"
+    risk_score: 3.0
+    status: "ACCEPTED"
+    business_justification: |
+      In-memory token cache provides significant performance benefits for
+      frequently accessed tokens. Memory leak risk is low in serverless
+      Firebase Functions environment where processes are recycled regularly.
+    compensating_controls:
+      - "Token cache TTL of 5 minutes prevents indefinite growth"
+      - "Firebase Functions automatic process recycling"
+      - "Monitoring for memory usage anomalies"
+      - "Manual cache clearing capability implemented"
+    conditions:
+      - "Monitor memory usage patterns monthly"
+      - "Implement LRU cache if memory issues observed"
+    expiry_date: "2026-03-12T12:00:00.000Z" # 6-month review
+    approved_by: "TBD"
+    approval_date: null
+    review_notes: |
+      Acceptable risk due to serverless environment characteristics.
+      Cache provides performance benefits that outweigh minimal risk.
+  
+  - finding_id: "UNIFIED-025"
+    title: "Version Information Disclosure"
+    severity: "LOW" 
+    risk_score: 2.5
+    status: "ACCEPTED"
+    business_justification: |
+      Version information in API responses and error pages aids in debugging
+      and support activities. Security risk is minimal as version info alone
+      does not provide actionable attack vectors.
+    compensating_controls:
+      - "No detailed version information exposing exact build numbers"
+      - "Version info limited to major.minor format"
+      - "Regular security updates applied regardless of version disclosure"
+      - "Defense in depth prevents version-based attacks"
+    conditions: []
+    expiry_date: "2026-09-12T12:00:00.000Z" # Annual review
+    approved_by: "TBD"  
+    approval_date: null
+    review_notes: |
+      Standard business risk acceptance. Version disclosure provides minimal
+      attack surface while supporting operational needs.
+
+# Findings that MUST NOT be waived (security policy)
+non_waiverable_findings:
+  - "UNIFIED-001" # Unencrypted OAuth Token Storage (CRITICAL)
+  - "UNIFIED-002" # PII Exposure to AI Service (CRITICAL)  
+  - "UNIFIED-003" # Missing HSTS Headers (CRITICAL)
+  - "UNIFIED-004" # Missing PKCE in OAuth Flow (HIGH)
+  - "UNIFIED-005" # Overly Broad OAuth Scope (HIGH)
+  - "UNIFIED-006" # API Access Control Bypass (HIGH)
+  - "UNIFIED-007" # XSS via File Names (HIGH)
+  - "UNIFIED-008" # Missing Security Headers (HIGH)
+  - "UNIFIED-009" # Command Injection Risk (HIGH)
+
+# Waiver approval process
+approval_process:
+  required_approvals:
+    critical: ["CISO", "CTO", "Legal Counsel"]
+    high: ["Security Lead", "Engineering Manager", "Product Owner"]  
+    medium: ["Security Lead", "Engineering Manager"]
+    low: ["Security Lead"]
+  
+  approval_criteria:
+    - "Business justification clearly documented"
+    - "Risk assessment completed and documented"
+    - "Compensating controls identified and implemented"
+    - "Expiry date set based on risk level"
+    - "Review process scheduled"
+  
+  documentation_requirements:
+    - "Risk register entry created"
+    - "Compensating controls documented"
+    - "Monitoring procedures defined"
+    - "Remediation timeline established (if applicable)"
+
+# Monitoring and review requirements
+monitoring:
+  waiver_effectiveness:
+    frequency: "Monthly"
+    metrics:
+      - "Security incidents related to waived findings"
+      - "Compensating control effectiveness" 
+      - "Changes in risk landscape affecting waivers"
+    
+  expiry_tracking:
+    process: "Automated alerts 30 days before expiry"
+    action: "Required re-assessment or remediation"
+    
+  periodic_review:
+    frequency: "Quarterly"
+    scope: "All active waivers and compensating controls"
+    participants: ["Security Team", "Engineering", "Business Stakeholders"]
+
+# Emergency procedures  
+emergency_response:
+  threat_landscape_changes:
+    trigger: "New attack vectors affecting waived findings"
+    action: "Immediate waiver review and possible revocation"
+    
+  security_incidents:
+    trigger: "Security incident related to waived finding"
+    action: "Mandatory waiver revocation and immediate remediation"
+    
+  compliance_changes:
+    trigger: "Regulatory or compliance requirement changes"
+    action: "Waiver re-assessment against new requirements"
+
+# Waiver statistics and metrics
+statistics:
+  total_findings: 26
+  findings_requiring_remediation: 21
+  findings_with_waivers: 5
+  waiver_rate: "19.2%" # Within acceptable range (<25%)
+  
+  risk_distribution_with_waivers:
+    critical: 0  # 0% waived - policy compliant
+    high: 0      # 0% waived - policy compliant  
+    medium: 2    # 22% waived - requires strong justification
+    low: 3       # 75% waived - standard business acceptance
+
+# Legal and compliance notes
+compliance_impact:
+  gdpr:
+    status: "Waivers do not impact GDPR compliance"
+    reason: "No data protection requirements waived"
+    
+  industry_standards:
+    owasp_top10: "Waived findings not in OWASP Top 10 categories"
+    nist: "Waivers align with NIST risk management framework"
+    
+  audit_considerations:
+    external_audits: "Waivers may require explanation to external auditors"
+    internal_audits: "Regular internal validation of compensating controls required"
+
+# Document control
+document_control:
+  classification: "CONFIDENTIAL"
+  distribution:
+    - "CISO and Security Team"
+    - "Engineering Leadership"
+    - "Product Management"
+    - "Legal and Compliance Team"
+  
+  change_control:
+    - "All changes require security team approval"
+    - "Major changes require re-approval from original approvers"
+    - "Change log maintained for audit purposes"
+  
+  retention: "7 years from waiver expiry"
+  
+# Approval signatures (to be completed)
+approvals:
+  security_lead:
+    name: "TBD"
+    date: null
+    signature: "Electronic signature required"
+    
+  engineering_manager:
+    name: "TBD" 
+    date: null
+    signature: "Electronic signature required"
+    
+  # Additional approvers based on finding severity
+  
+# Review log
+review_log: []
+  # Future reviews will be logged here
+  # - date: "2025-10-12"
+  #   reviewer: "Security Team"
+  #   action: "Quarterly review completed"
+  #   changes: "None"
+  
+# Related documents
+references:
+  - "DriveMind Security Audit Report (drivemind-sec-audit-20250912)"
+  - "DriveMind Remediation Plan (DM-SEC-REM-20250912)"
+  - "Corporate Information Security Policy v2.3"
+  - "Risk Management Framework v1.2"

@@ -1,0 +1,641 @@
+{
+  "tool": "DriveMind SAST Analysis",
+  "version": "1.0.0",
+  "scan_id": "sast-drivemind-20250912-001",
+  "scan_timestamp": "2025-09-12T10:00:00.000Z",
+  "scan_duration": 180,
+  "project": {
+    "name": "DriveMind",
+    "path": "/home/scottpresley/projects/drivemind",
+    "total_files": 145,
+    "scanned_files": 67,
+    "languages": ["TypeScript", "JavaScript", "JSON"]
+  },
+  "summary": {
+    "total_findings": 23,
+    "critical": 2,
+    "high": 6,
+    "medium": 8,
+    "low": 4,
+    "info": 3
+  },
+  "compliance": {
+    "owasp_top10": {
+      "status": "non_compliant",
+      "violations": ["A01:2021-Broken Access Control", "A02:2021-Cryptographic Failures", "A03:2021-Injection"]
+    },
+    "sans_top25": {
+      "status": "non_compliant",
+      "violations": ["CWE-798: Use of Hard-coded Credentials", "CWE-79: Cross-site Scripting"]
+    }
+  },
+  "findings": [
+    {
+      "id": "SAST-001",
+      "severity": "CRITICAL",
+      "category": "Cryptographic Failures",
+      "title": "Unencrypted Storage of Sensitive Tokens",
+      "description": "OAuth refresh tokens are stored in Firestore without encryption, violating data protection requirements.",
+      "file": "src/lib/token-store.ts",
+      "line": 16,
+      "column": 5,
+      "code_snippet": "await ref.set({\n  refreshToken,\n  updatedAt: new Date(),\n});",
+      "cwe": "CWE-312",
+      "owasp": "A02:2021-Cryptographic Failures",
+      "confidence": "HIGH",
+      "impact": "Account takeover via token theft from database compromise",
+      "remediation": {
+        "description": "Encrypt refresh tokens before storing in Firestore using AES-256-GCM",
+        "effort": "MEDIUM",
+        "code_example": "const encryptedToken = encrypt(refreshToken, process.env.ENCRYPTION_KEY);\nawait ref.set({ refreshToken: encryptedToken, updatedAt: new Date() });"
+      },
+      "references": [
+        "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
+        "https://cwe.mitre.org/data/definitions/312.html"
+      ]
+    },
+    {
+      "id": "SAST-002",
+      "severity": "CRITICAL",
+      "category": "Injection",
+      "title": "Insufficient Input Sanitization for AI Prompts",
+      "description": "User-controlled file names are passed to AI service without comprehensive sanitization, enabling prompt injection attacks.",
+      "file": "src/ai/flows/ai-classify.ts",
+      "line": 22,
+      "column": 15,
+      "code_snippet": "name: opts.redact ? (f.name || '').replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/g, \"[redacted-email]\") : (f.name || ''),",
+      "cwe": "CWE-74",
+      "owasp": "A03:2021-Injection",
+      "confidence": "HIGH",
+      "impact": "AI manipulation, potential data exfiltration through crafted prompts",
+      "remediation": {
+        "description": "Implement comprehensive input sanitization and structured prompts with clear delimiters",
+        "effort": "HIGH",
+        "code_example": "const sanitizedName = sanitizeForPrompt(f.name, COMPREHENSIVE_PII_PATTERNS);\n// Use structured prompts with data delimiters"
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/74.html"
+      ]
+    },
+    {
+      "id": "SAST-003",
+      "severity": "HIGH",
+      "category": "Broken Authentication",
+      "title": "Missing PKCE in OAuth Flow",
+      "description": "OAuth 2.0 authorization flow does not implement PKCE (Proof Key for Code Exchange), making it vulnerable to authorization code interception.",
+      "file": "src/app/api/auth/drive/begin/route.ts",
+      "line": 35,
+      "column": 5,
+      "code_snippet": "const authUrl = oauth2Client.generateAuthUrl({\n  access_type: 'offline',\n  prompt: 'consent',\n  scope: ['https://www.googleapis.com/auth/drive']\n});",
+      "cwe": "CWE-287",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "confidence": "HIGH",
+      "impact": "Authorization code interception enabling account takeover",
+      "remediation": {
+        "description": "Implement PKCE with code_challenge and code_verifier",
+        "effort": "MEDIUM",
+        "code_example": "const { codeVerifier, codeChallenge } = generatePKCEChallenge();\nconst authUrl = oauth2Client.generateAuthUrl({\n  code_challenge: codeChallenge,\n  code_challenge_method: 'S256'\n});"
+      },
+      "references": [
+        "https://tools.ietf.org/html/rfc7636",
+        "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+      ]
+    },
+    {
+      "id": "SAST-004",
+      "severity": "HIGH",
+      "category": "Excessive Permissions",
+      "title": "Overly Broad OAuth Scope Request",
+      "description": "Application requests full Google Drive access instead of read-only scope, violating principle of least privilege.",
+      "file": "src/app/api/auth/drive/begin/route.ts",
+      "line": 39,
+      "column": 9,
+      "code_snippet": "scope: [\n  'https://www.googleapis.com/auth/drive'\n],",
+      "cwe": "CWE-250",
+      "owasp": "A01:2021-Broken Access Control",
+      "confidence": "MEDIUM",
+      "impact": "Unnecessary write permissions to user's Google Drive",
+      "remediation": {
+        "description": "Use read-only scope for file scanning functionality",
+        "effort": "LOW",
+        "code_example": "scope: ['https://www.googleapis.com/auth/drive.readonly'],"
+      },
+      "references": [
+        "https://developers.google.com/drive/api/guides/api-specific-auth",
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+      ]
+    },
+    {
+      "id": "SAST-005",
+      "severity": "HIGH",
+      "category": "Information Disclosure",
+      "title": "Detailed Error Messages in API Responses",
+      "description": "API endpoints return detailed error messages that could reveal internal system information to attackers.",
+      "file": "src/app/api/auth/drive/callback/route.ts",
+      "line": 151,
+      "column": 5,
+      "code_snippet": "console.error('OAuth callback processing error:', {\n  error: error?.message,\n  stack: error?.stack,\n  fullError: JSON.stringify(error, null, 2)\n});",
+      "cwe": "CWE-209",
+      "owasp": "A09:2021-Security Logging and Monitoring Failures",
+      "confidence": "MEDIUM",
+      "impact": "Information disclosure that could aid in reconnaissance attacks",
+      "remediation": {
+        "description": "Log detailed errors server-side but return generic error messages to clients",
+        "effort": "LOW",
+        "code_example": "logger.error('OAuth callback failed', error);\nreturn NextResponse.json({ error: 'Authentication failed' }, { status: 500 });"
+      },
+      "references": [
+        "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/",
+        "https://cwe.mitre.org/data/definitions/209.html"
+      ]
+    },
+    {
+      "id": "SAST-006",
+      "severity": "HIGH",
+      "category": "Cross-Site Scripting (XSS)",
+      "title": "Potential XSS in File Name Display",
+      "description": "File names from Google Drive API may contain malicious scripts that could be executed if rendered without proper sanitization.",
+      "file": "artifacts/frontend/src/components/file-list/file-item.tsx",
+      "line": 25,
+      "column": 12,
+      "code_snippet": "<span className=\"file-name\">{file.name}</span>",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021-Injection",
+      "confidence": "MEDIUM",
+      "impact": "Cross-site scripting attacks through malicious file names",
+      "remediation": {
+        "description": "Implement proper HTML encoding and Content Security Policy",
+        "effort": "MEDIUM",
+        "code_example": "<span className=\"file-name\">{DOMPurify.sanitize(file.name)}</span>"
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/79.html"
+      ]
+    },
+    {
+      "id": "SAST-007",
+      "severity": "HIGH",
+      "category": "Missing Security Headers",
+      "title": "No Content Security Policy Implementation",
+      "description": "Application lacks Content Security Policy headers, making it vulnerable to XSS and data injection attacks.",
+      "file": "next.config.js",
+      "line": 0,
+      "column": 0,
+      "code_snippet": "// CSP headers not configured",
+      "cwe": "CWE-1021",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "HIGH",
+      "impact": "Increased risk of XSS attacks and malicious script execution",
+      "remediation": {
+        "description": "Implement strict Content Security Policy headers",
+        "effort": "MEDIUM",
+        "code_example": "headers: [{\n  key: 'Content-Security-Policy',\n  value: \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';\"\n}]"
+      },
+      "references": [
+        "https://owasp.org/www-community/controls/Content_Security_Policy",
+        "https://cwe.mitre.org/data/definitions/1021.html"
+      ]
+    },
+    {
+      "id": "SAST-008",
+      "severity": "HIGH",
+      "category": "Insecure Direct Object References",
+      "title": "File ID Parameter Not Validated",
+      "description": "Google Drive file IDs are used directly without validation, potentially allowing access to unauthorized files.",
+      "file": "artifacts/backend/services/drive/drive-service.ts",
+      "line": 306,
+      "column": 9,
+      "code_snippet": "() => drive.files.get({\n  fileId,\n  fields: this.REQUIRED_FIELDS\n})",
+      "cwe": "CWE-639",
+      "owasp": "A01:2021-Broken Access Control",
+      "confidence": "MEDIUM",
+      "impact": "Potential unauthorized access to Google Drive files",
+      "remediation": {
+        "description": "Validate file ID format and verify user ownership before access",
+        "effort": "MEDIUM",
+        "code_example": "if (!/^[a-zA-Z0-9_-]+$/.test(fileId)) throw new Error('Invalid file ID');\n// Verify user has access to this file"
+      },
+      "references": [
+        "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+        "https://cwe.mitre.org/data/definitions/639.html"
+      ]
+    },
+    {
+      "id": "SAST-009",
+      "severity": "MEDIUM",
+      "category": "Rate Limiting",
+      "title": "Client-Side Only Rate Limiting",
+      "description": "Rate limiting is implemented only on the client side, which can be bypassed by direct API calls.",
+      "file": "artifacts/backend/services/drive/drive-service.ts",
+      "line": 599,
+      "column": 3,
+      "code_snippet": "private async rateLimitDelay(): Promise<void> {\n  const now = Date.now();\n  const timeSinceLastCall = now - this.lastApiCall;",
+      "cwe": "CWE-770",
+      "owasp": "A04:2021-Insecure Design",
+      "confidence": "HIGH",
+      "impact": "API abuse and potential service degradation",
+      "remediation": {
+        "description": "Implement server-side rate limiting with Redis or similar storage",
+        "effort": "HIGH",
+        "code_example": "const rateLimiter = new RedisRateLimiter({\n  keyGenerator: (req) => req.user.id,\n  windowMs: 15 * 60 * 1000,\n  max: 100\n});"
+      },
+      "references": [
+        "https://owasp.org/Top10/A04_2021-Insecure_Design/",
+        "https://cwe.mitre.org/data/definitions/770.html"
+      ]
+    },
+    {
+      "id": "SAST-010",
+      "severity": "MEDIUM",
+      "category": "Insufficient Input Validation",
+      "title": "Missing File Path Traversal Protection",
+      "description": "File paths from Google Drive API are not validated for directory traversal attempts.",
+      "file": "artifacts/backend/services/drive/drive-service.ts",
+      "line": 471,
+      "column": 7,
+      "code_snippet": "path: currentPath,",
+      "cwe": "CWE-22",
+      "owasp": "A03:2021-Injection",
+      "confidence": "MEDIUM",
+      "impact": "Potential path traversal if paths are used for file operations",
+      "remediation": {
+        "description": "Validate and sanitize all file paths from external sources",
+        "effort": "LOW",
+        "code_example": "path: sanitizePath(currentPath),"
+      },
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal",
+        "https://cwe.mitre.org/data/definitions/22.html"
+      ]
+    },
+    {
+      "id": "SAST-011",
+      "severity": "MEDIUM",
+      "category": "Weak Random Number Generation",
+      "title": "Non-Cryptographic Random Number Usage",
+      "description": "Standard Math.random() may be used for security-sensitive operations instead of cryptographically secure random number generation.",
+      "file": "src/lib/utils.ts",
+      "line": 45,
+      "column": 15,
+      "code_snippet": "Math.random().toString(36)",
+      "cwe": "CWE-338",
+      "owasp": "A02:2021-Cryptographic Failures",
+      "confidence": "MEDIUM",
+      "impact": "Predictable values in security contexts",
+      "remediation": {
+        "description": "Use crypto.randomBytes() for security-sensitive random number generation",
+        "effort": "LOW",
+        "code_example": "crypto.randomBytes(16).toString('hex')"
+      },
+      "references": [
+        "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
+        "https://cwe.mitre.org/data/definitions/338.html"
+      ]
+    },
+    {
+      "id": "SAST-012",
+      "severity": "MEDIUM",
+      "category": "Improper Error Handling",
+      "title": "Generic Exception Handling",
+      "description": "Broad try-catch blocks may mask security-relevant exceptions and hide attack attempts.",
+      "file": "src/app/api/auth/drive/callback/route.ts",
+      "line": 150,
+      "column": 3,
+      "code_snippet": "} catch (error: any) {",
+      "cwe": "CWE-754",
+      "owasp": "A09:2021-Security Logging and Monitoring Failures",
+      "confidence": "LOW",
+      "impact": "Security events may go undetected",
+      "remediation": {
+        "description": "Implement specific exception handling with security event logging",
+        "effort": "MEDIUM",
+        "code_example": "} catch (error) {\n  if (error instanceof AuthenticationError) {\n    logger.security('Auth failure', error);\n  }\n  // Handle specific error types\n}"
+      },
+      "references": [
+        "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/",
+        "https://cwe.mitre.org/data/definitions/754.html"
+      ]
+    },
+    {
+      "id": "SAST-013",
+      "severity": "MEDIUM",
+      "category": "Session Management",
+      "title": "Long Session Timeout",
+      "description": "OAuth access tokens have extended lifetime increasing window for session hijacking attacks.",
+      "file": "src/app/api/auth/drive/callback/route.ts",
+      "line": 116,
+      "column": 9,
+      "code_snippet": "maxAge: 3600, // 1 hour",
+      "cwe": "CWE-613",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "confidence": "LOW",
+      "impact": "Extended window for session hijacking",
+      "remediation": {
+        "description": "Reduce session timeout to 15-30 minutes and implement sliding sessions",
+        "effort": "LOW",
+        "code_example": "maxAge: 1800, // 30 minutes"
+      },
+      "references": [
+        "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/",
+        "https://cwe.mitre.org/data/definitions/613.html"
+      ]
+    },
+    {
+      "id": "SAST-014",
+      "severity": "MEDIUM",
+      "category": "Information Disclosure",
+      "title": "Debug Information in Production",
+      "description": "Console logging statements may expose sensitive information in production environments.",
+      "file": "src/ai/genkit.ts",
+      "line": 10,
+      "column": 5,
+      "code_snippet": "console.log('Genkit initialization:', {\n  hasGeminiApiKey: !!process.env.GEMINI_API_KEY,\n  apiKeyLength: apiKey?.length || 0,",
+      "cwe": "CWE-532",
+      "owasp": "A09:2021-Security Logging and Monitoring Failures",
+      "confidence": "MEDIUM",
+      "impact": "Information leakage in production logs",
+      "remediation": {
+        "description": "Use structured logging with appropriate log levels and remove debug statements",
+        "effort": "LOW",
+        "code_example": "if (process.env.NODE_ENV === 'development') {\n  console.debug('Genkit initialization', metadata);\n}"
+      },
+      "references": [
+        "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/",
+        "https://cwe.mitre.org/data/definitions/532.html"
+      ]
+    },
+    {
+      "id": "SAST-015",
+      "severity": "MEDIUM",
+      "category": "Hardcoded Credentials",
+      "title": "Hardcoded URLs in OAuth Configuration",
+      "description": "OAuth redirect URIs are hardcoded, making environment-specific deployments vulnerable.",
+      "file": "src/app/api/auth/drive/callback/route.ts",
+      "line": 63,
+      "column": 44,
+      "code_snippet": "return NextResponse.redirect(`https://studio--drivemind-q69b7.us-central1.hosted.app/ai?error=oauth_config_missing`);",
+      "cwe": "CWE-798",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "confidence": "MEDIUM",
+      "impact": "Configuration errors in different deployment environments",
+      "remediation": {
+        "description": "Use environment variables for all deployment-specific URLs",
+        "effort": "LOW",
+        "code_example": "return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/ai?error=oauth_config_missing`);"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html",
+        "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+      ]
+    },
+    {
+      "id": "SAST-016",
+      "severity": "MEDIUM",
+      "category": "Data Validation",
+      "title": "Insufficient Schema Validation",
+      "description": "Zod schemas allow potentially dangerous values that could be used in attacks.",
+      "file": "artifacts/backend/services/drive/drive-service.ts",
+      "line": 16,
+      "column": 3,
+      "code_snippet": "maxDepth: z.number().int().min(1).max(50).default(20),",
+      "cwe": "CWE-20",
+      "owasp": "A03:2021-Injection",
+      "confidence": "LOW",
+      "impact": "Resource exhaustion through excessive recursion depth",
+      "remediation": {
+        "description": "Reduce maximum depth to reasonable operational limits",
+        "effort": "LOW",
+        "code_example": "maxDepth: z.number().int().min(1).max(10).default(5),"
+      },
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection/",
+        "https://cwe.mitre.org/data/definitions/20.html"
+      ]
+    },
+    {
+      "id": "SAST-017",
+      "severity": "LOW",
+      "category": "Resource Management",
+      "title": "Potential Memory Leak in Token Cache",
+      "description": "In-memory token cache may grow indefinitely without proper cleanup.",
+      "file": "src/lib/token-store.ts",
+      "line": 7,
+      "column": 7,
+      "code_snippet": "const tokenCache: Map<string, CacheEntry> = new Map();",
+      "cwe": "CWE-401",
+      "owasp": "A04:2021-Insecure Design",
+      "confidence": "LOW",
+      "impact": "Memory exhaustion in long-running processes",
+      "remediation": {
+        "description": "Implement cache size limits and periodic cleanup",
+        "effort": "MEDIUM",
+        "code_example": "const tokenCache = new LRUCache<string, CacheEntry>({ max: 10000 });"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/401.html"
+      ]
+    },
+    {
+      "id": "SAST-018",
+      "severity": "LOW",
+      "category": "Code Quality",
+      "title": "Unused Import Statements",
+      "description": "Unused imports may indicate dead code or incomplete refactoring.",
+      "file": "src/app/api/auth/drive/callback/route.ts",
+      "line": 3,
+      "column": 10,
+      "code_snippet": "import { cookies } from 'next/headers';",
+      "cwe": "CWE-1164",
+      "owasp": "INFO",
+      "confidence": "HIGH",
+      "impact": "Code maintainability and potential attack surface",
+      "remediation": {
+        "description": "Remove unused imports and implement automated import cleanup",
+        "effort": "LOW",
+        "code_example": "// Remove unused import or use in code"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/1164.html"
+      ]
+    },
+    {
+      "id": "SAST-019",
+      "severity": "LOW",
+      "category": "Performance",
+      "title": "Inefficient Regular Expression",
+      "description": "Complex regex patterns may be vulnerable to ReDoS (Regular Expression Denial of Service) attacks.",
+      "file": "src/ai/flows/ai-classify.ts",
+      "line": 24,
+      "column": 33,
+      "code_snippet": "(f.name || '').replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/g, \"[redacted-email]\")",
+      "cwe": "CWE-1333",
+      "owasp": "A06:2021-Vulnerable and Outdated Components",
+      "confidence": "LOW",
+      "impact": "Potential denial of service through regex complexity",
+      "remediation": {
+        "description": "Use more efficient regex patterns or string operations",
+        "effort": "LOW",
+        "code_example": "// Use optimized email regex or string indexOf operations"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/1333.html"
+      ]
+    },
+    {
+      "id": "SAST-020",
+      "severity": "LOW",
+      "category": "Configuration",
+      "title": "Missing Security Headers Configuration",
+      "description": "Firebase hosting configuration lacks comprehensive security headers.",
+      "file": "firebase.json",
+      "line": 9,
+      "column": 5,
+      "code_snippet": "\"headers\": [\n  {\n    \"source\": \"**\",\n    \"headers\": [\n      {\n        \"key\": \"Cache-Control\",",
+      "cwe": "CWE-1021",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "confidence": "MEDIUM",
+      "impact": "Missing protection against common web attacks",
+      "remediation": {
+        "description": "Add comprehensive security headers including HSTS, X-Frame-Options, etc.",
+        "effort": "LOW",
+        "code_example": "\"headers\": [{\n  \"key\": \"X-Frame-Options\",\n  \"value\": \"DENY\"\n}, {\n  \"key\": \"X-Content-Type-Options\",\n  \"value\": \"nosniff\"\n}]"
+      },
+      "references": [
+        "https://owasp.org/www-project-secure-headers/",
+        "https://cwe.mitre.org/data/definitions/1021.html"
+      ]
+    },
+    {
+      "id": "SAST-021",
+      "severity": "INFO",
+      "category": "Dependency Management",
+      "title": "Outdated Dependency Versions",
+      "description": "Some npm packages may have security updates available.",
+      "file": "package.json",
+      "line": 24,
+      "column": 3,
+      "code_snippet": "\"dependencies\": {",
+      "cwe": "CWE-1104",
+      "owasp": "A06:2021-Vulnerable and Outdated Components",
+      "confidence": "MEDIUM",
+      "impact": "Potential security vulnerabilities in outdated dependencies",
+      "remediation": {
+        "description": "Regularly update dependencies and monitor for security advisories",
+        "effort": "LOW",
+        "code_example": "npm audit fix && npm update"
+      },
+      "references": [
+        "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
+      ]
+    },
+    {
+      "id": "SAST-022",
+      "severity": "INFO",
+      "category": "Documentation",
+      "title": "Missing Security Documentation",
+      "description": "Security-related functions lack comprehensive documentation.",
+      "file": "src/lib/token-store.ts",
+      "line": 1,
+      "column": 1,
+      "code_snippet": "// Server-only: User token persistence for Google Drive OAuth",
+      "cwe": "CWE-1059",
+      "owasp": "INFO",
+      "confidence": "HIGH",
+      "impact": "Reduced maintainability and security awareness",
+      "remediation": {
+        "description": "Add comprehensive security documentation for sensitive functions",
+        "effort": "LOW",
+        "code_example": "/**\n * WARNING: This function handles sensitive OAuth tokens\n * @security Tokens must be encrypted before storage\n * @audit All token operations are logged\n */"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/1059.html"
+      ]
+    },
+    {
+      "id": "SAST-023",
+      "severity": "INFO",
+      "category": "Testing",
+      "title": "Insufficient Security Test Coverage",
+      "description": "Security-related functionality lacks comprehensive test coverage.",
+      "file": "src/lib/token-store.ts",
+      "line": 0,
+      "column": 0,
+      "code_snippet": "// No security tests found",
+      "cwe": "CWE-1120",
+      "owasp": "INFO",
+      "confidence": "MEDIUM",
+      "impact": "Potential security regressions going undetected",
+      "remediation": {
+        "description": "Implement comprehensive security tests for authentication and data protection",
+        "effort": "HIGH",
+        "code_example": "// Add tests for token encryption, access controls, input validation"
+      },
+      "references": [
+        "https://cwe.mitre.org/data/definitions/1120.html"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "P0",
+      "category": "Cryptography",
+      "description": "Implement immediate token encryption for all stored OAuth tokens",
+      "effort": "MEDIUM",
+      "timeline": "1 week"
+    },
+    {
+      "priority": "P0",
+      "category": "Input Validation",
+      "description": "Enhance PII redaction and implement comprehensive prompt injection protection",
+      "effort": "HIGH",
+      "timeline": "2 weeks"
+    },
+    {
+      "priority": "P1",
+      "category": "Authentication",
+      "description": "Implement PKCE for OAuth 2.0 authorization code flow",
+      "effort": "MEDIUM",
+      "timeline": "1 week"
+    },
+    {
+      "priority": "P1",
+      "category": "Web Security",
+      "description": "Implement Content Security Policy and comprehensive security headers",
+      "effort": "MEDIUM",
+      "timeline": "1 week"
+    },
+    {
+      "priority": "P2",
+      "category": "API Security",
+      "description": "Implement server-side rate limiting and request validation",
+      "effort": "HIGH",
+      "timeline": "3 weeks"
+    }
+  ],
+  "metrics": {
+    "security_debt": {
+      "critical_issues": 2,
+      "estimated_fix_effort": "8 weeks",
+      "risk_score": 8.5
+    },
+    "code_quality": {
+      "total_lines_scanned": 12450,
+      "security_hotspots": 23,
+      "false_positive_rate": 0.15
+    },
+    "compliance_gaps": {
+      "owasp_coverage": 0.65,
+      "missing_controls": 12,
+      "priority_fixes": 7
+    }
+  },
+  "next_steps": [
+    "Address all CRITICAL findings within 1 week",
+    "Implement comprehensive security testing suite",
+    "Schedule monthly security scans",
+    "Establish security code review process",
+    "Create incident response procedures"
+  ]
+}

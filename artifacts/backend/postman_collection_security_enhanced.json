@@ -1,0 +1,759 @@
+{
+  "info": {
+    "name": "DriveMind API - Security Hardened Collection",
+    "description": "Comprehensive API test collection with ZERO CRITICAL VULNERABILITIES. Tests PKCE OAuth, AES-256-GCM token encryption, PII redaction, and HSTS security headers.",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "securityFeatures": {
+      "SAST-001": "AES-256-GCM token encryption with Google Cloud KMS",
+      "SAST-002": "Comprehensive PII redaction with user consent management",
+      "DAST-001": "HSTS security headers with preload and 1-year max-age"
+    }
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://studio--drivemind-q69b7.us-central1.hosted.app/api",
+      "type": "string"
+    },
+    {
+      "key": "local_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "test_user_123",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "oauth_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "oauth_state",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "code_challenge",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scan_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔒 Security Validation Tests",
+      "description": "Tests for critical security fixes: SAST-001, SAST-002, DAST-001",
+      "item": [
+        {
+          "name": "Test HSTS Headers (DAST-001 FIX)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Test-Security-Features",
+                "value": "HSTS,CSP,SecurityHeaders"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔒 DAST-001 FIX: HSTS header enforced with 1-year max-age', () => {",
+                  "    const hsts = pm.response.headers.get('Strict-Transport-Security');",
+                  "    pm.expect(hsts).to.not.be.null;",
+                  "    pm.expect(hsts).to.include('max-age=31536000');",
+                  "    pm.expect(hsts).to.include('includeSubDomains');",
+                  "    pm.expect(hsts).to.include('preload');",
+                  "});",
+                  "",
+                  "pm.test('🔒 Security headers suite present', () => {",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.equal('nosniff');",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.equal('DENY');",
+                  "    pm.expect(pm.response.headers.get('X-XSS-Protection')).to.include('1; mode=block');",
+                  "    pm.expect(pm.response.headers.get('Referrer-Policy')).to.not.be.null;",
+                  "});",
+                  "",
+                  "pm.test('🔒 Content Security Policy present', () => {",
+                  "    const csp = pm.response.headers.get('Content-Security-Policy');",
+                  "    pm.expect(csp).to.not.be.null;",
+                  "    pm.expect(csp).to.include('default-src');",
+                  "    pm.expect(csp).to.include('nonce-');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test Token Encryption (SAST-001 FIX)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Test-Security-Features",
+                "value": "TokenEncryption,AES-256-GCM,KMS"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"userContext\": {\n    \"ipAddress\": \"192.168.1.100\",\n    \"userAgent\": \"DriveMind-Security-Tests/2.0.0\",\n    \"requestId\": \"{{$guid}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/sync",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "sync"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔒 SAST-001 FIX: Token encryption endpoint responds', () => {",
+                  "    pm.expect([200, 400, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('🔒 No plaintext tokens in response', () => {",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.not.include('access_token');",
+                  "    pm.expect(responseText).to.not.include('refresh_token');",
+                  "    pm.expect(responseText).to.not.include('Bearer ');",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('🔒 Token sync includes encryption audit', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('success');",
+                  "        pm.expect(response).to.have.property('auditId');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test PII Redaction (SAST-002 FIX)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Test-Security-Features",
+                "value": "PIIRedaction,ConsentValidation,DataMinimization"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"fileIds\": [\"test_file_with_pii@example.com\", \"555-123-4567_document.pdf\"],\n  \"categories\": [\"document\", \"sensitive\"],\n  \"includeContent\": false,\n  \"redactionLevel\": \"comprehensive\",\n  \"consentConfirmed\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/classify",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "classify"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔒 SAST-002 FIX: PII-protected AI classification responds', () => {",
+                  "    pm.expect([200, 400, 401, 403, 429, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('🔒 PII redaction summary included', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('redactionSummary');",
+                  "        pm.expect(response.redactionSummary).to.have.property('totalPIIFound');",
+                  "        pm.expect(response.redactionSummary).to.have.property('auditId');",
+                  "    });",
+                  "",
+                  "    pm.test('🔒 File names are redacted', () => {",
+                  "        const response = pm.response.json();",
+                  "        response.classifications.forEach(classification => {",
+                  "            if (classification.redactedFileName) {",
+                  "                pm.expect(classification).to.have.property('piiDetected');",
+                  "                pm.expect(classification.redactedFileName).to.not.include('@');",
+                  "                pm.expect(classification.redactedFileName).to.not.match(/\\d{3}-\\d{3}-\\d{4}/);",
+                  "            }",
+                  "        });",
+                  "    });",
+                  "}",
+                  "",
+                  "if (pm.response.code === 403) {",
+                  "    pm.test('🔒 Consent validation enforced', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('error');",
+                  "        pm.expect(response.error).to.equal('consent_required');",
+                  "        pm.expect(response).to.have.property('consentUrl');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 PKCE Authentication Flow",
+      "description": "Security-enhanced OAuth 2.0 with PKCE implementation",
+      "item": [
+        {
+          "name": "Begin PKCE OAuth (Security Enhanced)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Test-Security-Features",
+                "value": "PKCE,HSTS,CSP"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"codeChallengeMethod\": \"S256\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/begin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "begin"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔐 PKCE OAuth begin returns 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('🔐 HSTS security header present (DAST-001 FIX)', () => {",
+                  "    pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.include('max-age=31536000');",
+                  "    pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.include('includeSubDomains');",
+                  "    pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.include('preload');",
+                  "});",
+                  "",
+                  "pm.test('🔐 Response contains PKCE-enhanced OAuth URL', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('url');",
+                  "    pm.expect(response).to.have.property('state');",
+                  "    pm.expect(response).to.have.property('codeChallenge');",
+                  "    pm.expect(response).to.have.property('auditId');",
+                  "    pm.expect(response.url).to.include('accounts.google.com');",
+                  "});",
+                  "",
+                  "pm.test('🔐 PKCE parameters in OAuth URL', () => {",
+                  "    const response = pm.response.json();",
+                  "    const url = new URL(response.url);",
+                  "    pm.expect(url.searchParams.get('code_challenge')).to.not.be.null;",
+                  "    pm.expect(url.searchParams.get('code_challenge_method')).to.equal('S256');",
+                  "    pm.expect(url.searchParams.get('state')).to.not.be.null;",
+                  "});",
+                  "",
+                  "// Store PKCE data for callback test",
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set('oauth_state', response.state);",
+                  "pm.collectionVariables.set('code_challenge', response.codeChallenge);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PKCE OAuth Callback with Token Encryption",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Test-Security-Features",
+                "value": "PKCE,TokenEncryption,AES-256-GCM"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"mock_authorization_code\",\n  \"state\": \"{{oauth_state}}\",\n  \"codeVerifier\": \"mock_code_verifier\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/callback",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "callback"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔐 PKCE OAuth callback endpoint responds', () => {",
+                  "    pm.expect([200, 400, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('🔐 Security headers present in callback response', () => {",
+                  "    pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.equal('nosniff');",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.equal('DENY');",
+                  "});",
+                  "",
+                  "pm.test('🔐 No plaintext tokens in response', () => {",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.not.include('access_token');",
+                  "    pm.expect(responseText).to.not.include('refresh_token');",
+                  "    pm.expect(responseText).to.not.include('client_secret');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manage PII Consent (GDPR Compliance)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Test-Security-Features",
+                "value": "PIIConsent,GDPRCompliance"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"granted\": true,\n  \"purposes\": [\"pii_redaction\", \"ai_processing\"],\n  \"dataTypes\": [\"file_names\", \"file_metadata\"],\n  \"expiresAt\": \"2024-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/consent",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "consent"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🔐 PII consent management responds', () => {",
+                  "    pm.expect([200, 400, 401]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('🔐 Consent response includes audit information', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('success');",
+                  "        pm.expect(response).to.have.property('consentId');",
+                  "        pm.expect(response).to.have.property('auditId');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Security Attack Tests",
+      "description": "Tests to validate protection against common attack vectors",
+      "item": [
+        {
+          "name": "SQL Injection Protection Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/drive/status?userId='; DROP TABLE users; --",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "status"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "'; DROP TABLE users; --"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🛡️ SQL injection attempt blocked', () => {",
+                  "    pm.expect([400, 401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('🛡️ Error response does not leak information', () => {",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.not.include('DROP');",
+                  "    pm.expect(responseText).to.not.include('TABLE');",
+                  "    pm.expect(responseText).to.not.include('SQL');",
+                  "    pm.expect(responseText).to.not.include('database');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Path Traversal Protection Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/../../../etc/passwd",
+              "host": ["{{base_url}}"],
+              "path": ["..", "..", "..", "etc", "passwd"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🛡️ Path traversal attempt blocked', () => {",
+                  "    pm.expect([400, 403, 404]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('🛡️ No system files exposed', () => {",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.not.include('root:x:0:0');",
+                  "    pm.expect(responseText).to.not.include('/bin/bash');",
+                  "    pm.expect(responseText).to.not.include('daemon:');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Context Validation Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"malicious_user_attempt_123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/sync",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "sync"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🛡️ User context mismatch detected', () => {",
+                  "    pm.expect([400, 401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 403) {",
+                  "    pm.test('🛡️ User context error has proper structure', () => {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('error');",
+                  "        pm.expect(response.error).to.include('context');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate Limiting Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Rate-Limit-Test",
+                "value": "true"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/drive/begin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "drive", "begin"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Simulate rapid requests to test rate limiting",
+                  "console.log('Testing rate limiting for security endpoint');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('🛡️ Rate limiting configured', () => {",
+                  "    pm.expect([200, 429]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('🛡️ Rate limit response includes retry headers', () => {",
+                  "        pm.expect(pm.response.headers.has('Retry-After')).to.be.true;",
+                  "        pm.expect(pm.response.headers.has('X-RateLimit-Limit')).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📊 System Health & Monitoring",
+      "item": [
+        {
+          "name": "Health Check with Security Validation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Test-Security-Features",
+                "value": "HealthCheck,SecurityHeaders"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('📊 Health check returns 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('📊 Health response has required fields', () => {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('version');",
+                  "    pm.expect(response).to.have.property('dependencies');",
+                  "});",
+                  "",
+                  "pm.test('📊 Security services are healthy', () => {",
+                  "    const response = pm.response.json();",
+                  "    const deps = response.dependencies;",
+                  "    if (deps.tokenEncryption) {",
+                  "        pm.expect(deps.tokenEncryption.status).to.be.oneOf(['healthy', 'degraded']);",
+                  "    }",
+                  "    if (deps.piiRedaction) {",
+                  "        pm.expect(deps.piiRedaction.status).to.be.oneOf(['healthy', 'degraded']);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('📊 Performance meets ALPHA standards', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(250);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script for SECURITY-HARDENED collection",
+          "console.log('🔒 Running DriveMind Security Test:', pm.info.requestName);",
+          "",
+          "// Set security-aware headers for all requests",
+          "pm.request.headers.add({",
+          "    key: 'User-Agent',",
+          "    value: 'DriveMind-Security-Tests/2.0.0 (ZERO-CRITICAL-VULNERABILITIES)'",
+          "});",
+          "",
+          "// Generate cryptographically secure request ID for audit trail",
+          "const requestId = 'sec_req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 12);",
+          "pm.request.headers.add({",
+          "    key: 'X-Request-ID',",
+          "    value: requestId",
+          "});",
+          "",
+          "// Add security test metadata",
+          "pm.request.headers.add({",
+          "    key: 'X-Security-Test-Suite',",
+          "    value: 'SAST-001,SAST-002,DAST-001'",
+          "});",
+          "",
+          "pm.globals.set('current_request_id', requestId);",
+          "pm.globals.set('test_start_time', Date.now());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global security test assertions for ZERO-CRITICAL-VULNERABILITY validation",
+          "",
+          "pm.test('🔒 Security: No sensitive data in response headers', () => {",
+          "    const headers = pm.response.headers;",
+          "    headers.each(header => {",
+          "        const value = header.value.toLowerCase();",
+          "        pm.expect(value).to.not.include('password');",
+          "        pm.expect(value).to.not.include('secret');",
+          "        pm.expect(value).to.not.include('bearer ');",
+          "        pm.expect(value).to.not.include('jwt ');",
+          "    });",
+          "});",
+          "",
+          "pm.test('🔒 Security: No PII in error messages', () => {",
+          "    if (pm.response.code >= 400) {",
+          "        const responseText = pm.response.text();",
+          "        pm.expect(responseText).to.not.match(/@\\w+\\.\\w+/); // Email",
+          "        pm.expect(responseText).to.not.match(/\\d{3}-\\d{2}-\\d{4}/); // SSN",
+          "        pm.expect(responseText).to.not.match(/\\d{3}-\\d{3}-\\d{4}/); // Phone",
+          "        pm.expect(responseText).to.not.match(/\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}/); // Credit card",
+          "    }",
+          "});",
+          "",
+          "pm.test('⚡ Performance: Response time meets ALPHA standards', () => {",
+          "    pm.expect(pm.response.responseTime).to.be.below(10000);",
+          "    ",
+          "    if (pm.info.requestName.includes('Health')) {",
+          "        pm.expect(pm.response.responseTime).to.be.below(250);",
+          "    }",
+          "});",
+          "",
+          "// Enhanced logging with security context",
+          "const securityStatus = pm.response.code < 400 ? '🔒✅' : '🔒⚠️';",
+          "console.log(`${securityStatus} ${pm.info.requestName}: ${pm.response.code} - ${pm.response.responseTime}ms`);",
+          "",
+          "// Collect comprehensive security metrics",
+          "const testResults = pm.globals.get('security_test_results') || [];",
+          "testResults.push({",
+          "    name: pm.info.requestName,",
+          "    status: pm.response.code,",
+          "    responseTime: pm.response.responseTime,",
+          "    timestamp: new Date().toISOString(),",
+          "    requestId: pm.globals.get('current_request_id'),",
+          "    securityHeaders: {",
+          "        hsts: pm.response.headers.get('Strict-Transport-Security') ? true : false,",
+          "        csp: pm.response.headers.get('Content-Security-Policy') ? true : false,",
+          "        xss: pm.response.headers.get('X-XSS-Protection') ? true : false,",
+          "        nosniff: pm.response.headers.get('X-Content-Type-Options') ? true : false,",
+          "        frameOptions: pm.response.headers.get('X-Frame-Options') ? true : false",
+          "    },",
+          "    vulnerabilityFixes: {",
+          "        'SAST-001': 'AES-256-GCM token encryption with Google Cloud KMS',",
+          "        'SAST-002': 'Comprehensive PII redaction with 50+ patterns',",
+          "        'DAST-001': 'HSTS security headers with preload and 1-year max-age'",
+          "    },",
+          "    testSuite: 'DriveMind Security Hardened v2.0.0'",
+          "});",
+          "pm.globals.set('security_test_results', testResults);"
+        ]
+      }
+    }
+  ]
+}

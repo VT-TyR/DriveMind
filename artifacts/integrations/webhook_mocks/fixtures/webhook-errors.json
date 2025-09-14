@@ -1,0 +1,205 @@
+{
+  "rate_limit_exceeded": {
+    "error": {
+      "code": 429,
+      "message": "Rate Limit Exceeded",
+      "errors": [
+        {
+          "domain": "usageLimits",
+          "reason": "rateLimitExceeded",
+          "message": "Rate Limit Exceeded"
+        }
+      ]
+    },
+    "retryAfter": 60,
+    "quotaUser": "user@example.com"
+  },
+  "internal_server_error": {
+    "error": {
+      "code": 500,
+      "message": "Internal Server Error",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "internalError",
+          "message": "Internal error encountered."
+        }
+      ]
+    }
+  },
+  "service_unavailable": {
+    "error": {
+      "code": 503,
+      "message": "Service Unavailable",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "backendError",
+          "message": "Backend service is temporarily unavailable."
+        }
+      ]
+    },
+    "retryAfter": 30
+  },
+  "invalid_credentials": {
+    "error": {
+      "code": 401,
+      "message": "Invalid Credentials",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "authError",
+          "message": "Invalid Credentials"
+        }
+      ]
+    }
+  },
+  "insufficient_permissions": {
+    "error": {
+      "code": 403,
+      "message": "Insufficient Permission",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "forbidden",
+          "message": "Insufficient Permission: Request had insufficient authentication scopes."
+        }
+      ]
+    },
+    "requiredScope": "https://www.googleapis.com/auth/drive"
+  },
+  "file_not_found": {
+    "error": {
+      "code": 404,
+      "message": "File not found",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "notFound",
+          "message": "File not found: 1InvalidFileId12345"
+        }
+      ]
+    }
+  },
+  "quota_exceeded": {
+    "error": {
+      "code": 403,
+      "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per day' of service 'drive.googleapis.com'",
+      "errors": [
+        {
+          "domain": "usageLimits",
+          "reason": "quotaExceeded",
+          "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per day' of service 'drive.googleapis.com'"
+        }
+      ]
+    }
+  },
+  "timeout_error": {
+    "error": {
+      "code": 504,
+      "message": "Gateway Timeout",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "timeout",
+          "message": "Request timeout"
+        }
+      ]
+    }
+  },
+  "bad_request": {
+    "error": {
+      "code": 400,
+      "message": "Bad Request",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "badRequest",
+          "message": "Invalid JSON payload received. Unknown name 'invalidField'."
+        }
+      ]
+    }
+  },
+  "too_many_requests": {
+    "error": {
+      "code": 429,
+      "message": "Too Many Requests",
+      "errors": [
+        {
+          "domain": "usageLimits",
+          "reason": "userRateLimitExceeded",
+          "message": "User Rate Limit Exceeded"
+        }
+      ]
+    },
+    "retryAfter": 120
+  },
+  "oauth_token_expired": {
+    "error": {
+      "code": 401,
+      "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential.",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "authError",
+          "message": "Invalid Credentials"
+        }
+      ]
+    },
+    "tokenExpired": true,
+    "refreshRequired": true
+  },
+  "concurrent_modification": {
+    "error": {
+      "code": 412,
+      "message": "Precondition Failed",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "conditionNotMet",
+          "message": "The file has been modified since you last downloaded it. Please download the latest version and try again."
+        }
+      ]
+    }
+  },
+  "storage_quota_exceeded": {
+    "error": {
+      "code": 403,
+      "message": "The user's Drive storage quota has been exceeded.",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "storageQuotaExceeded",
+          "message": "The user's Drive storage quota has been exceeded."
+        }
+      ]
+    }
+  },
+  "file_too_large": {
+    "error": {
+      "code": 413,
+      "message": "Request entity too large",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "uploadTooLarge",
+          "message": "The file is too large to be uploaded."
+        }
+      ]
+    },
+    "maxFileSize": "5368709120"
+  },
+  "virus_detected": {
+    "error": {
+      "code": 403,
+      "message": "This file cannot be downloaded as it has been identified as malware.",
+      "errors": [
+        {
+          "domain": "global",
+          "reason": "virusDetected",
+          "message": "This file has been identified as malware and cannot be downloaded."
+        }
+      ]
+    }
+  }
+}

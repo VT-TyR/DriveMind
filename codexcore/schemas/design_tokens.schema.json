@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["colors","spacing","radii","typography","shadows","states"],
+  "properties": {
+    "colors":   { "type": "object", "additionalProperties": { "type": "string" } },
+    "spacing":  { "type": "object", "additionalProperties": { "type": "string" } },
+    "radii":    { "type": "object", "additionalProperties": { "type": "string" } },
+    "typography": {
+      "type": "object",
+      "required": ["fontFamily","sizes","weights","lineHeights"],
+      "properties": {
+        "fontFamily": { "type": "string" },
+        "sizes":      { "type": "object", "additionalProperties": { "type": "string" } },
+        "weights":    { "type": "object", "additionalProperties": { "type": "integer" } },
+        "lineHeights":{ "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "shadows":  { "type": "object", "additionalProperties": { "type": "string" } },
+    "states":   { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

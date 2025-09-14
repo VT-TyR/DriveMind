@@ -1,0 +1,118 @@
+version: 1
+roles:
+  ArchitectAgent:
+    input: { arc: "codexcore/runtime/arc.yaml" }
+    output:
+      - "artifacts/architect/system_design.md"
+      - "artifacts/architect/openapi.yaml"
+      - "artifacts/architect/component_map.json"
+      - "artifacts/architect/backlog.tickets.yaml"
+
+  UIDesignerAgent:
+    input:
+      - "artifacts/architect/system_design.md"
+      - "artifacts/architect/component_map.json"
+    output:
+      - "artifacts/ui/flows.md"
+      - "artifacts/ui/wireframes.md"
+      - "artifacts/ui/design_tokens.json"
+      - "artifacts/ui/a11y_report.md"
+
+  FrontendAgent:
+    input:
+      - "artifacts/architect/openapi.yaml"
+      - "artifacts/architect/component_map.json"
+      - "artifacts/ui/design_tokens.json"
+      - "artifacts/ui/flows.md"
+    output:
+      - "artifacts/frontend/src/**"
+      - "artifacts/frontend/tests/**"
+      - "reports/frontend/coverage/summary.json"
+      - "artifacts/frontend/README.md"
+
+  BackendAgent:
+    input:
+      - "artifacts/architect/openapi.yaml"
+      - "artifacts/architect/component_map.json"
+      - "codexcore/security/rbac.yaml"
+      - "codexcore/runtime/arc.yaml"
+    output:
+      - "artifacts/backend/services/**"
+      - "artifacts/backend/db/migrations/**"
+      - "artifacts/backend/db/seed/**"
+      - "artifacts/backend/tests/**"
+      - "artifacts/backend/postman_collection.json"
+      - "reports/backend/junit.xml"
+      - "artifacts/backend/README.md"
+
+  DBAgent:
+    input:
+      - "artifacts/architect/system_design.md"
+      - "artifacts/architect/openapi.yaml"
+    output:
+      - "artifacts/db/schema.sql"
+      - "artifacts/db/indexes.sql"
+      - "artifacts/db/migrations/**"
+      - "artifacts/db/seed/**"
+      - "artifacts/db/README.md"
+
+  IntegrationsAgent:
+    input:
+      - "artifacts/architect/openapi.yaml"
+      - "codexcore/runtime/arc.yaml"
+    output:
+      - "artifacts/integrations/oauth_spec.md"
+      - "artifacts/integrations/webhook_mocks/**"
+      - "artifacts/integrations/ratelimit_plan.md"
+      - "artifacts/integrations/failure_modes.md"
+
+  TestAgent:
+    input:
+      - "artifacts/architect/openapi.yaml"
+      - "artifacts/architect/component_map.json"
+      - "artifacts/backend/services/**"
+      - "artifacts/frontend/src/**"
+    output:
+      - "artifacts/tests/test_plan.md"
+      - "artifacts/tests/specs/**"
+      - "artifacts/tests/fixtures/**"
+      - "reports/junit.xml"
+      - "reports/coverage/summary.json"
+
+  SecAgent:
+    input:
+      - "artifacts/backend/services/**"
+      - "artifacts/frontend/src/**"
+      - "codexcore/security/rbac.yaml"
+    output:
+      - "artifacts/security/threat_model.md"
+      - "artifacts/security/policies.md"
+      - "reports/sast.json"
+      - "reports/dast.json"
+
+  DocAgent:
+    input:
+      - "artifacts/architect/system_design.md"
+      - "artifacts/architect/openapi.yaml"
+      - "artifacts/backend/services/**"
+      - "artifacts/frontend/src/**"
+    output:
+      - "artifacts/docs/Runbook.md"
+      - "artifacts/docs/ADR-*.md"
+      - "artifacts/docs/Changelog.md"
+
+  ReleaseAgent:
+    input:
+      - "reports/**"
+      - "artifacts/**"
+    output:
+      - "artifacts/release/ci.yml"
+      - "artifacts/release/SBOM.spdx"
+      - "artifacts/release/ReleaseNotes.md"
+      - "artifacts/release/Versioning.md"
+
+quality_gates:
+  required:
+    - "Validate JSON/YAML against codexcore/schemas/**"
+    - "Coverage ≥ 80% lines / 70% branches"
+    - "Zero critical SAST/DAST"

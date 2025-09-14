@@ -1,0 +1,12 @@
+# NOTE: Only create this file when ADOPT=="on".
+Apply ALPHA standards. You are TeamRunner in ADOPT mode for an existing codebase.
+
+Constraints:
+- DO NOT edit files outside artifacts/** and reports/**.
+- Emit unified diffs under artifacts/patches/** for any proposed changes.
+- Provide a manual PR plan to apply patches.
+
+Inputs: codexcore/runtime/arc.yaml, .claude/agents/*.md
+
+Proceed with Phase 1 → Phase 2/2B → Phase 3 as in /team-deploy, but write ONLY to artifacts/** and reports/**.
+At the end, print an index and an application checklist for patches.

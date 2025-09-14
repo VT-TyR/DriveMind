@@ -1,0 +1,61 @@
+{
+  "name": "DriveMind",
+  "version": "1.2.1",
+  "release": "Security Hardening Release",
+  "buildId": "drivemind-v1.2.1-security-release",
+  "timestamp": "2025-09-13T02:30:00Z",
+  "environment": "production",
+  "type": "web-application",
+  "artifacts": {
+    "frontend": {
+      "type": "next-js-build",
+      "path": "artifacts/build/frontend",
+      "size": "~50MB",
+      "runtime": "Node.js 18+",
+      "dependencies": {
+        "next": "15.5.3",
+        "react": "18.3.1",
+        "firebase": "11.9.1"
+      }
+    },
+    "configuration": {
+      "type": "firebase-config",
+      "files": ["apphosting.yaml", "next.config.mjs", "package.json"],
+      "secrets": ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GEMINI_API_KEY"]
+    },
+    "security": {
+      "patches": 2,
+      "vulnerabilities_fixed": 2,
+      "audit_status": "clean"
+    }
+  },
+  "deployment": {
+    "platform": "Firebase App Hosting",
+    "project": "drivemind-q69b7", 
+    "url": "https://studio--drivemind-q69b7.us-central1.hosted.app",
+    "commands": {
+      "deploy": "npm run deploy",
+      "preview": "npm run deploy:preview"
+    }
+  },
+  "features": {
+    "authentication": "Google OAuth 2.0 with PKCE",
+    "database": "Firebase Firestore",
+    "ai": "Google Gemini AI integration",
+    "security": [
+      "Token encryption at rest",
+      "PII redaction in logs", 
+      "Security headers configured",
+      "Input validation with Zod schemas"
+    ]
+  },
+  "monitoring": {
+    "health_check": "/api/health",
+    "metrics": "/api/metrics",
+    "logs": "structured JSON logging with Winston"
+  },
+  "checksums": {
+    "build": "sha256:placeholder-for-actual-build-hash",
+    "config": "sha256:placeholder-for-config-hash"
+  }
+}

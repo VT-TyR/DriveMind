@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id","title","scope","acceptance","estimate_points","owner_role"],
+    "properties": {
+      "id":              { "type": "string" },
+      "title":           { "type": "string" },
+      "scope":           { "type": "string" },
+      "acceptance":      { "type": "array", "items": { "type": "string" } },
+      "estimate_points": { "type": "integer", "minimum": 1 },
+      "owner_role":      { "type": "string", "enum": ["ArchitectAgent","UIDesignerAgent","FrontendAgent","BackendAgent","DBAgent","IntegrationsAgent","TestAgent","SecAgent","DocAgent","ReleaseAgent"] },
+      "deps":            { "type": "array", "items": { "type": "string" } }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+version: 1
+# project_id/scope injected at runtime into codexcore/runtime/arc.yaml
+acceptance_criteria:
+  - "Latency p95 < 250ms for the alert query endpoint"
+  - "RBAC enforced per codexcore/security/rbac.yaml"
+  - "All endpoints must perform schema validation and emit a documented error taxonomy"
+non_functional:
+  performance: { p95_ms: 250, p99_ms: 500 }
+  security:
+    rbac_matrix_ref: "codexcore/security/rbac.yaml"
+    cors: "strict"
+    schema_validation: true
+  ops:
+    health: "/health"
+    metrics: "/metrics"
+    graceful_shutdown: true
+integration_points: []
+deliverables:
+  - "openapi.yaml"
+  - "db migrations"
+  - "frontend components"
+  - "unit/integration/E2E tests"
+  - "Runbook.md and ADRs"

@@ -18,6 +18,39 @@
       ]
     },
     {
+      "collectionGroup": "scanJobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "completedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scanCheckpoints",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobChains",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parentJobId", "order": "ASCENDING" },
+        { "fieldPath": "chainIndex", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobChains",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "completedAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "fileIndex",
       "queryScope": "COLLECTION",
       "fields": [
@@ -26,11 +59,37 @@
       ]
     },
     {
+      "collectionGroup": "fileIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "lastScanId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "scanDeltas",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scanDeltas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "scanId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scanDeltas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "processed", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     },
     {

@@ -1,0 +1,260 @@
+{
+  "patch_metadata": {
+    "audit_id": "drivemind-sec-audit-20250912",
+    "created_date": "2025-09-12T12:00:00.000Z",
+    "patch_format": "unified_diff",
+    "total_patches": 4,
+    "coverage": "Critical and High severity vulnerabilities"
+  },
+  "patches": [
+    {
+      "patch_id": "001",
+      "filename": "001_token_encryption.patch",
+      "title": "OAuth Refresh Token Encryption Implementation",
+      "severity": "CRITICAL",
+      "finding_id": "UNIFIED-001",
+      "risk_score_reduction": "9.5 → 2.0",
+      "priority": "P0",
+      "timeline": "Week 1 (3-4 days)",
+      "effort": "16 hours",
+      "description": "Implements AES-256-GCM encryption for OAuth refresh tokens stored in Firestore",
+      "affected_files": [
+        "src/lib/encryption.ts",
+        "src/lib/token-store.ts", 
+        "src/lib/admin.ts"
+      ],
+      "key_changes": [
+        "Added AES-256-GCM encryption module with proper key management",
+        "Updated token storage to encrypt before Firestore write",
+        "Added decryption on token retrieval with error handling",
+        "Implemented migration function for existing plaintext tokens",
+        "Added encryption configuration validation",
+        "Enhanced security audit logging for token operations"
+      ],
+      "dependencies": [
+        "ENCRYPTION_KEY_PRIMARY environment variable",
+        "ENCRYPTION_KEY_SECONDARY environment variable (for key rotation)",
+        "Updated Firebase App Hosting secrets configuration"
+      ],
+      "testing_requirements": [
+        "Unit tests for encryption/decryption functions",
+        "Integration tests for token storage/retrieval",
+        "Migration testing with sample data",
+        "Performance impact testing"
+      ],
+      "rollback_plan": "Disable encryption flag, use plaintext temporarily",
+      "security_impact": "Eliminates risk of account takeover via database compromise"
+    },
+    {
+      "patch_id": "002", 
+      "filename": "002_transport_security.patch",
+      "title": "Transport Security Headers Implementation",
+      "severity": "CRITICAL",
+      "finding_id": "UNIFIED-003",
+      "risk_score_reduction": "8.5 → 1.5", 
+      "priority": "P0",
+      "timeline": "Day 1 (4 hours)",
+      "effort": "4 hours",
+      "description": "Implements comprehensive security headers including HSTS, CSP, and anti-clickjacking protections",
+      "affected_files": [
+        "firebase.json",
+        "next.config.mjs",
+        "src/app/api/auth/drive/callback/route.ts",
+        "src/app/api/health/route.ts",
+        "apphosting.yaml"
+      ],
+      "key_changes": [
+        "Added Strict-Transport-Security header with preload",
+        "Implemented Content Security Policy with restrictive rules",
+        "Added X-Frame-Options, X-Content-Type-Options headers",
+        "Enhanced cookie security attributes",
+        "Added cache control for sensitive API endpoints",
+        "Improved health check endpoint with security validation"
+      ],
+      "dependencies": [
+        "Firebase hosting configuration update",
+        "HSTS preload list submission (optional)"
+      ],
+      "testing_requirements": [
+        "Header presence validation with online tools",
+        "HSTS functionality testing",
+        "CSP policy validation",
+        "No regression in OAuth flow"
+      ],
+      "rollback_plan": "Remove headers via Firebase configuration update",
+      "security_impact": "Prevents MITM attacks and token interception"
+    },
+    {
+      "patch_id": "003",
+      "filename": "003_pii_redaction.patch", 
+      "title": "Enhanced PII Redaction and AI Security",
+      "severity": "CRITICAL",
+      "finding_id": "UNIFIED-002",
+      "risk_score_reduction": "9.0 → 3.5",
+      "priority": "P0", 
+      "timeline": "Week 1-2 (5-6 days)",
+      "effort": "24 hours",
+      "description": "Implements comprehensive PII redaction, prompt injection protection, and GDPR-compliant consent management",
+      "affected_files": [
+        "src/lib/pii-redactor.ts",
+        "src/lib/consent-manager.ts",
+        "src/ai/flows/ai-classify.ts"
+      ],
+      "key_changes": [
+        "Added comprehensive PII detection patterns (email, phone, SSN, addresses, etc.)",
+        "Implemented prompt injection sanitization with structured delimiters", 
+        "Added GDPR-compliant consent management system",
+        "Enhanced AI classification flow with security validations",
+        "Added redaction effectiveness validation",
+        "Implemented security audit logging for AI processing"
+      ],
+      "dependencies": [
+        "User consent collection UI (separate implementation)",
+        "Firestore rules update for consent collection",
+        "GDPR compliance documentation update"
+      ],
+      "testing_requirements": [
+        "PII detection accuracy testing",
+        "Prompt injection prevention testing",
+        "Consent workflow validation",
+        "Performance impact assessment"
+      ],
+      "rollback_plan": "Revert to basic email-only redaction",
+      "security_impact": "GDPR compliance, prevents PII exposure to AI service"
+    },
+    {
+      "patch_id": "004",
+      "filename": "004_oauth_pkce.patch",
+      "title": "OAuth PKCE Implementation", 
+      "severity": "HIGH",
+      "finding_id": "UNIFIED-004",
+      "risk_score_reduction": "7.5 → 2.5",
+      "priority": "P1",
+      "timeline": "Week 3 (2-3 days)",
+      "effort": "12 hours",
+      "description": "Implements PKCE (Proof Key for Code Exchange) for OAuth 2.0 authorization flow according to RFC 7636",
+      "affected_files": [
+        "src/lib/pkce.ts",
+        "src/app/api/auth/drive/begin/route.ts",
+        "src/app/api/auth/drive/callback/route.ts",
+        "firestore.rules"
+      ],
+      "key_changes": [
+        "Added PKCE challenge generation with SHA256 method",
+        "Implemented secure session storage for code verifiers",
+        "Updated OAuth begin endpoint to include PKCE parameters",
+        "Enhanced callback endpoint with PKCE validation",
+        "Changed OAuth scope to read-only (principle of least privilege)",
+        "Added session cleanup and error handling"
+      ],
+      "dependencies": [
+        "Firestore rules update for PKCE sessions collection",
+        "Frontend updates to handle PKCE flow (if using SPA)",
+        "Testing with Google OAuth playground"
+      ],
+      "testing_requirements": [
+        "End-to-end OAuth flow with PKCE",
+        "PKCE challenge/verifier validation",
+        "Session timeout and cleanup testing",
+        "Authorization code interception prevention validation"
+      ],
+      "rollback_plan": "Revert OAuth flow to original implementation without PKCE",
+      "security_impact": "Prevents authorization code interception attacks"
+    }
+  ],
+  "implementation_guidance": {
+    "deployment_order": [
+      "002_transport_security.patch (immediate - 4 hours)",
+      "001_token_encryption.patch (week 1 - requires encryption keys)",
+      "003_pii_redaction.patch (week 1-2 - requires consent UI)",
+      "004_oauth_pkce.patch (week 3 - requires testing)"
+    ],
+    "pre_deployment_checklist": [
+      "Generate encryption keys using provided utility",
+      "Configure Firebase App Hosting secrets",
+      "Update apphosting.yaml with new environment variables",
+      "Test patches in development environment",
+      "Backup current Firestore data",
+      "Prepare rollback procedures"
+    ],
+    "post_deployment_validation": [
+      "Verify security headers with online tools",
+      "Test OAuth flow end-to-end",
+      "Validate token encryption/decryption",
+      "Test PII redaction effectiveness",
+      "Confirm PKCE challenge validation",
+      "Run security scanner to verify fixes"
+    ]
+  },
+  "environment_requirements": {
+    "new_secrets": [
+      "ENCRYPTION_KEY_PRIMARY",
+      "ENCRYPTION_KEY_SECONDARY"
+    ],
+    "firestore_collections": [
+      "pkce_sessions (temporary, with TTL)",
+      "users/{uid}/preferences/aiConsent"
+    ],
+    "performance_impact": {
+      "encryption_overhead": "< 50ms per token operation", 
+      "pii_redaction_overhead": "< 100ms per AI request",
+      "pkce_overhead": "< 200ms per OAuth flow",
+      "header_overhead": "< 10ms per request"
+    }
+  },
+  "security_validation": {
+    "critical_tests": [
+      "Attempt to decrypt tokens without proper keys",
+      "Try to bypass PKCE validation",
+      "Test prompt injection with malicious file names",
+      "Verify PII redaction completeness",
+      "Validate security header presence"
+    ],
+    "penetration_tests": [
+      "OAuth flow security testing",
+      "API authentication bypass attempts", 
+      "Cross-user data access attempts",
+      "Transport security validation",
+      "Input validation testing"
+    ]
+  },
+  "compliance_impact": {
+    "gdpr": {
+      "before": "NON_COMPLIANT",
+      "after": "COMPLIANT",
+      "improvements": [
+        "Article 25: Data Protection by Design (PII redaction)",
+        "Article 32: Security of Processing (token encryption)",
+        "Article 7: Consent (consent management system)"
+      ]
+    },
+    "owasp_top10_2021": {
+      "before": "4/10",
+      "after": "8/10", 
+      "improvements": [
+        "A02: Cryptographic Failures (encryption + HSTS)",
+        "A03: Injection (PII redaction + prompt protection)",
+        "A05: Security Misconfiguration (headers)",
+        "A07: Authentication Failures (PKCE)"
+      ]
+    }
+  },
+  "maintenance_requirements": {
+    "encryption_key_rotation": {
+      "frequency": "Annually",
+      "procedure": "Add new secondary key, migrate tokens, promote to primary"
+    },
+    "consent_renewal": {
+      "frequency": "Annually", 
+      "procedure": "Prompt users for consent renewal 30 days before expiry"
+    },
+    "pkce_session_cleanup": {
+      "frequency": "Automated",
+      "procedure": "TTL cleanup every 5 minutes for expired sessions"
+    },
+    "security_header_validation": {
+      "frequency": "Monthly",
+      "procedure": "Automated testing of security header presence"
+    }
+  }
+}

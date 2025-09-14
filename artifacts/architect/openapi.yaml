@@ -1,0 +1,1668 @@
+openapi: 3.0.3
+info:
+  title: DriveMind API - Security Hardened
+  description: |
+    **SECURITY-FIRST** Google Drive management platform with zero-critical-vulnerability architecture.
+    
+    ## SECURITY ENHANCEMENTS (v2.0.0)
+    - **SAST-001 FIXED**: AES-256-GCM encrypted OAuth token storage with Google Cloud KMS
+    - **SAST-002 FIXED**: Comprehensive PII redaction for AI services with user consent
+    - **DAST-001 FIXED**: HSTS security headers with preload and 1-year max-age
+    - **PKCE Implementation**: OAuth 2.0 with Proof Key for Code Exchange
+    - **User Context Validation**: Server-side enforcement of user boundaries
+    - **Security Headers**: Complete CSP, HSTS, X-Frame-Options suite
+    
+    ## Authentication (ENHANCED SECURITY)
+    DriveMind uses OAuth 2.0 with PKCE for enhanced security. All tokens are encrypted at rest
+    using AES-256-GCM with Google Cloud KMS. Users must provide explicit consent for AI processing.
+    
+    ## Rate Limits (MULTI-TIER)
+    - OAuth endpoints: 50 requests/minute per IP (reduced for security)
+    - Workflow endpoints: 30 requests/minute per user
+    - AI endpoints: 20 requests/minute per user (with PII redaction)
+    - Health/metrics: 100 requests/minute per IP
+    - Security endpoints: 10 requests/minute per user
+    
+  version: 2.0.0
+  contact:
+    name: DriveMind Support
+    email: support@drivemind.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://studio--drivemind-q69b7.us-central1.hosted.app/api
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - CookieAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/drive/begin:
+    post:
+      summary: Initiate PKCE-enabled Google Drive OAuth flow
+      description: |
+        Generates OAuth authorization URL with PKCE security enhancement.
+        Creates cryptographically secure code challenge and state parameter.
+        Returns URL that user should visit to grant permissions.
+      operationId: beginOAuth
+      tags:
+        - Authentication
+      security: []
+      x-security-enhancement: "PKCE-enabled OAuth 2.0 with state validation"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: Optional user ID for state tracking
+                  example: "user123"
+            examples:
+              with_user_id:
+                summary: With user ID
+                value:
+                  userId: "user123"
+              anonymous:
+                summary: Anonymous flow
+                value: {}
+      responses:
+        '200':
+          description: PKCE-enabled OAuth URL generated successfully
+          headers:
+            Strict-Transport-Security:
+              schema:
+                type: string
+                example: "max-age=31536000; includeSubDomains; preload"
+            Content-Security-Policy:
+              schema:
+                type: string
+                example: "default-src 'self'; script-src 'self' 'nonce-random'"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: PKCE-enhanced OAuth authorization URL
+                    example: "https://accounts.google.com/o/oauth2/v2/auth?client_id=...&code_challenge=..."
+                  state:
+                    type: string
+                    description: CSRF protection state parameter
+                  codeChallenge:
+                    type: string
+                    description: PKCE code challenge (for client validation)
+              examples:
+                success:
+                  summary: Successful PKCE URL generation
+                  value:
+                    url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=123&code_challenge=dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk&code_challenge_method=S256&state=xyz789"
+                    state: "xyz789"
+                    codeChallenge: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/drive/callback:
+    get:
+      summary: Handle PKCE-validated OAuth redirect from Google
+      description: |
+        Processes OAuth authorization code with PKCE validation and state verification.
+        Encrypts tokens using AES-256-GCM with Google Cloud KMS before storage.
+        Sets secure HTTP-only cookies and redirects to application.
+      operationId: oauthCallback
+      tags:
+        - Authentication
+      security: []
+      x-security-enhancements:
+        - "PKCE code verifier validation"
+        - "CSRF state parameter verification"
+        - "AES-256-GCM token encryption with Cloud KMS"
+        - "Secure cookie settings with SameSite=Strict"
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: OAuth authorization code from Google
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: CSRF protection state parameter (REQUIRED for security)
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Error code if OAuth failed
+        - name: code_verifier
+          in: query
+          required: false
+          schema:
+            type: string
+          description: PKCE code verifier (handled internally)
+      responses:
+        '302':
+          description: Secure redirect to application with encrypted token storage
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+                example: "https://app.drivemind.ai/dashboard?drive_connected=true"
+            Strict-Transport-Security:
+              schema:
+                type: string
+                example: "max-age=31536000; includeSubDomains; preload"
+            Set-Cookie:
+              schema:
+                type: array
+                items:
+                  type: string
+              description: Secure HTTP-only cookies with SameSite=Strict
+              example:
+                - "access_token=encrypted_value; HttpOnly; Secure; SameSite=Strict; Max-Age=3600"
+                - "refresh_token=encrypted_value; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      summary: Process OAuth callback from frontend
+      description: |
+        Alternative callback endpoint for frontend-initiated OAuth flows.
+        Returns JSON response instead of redirect.
+      operationId: oauthCallbackPost
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  description: OAuth authorization code
+                state:
+                  type: string
+                  description: State parameter
+                error:
+                  type: string
+                  description: Error from OAuth provider
+            examples:
+              success:
+                summary: Successful callback
+                value:
+                  code: "4/0AdLIrYeMCkYg..."
+                  state: "user123"
+              error:
+                summary: OAuth error
+                value:
+                  error: "access_denied"
+      responses:
+        '200':
+          description: OAuth processing completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Drive connected successfully"
+          headers:
+            Set-Cookie:
+              schema:
+                type: array
+                items:
+                  type: string
+              description: HTTP-only authentication cookies
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/drive/status:
+    get:
+      summary: Check authentication status
+      description: |
+        Returns current user's authentication status and token validity.
+        Useful for frontend to determine if re-authentication is needed.
+      operationId: authStatus
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Authentication status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    description: Whether user has valid authentication
+                  hasValidToken:
+                    type: boolean
+                    description: Whether stored tokens are valid
+                  tokenExpiry:
+                    type: string
+                    format: date-time
+                    description: When current token expires
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                    description: Granted OAuth scopes
+              examples:
+                authenticated:
+                  summary: User is authenticated
+                  value:
+                    authenticated: true
+                    hasValidToken: true
+                    tokenExpiry: "2024-12-13T10:30:00Z"
+                    scopes: ["https://www.googleapis.com/auth/drive"]
+                unauthenticated:
+                  summary: User needs authentication
+                  value:
+                    authenticated: false
+                    hasValidToken: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/drive/sync:
+    post:
+      summary: Sync encrypted authentication tokens to persistent storage
+      description: |
+        Synchronizes OAuth tokens from cookies to encrypted Firestore storage.
+        Tokens are encrypted using AES-256-GCM with Google Cloud KMS.
+        Includes comprehensive audit logging for security compliance.
+      operationId: syncTokens
+      tags:
+        - Authentication
+      x-security-features:
+        - "AES-256-GCM encryption"
+        - "Google Cloud KMS key management"
+        - "Audit trail logging"
+        - "User context validation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: User identifier for token association
+                  example: "user123"
+      responses:
+        '200':
+          description: Tokens encrypted and synchronized successfully
+          headers:
+            Strict-Transport-Security:
+              schema:
+                type: string
+                example: "max-age=31536000; includeSubDomains; preload"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Tokens encrypted and synchronized to persistent storage"
+                  encryptionDetails:
+                    type: object
+                    properties:
+                      algorithm:
+                        type: string
+                        example: "AES-256-GCM"
+                      keyVersion:
+                        type: string
+                        example: "projects/drivemind/locations/global/keyRings/oauth-tokens/cryptoKeys/refresh-token/cryptoKeyVersions/1"
+                      auditId:
+                        type: string
+                        description: Audit trail identifier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/drive/revoke:
+    delete:
+      summary: Securely revoke OAuth tokens
+      description: |
+        Revokes OAuth tokens and deletes encrypted data from storage.
+        Includes comprehensive audit logging for security compliance.
+      operationId: revokeTokens
+      tags:
+        - Authentication
+      x-security-features:
+        - "Token revocation with Google OAuth"
+        - "Encrypted data deletion"
+        - "Audit trail logging"
+        - "User context validation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: User identifier for token revocation
+                  example: "user123"
+      responses:
+        '200':
+          description: Tokens revoked successfully
+          headers:
+            Strict-Transport-Security:
+              schema:
+                type: string
+                example: "max-age=31536000; includeSubDomains; preload"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Tokens revoked and encrypted data deleted"
+                  auditId:
+                    type: string
+                    description: Audit trail identifier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/drive/consent:
+    post:
+      summary: Manage PII processing consent
+      description: |
+        Grant or revoke consent for PII processing by AI services.
+        Required for GDPR compliance (Article 7 - Consent).
+      operationId: manageConsent
+      tags:
+        - Authentication
+      x-compliance: "GDPR Article 7 (Consent)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - granted
+                - purposes
+                - dataTypes
+              properties:
+                userId:
+                  type: string
+                  description: User identifier
+                  example: "user123"
+                granted:
+                  type: boolean
+                  description: Whether consent is granted
+                purposes:
+                  type: array
+                  items:
+                    type: string
+                  description: AI processing purposes
+                  example: ["file_classification", "duplicate_detection"]
+                dataTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: Data types that may contain PII
+                  example: ["file_names", "file_metadata"]
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Consent expiration date
+      responses:
+        '200':
+          description: Consent updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Consent preferences updated"
+                  consentId:
+                    type: string
+                    description: Unique consent record identifier
+                  auditId:
+                    type: string
+                    description: Audit trail identifier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    get:
+      summary: Check PII processing consent status
+      description: |
+        Retrieve current consent status for PII processing.
+        Used by AI services to validate consent before processing.
+      operationId: checkConsent
+      tags:
+        - Authentication
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: User identifier
+        - name: purpose
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Specific purpose to check
+        - name: dataType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Specific data type to check
+      responses:
+        '200':
+          description: Consent status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasConsent:
+                    type: boolean
+                    description: Whether user has granted consent
+                  purposes:
+                    type: array
+                    items:
+                      type: string
+                    description: Consented purposes
+                  dataTypes:
+                    type: array
+                    items:
+                      type: string
+                    description: Consented data types
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Consent expiration
+                  grantedAt:
+                    type: string
+                    format: date-time
+                    description: When consent was granted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No consent record found
+
+  # Workflow Endpoints
+  /workflows/scan:
+    post:
+      summary: Perform comprehensive drive scan
+      description: |
+        Initiates a complete scan of user's Google Drive, analyzing files,
+        extracting metadata, and identifying duplicates. This is a long-running
+        operation that may take several minutes for large drives.
+      operationId: scanDrive
+      tags:
+        - Workflows
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxDepth:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  default: 20
+                  description: Maximum folder depth to scan
+                includeTrashed:
+                  type: boolean
+                  default: false
+                  description: Include trashed files in scan
+                scanSharedDrives:
+                  type: boolean
+                  default: false
+                  description: Include shared/team drives
+            examples:
+              basic_scan:
+                summary: Basic drive scan
+                value:
+                  maxDepth: 20
+                  includeTrashed: false
+                  scanSharedDrives: false
+              comprehensive_scan:
+                summary: Comprehensive scan
+                value:
+                  maxDepth: 50
+                  includeTrashed: true
+                  scanSharedDrives: true
+      responses:
+        '200':
+          description: Scan completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+        '202':
+          description: Scan initiated, processing asynchronously
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scanId:
+                    type: string
+                    description: Unique scan identifier for status tracking
+                  status:
+                    type: string
+                    enum: [initiated, running]
+                  message:
+                    type: string
+                    example: "Drive scan initiated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflows/background-scan:
+    post:
+      summary: Start background drive scan
+      description: |
+        Initiates an asynchronous drive scan using Cloud Functions.
+        Returns immediately with scan ID for status tracking.
+      operationId: backgroundScan
+      tags:
+        - Workflows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: User identifier
+                maxDepth:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  default: 20
+                includeTrashed:
+                  type: boolean
+                  default: false
+                scanSharedDrives:
+                  type: boolean
+                  default: false
+      responses:
+        '202':
+          description: Background scan initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scanId:
+                    type: string
+                    description: Unique scan identifier
+                  status:
+                    type: string
+                    enum: [queued, running]
+                  estimatedCompletion:
+                    type: string
+                    format: date-time
+                    description: Estimated completion time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflows/background-scan/state:
+    get:
+      summary: Get background scan status
+      description: |
+        Retrieves current status and progress of background scan operations.
+      operationId: scanStatus
+      tags:
+        - Workflows
+      parameters:
+        - name: scanId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Specific scan ID to check (returns latest if omitted)
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: User identifier
+      responses:
+        '200':
+          description: Scan status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scanId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [queued, running, completed, failed]
+                  progress:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    description: Completion percentage
+                  startTime:
+                    type: string
+                    format: date-time
+                  completedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  filesProcessed:
+                    type: integer
+                  totalFiles:
+                    type: integer
+                  error:
+                    type: string
+                    nullable: true
+                    description: Error message if scan failed
+                  results:
+                    $ref: '#/components/schemas/ScanResult'
+                    nullable: true
+        '404':
+          description: Scan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /workflows/duplicates:
+    post:
+      summary: Detect duplicate files
+      description: |
+        Analyzes drive contents to identify duplicate files using content hashing,
+        fuzzy matching, and version detection algorithms.
+      operationId: detectDuplicates
+      tags:
+        - Workflows
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                  enum: [content_hash, fuzzy_match, combined]
+                  default: combined
+                  description: Duplicate detection algorithm
+                threshold:
+                  type: number
+                  minimum: 0.1
+                  maximum: 1.0
+                  default: 0.85
+                  description: Similarity threshold for fuzzy matching
+                includeVersions:
+                  type: boolean
+                  default: true
+                  description: Detect file versions as duplicates
+      responses:
+        '200':
+          description: Duplicate detection completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  duplicateGroups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DuplicateGroup'
+                  summary:
+                    type: object
+                    properties:
+                      totalFiles:
+                        type: integer
+                      duplicateFiles:
+                        type: integer
+                      spaceWasted:
+                        type: integer
+                        description: Bytes that could be freed
+                      duplicateGroups:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflows/organize:
+    post:
+      summary: Get AI-powered organization recommendations
+      description: |
+        Uses Gemini AI to analyze file patterns and suggest folder structure
+        optimizations and organization rules.
+      operationId: organizeFiles
+      tags:
+        - Workflows
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analysisType:
+                  type: string
+                  enum: [structure, content, both]
+                  default: both
+                  description: Type of analysis to perform
+                maxSuggestions:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  default: 10
+                  description: Maximum number of suggestions
+                focusArea:
+                  type: string
+                  enum: [downloads, documents, media, all]
+                  default: all
+                  description: Specific area to focus organization efforts
+      responses:
+        '200':
+          description: Organization analysis completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationSuggestion'
+                  folderStructure:
+                    type: object
+                    description: Recommended folder hierarchy
+                  rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # AI Endpoints
+  /ai/classify:
+    post:
+      summary: Classify files using AI with PII redaction
+      description: |
+        Uses Gemini AI to classify files with comprehensive PII redaction.
+        All file metadata is redacted before AI processing to protect user privacy.
+        Requires explicit user consent for PII processing (GDPR compliance).
+      operationId: classifyFiles
+      tags:
+        - AI
+      x-security-features:
+        - "Comprehensive PII redaction (50+ patterns)"
+        - "User consent validation"
+        - "Audit trail logging"
+        - "Data minimization"
+      x-pii-patterns:
+        - "Email addresses"
+        - "Phone numbers"
+        - "Social Security Numbers"
+        - "Credit card numbers"
+        - "Names and addresses"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - fileIds
+              properties:
+                userId:
+                  type: string
+                  description: User identifier for consent validation
+                  example: "user123"
+                fileIds:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 50
+                  description: Google Drive file IDs to classify (reduced for security)
+                categories:
+                  type: array
+                  items:
+                    type: string
+                  description: Custom categories to classify into
+                includeContent:
+                  type: boolean
+                  default: false
+                  description: Whether to analyze file content (REQUIRES ADDITIONAL CONSENT)
+                redactionLevel:
+                  type: string
+                  enum: [basic, comprehensive, strict]
+                  default: comprehensive
+                  description: PII redaction level
+                consentConfirmed:
+                  type: boolean
+                  description: User has confirmed consent for AI processing
+                  example: true
+      responses:
+        '200':
+          description: Classification completed with PII protection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  classifications:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fileId:
+                          type: string
+                        fileName:
+                          type: string
+                          description: Original filename (may be redacted)
+                        redactedFileName:
+                          type: string
+                          description: PII-redacted filename used for AI processing
+                        category:
+                          type: string
+                        confidence:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        reasoning:
+                          type: string
+                          description: AI explanation for classification (PII redacted)
+                        piiDetected:
+                          type: array
+                          items:
+                            type: string
+                          description: Types of PII detected and redacted
+                  redactionSummary:
+                    type: object
+                    properties:
+                      filesProcessed:
+                        type: integer
+                      piiInstancesRedacted:
+                        type: integer
+                      redactionPatterns:
+                        type: array
+                        items:
+                          type: string
+                      auditId:
+                        type: string
+                        description: Audit trail identifier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: PII processing consent required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "consent_required"
+                  message:
+                    type: string
+                    example: "User consent required for AI processing of potentially sensitive data"
+                  consentUrl:
+                    type: string
+                    format: uri
+                    description: URL to manage consent preferences
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/propose-rule:
+    post:
+      summary: Generate organization rule using AI
+      description: |
+        Uses AI to analyze file patterns and generate automated organization rules
+        that can be applied to maintain folder structure.
+      operationId: proposeRule
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+              properties:
+                description:
+                  type: string
+                  description: Natural language description of desired rule
+                  example: "Move all PDF invoices to the Finance folder"
+                sampleFiles:
+                  type: array
+                  items:
+                    type: string
+                  description: Sample file IDs that should match the rule
+                targetFolder:
+                  type: string
+                  description: Destination folder path
+      responses:
+        '200':
+          description: Rule generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/health-check:
+    get:
+      summary: Check AI service health
+      description: |
+        Validates that AI services (Gemini) are available and responsive.
+      operationId: aiHealthCheck
+      tags:
+        - AI
+      security: []
+      responses:
+        '200':
+          description: AI services are healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  services:
+                    type: object
+                    properties:
+                      gemini:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                          latency:
+                            type: number
+                            description: Response time in milliseconds
+                          quotaRemaining:
+                            type: integer
+                            description: Remaining API quota
+        '503':
+          description: AI services unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # System Endpoints
+  /health:
+    get:
+      summary: Service health check
+      description: |
+        Comprehensive health check endpoint that validates all system dependencies
+        and returns operational status. Used by load balancers and monitoring systems.
+      operationId: healthCheck
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "no-cache"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  uptime:
+                    type: number
+                    description: Process uptime in seconds
+                  timestamp:
+                    type: string
+                    format: date-time
+                  environment:
+                    type: string
+                    enum: [development, staging, production]
+                  dependencies:
+                    type: object
+                    properties:
+                      firebase:
+                        $ref: '#/components/schemas/DependencyHealth'
+                      google_auth:
+                        $ref: '#/components/schemas/DependencyHealth'
+                      google_drive:
+                        $ref: '#/components/schemas/DependencyHealth'
+                      gemini:
+                        $ref: '#/components/schemas/DependencyHealth'
+                  metrics:
+                    type: object
+                    properties:
+                      memory:
+                        type: object
+                        properties:
+                          rss:
+                            type: integer
+                          heapTotal:
+                            type: integer
+                          heapUsed:
+                            type: integer
+                          external:
+                            type: integer
+                      cpu:
+                        type: object
+                        properties:
+                          user:
+                            type: integer
+                          system:
+                            type: integer
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [unhealthy]
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  dependencies:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/DependencyHealth'
+                  error:
+                    type: string
+                    description: Primary health check failure reason
+
+  /metrics:
+    get:
+      summary: System metrics
+      description: |
+        Returns comprehensive system metrics including performance, business,
+        and operational data. Used for monitoring and alerting.
+      operationId: getMetrics
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "no-cache"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  application:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: "drivemind"
+                      version:
+                        type: string
+                      environment:
+                        type: string
+                      uptime:
+                        type: number
+                  system:
+                    type: object
+                    properties:
+                      memory:
+                        type: object
+                        properties:
+                          rss:
+                            type: integer
+                          heapTotal:
+                            type: integer
+                          heapUsed:
+                            type: integer
+                      cpu:
+                        type: object
+                        properties:
+                          user:
+                            type: integer
+                          system:
+                            type: integer
+                      platform:
+                        type: string
+                      nodeVersion:
+                        type: string
+                  business:
+                    type: object
+                    properties:
+                      activeUsers:
+                        type: integer
+                      filesProcessed:
+                        type: integer
+                      duplicatesDetected:
+                        type: integer
+                      aiInsightsGenerated:
+                        type: integer
+
+    post:
+      summary: Log custom metrics
+      description: |
+        Accepts custom metrics for logging and monitoring. Used for deployment
+        events, business metrics, and custom application events.
+      operationId: logMetrics
+      tags:
+        - System
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+                  description: Event name or type
+                  example: "deployment"
+                data:
+                  type: object
+                  description: Custom event data
+                  additionalProperties: true
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Event timestamp (defaults to current time)
+            examples:
+              deployment:
+                summary: Deployment event
+                value:
+                  event: "deployment"
+                  data:
+                    version: "1.0.1"
+                    environment: "production"
+                    deployedBy: "github-actions"
+              business_metric:
+                summary: Business metric
+                value:
+                  event: "files_processed"
+                  data:
+                    count: 1500
+                    userId: "user123"
+      responses:
+        '200':
+          description: Metric logged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Metric recorded"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase ID token
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: google_access_token
+      description: HTTP-only OAuth access token cookie
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - message
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "invalid_request"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Required field 'userId' is missing"
+        details:
+          type: string
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          description: Unique request identifier for debugging
+
+    DependencyHealth:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        message:
+          type: string
+          description: Status details or error message
+        latency:
+          type: number
+          description: Response time in milliseconds
+        lastCheck:
+          type: string
+          format: date-time
+
+    ScanResult:
+      type: object
+      properties:
+        scanId:
+          type: string
+          description: Unique scan identifier
+        totalFiles:
+          type: integer
+          description: Total files discovered
+        totalSize:
+          type: integer
+          description: Total size in bytes
+        filesByType:
+          type: object
+          additionalProperties:
+            type: integer
+          description: File count by type
+        folderDepth:
+          type: integer
+          description: Maximum folder depth found
+        duplicateFiles:
+          type: integer
+          description: Number of duplicate files
+        unusedFiles:
+          type: integer
+          description: Files not accessed recently
+        largestFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+          description: Top 10 largest files
+        completedAt:
+          type: string
+          format: date-time
+        processingTime:
+          type: number
+          description: Scan duration in seconds
+
+    FileInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Google Drive file ID
+        name:
+          type: string
+          description: File name
+        type:
+          type: string
+          enum: [Document, Spreadsheet, Presentation, Image, Video, PDF, Folder, Other]
+        size:
+          type: integer
+          description: File size in bytes
+        lastModified:
+          type: string
+          format: date-time
+        path:
+          type: array
+          items:
+            type: string
+          description: Folder path array
+        isDuplicate:
+          type: boolean
+          description: Whether file is identified as duplicate
+        vaultScore:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: AI-generated importance score
+        mimeType:
+          type: string
+          description: MIME type
+        webViewLink:
+          type: string
+          format: uri
+          description: Link to view file in Google Drive
+
+    DuplicateGroup:
+      type: object
+      properties:
+        groupId:
+          type: string
+          description: Unique group identifier
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+          minItems: 2
+        duplicateType:
+          type: string
+          enum: [exact_match, content_hash, fuzzy_match, version_series]
+        similarityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Similarity score for fuzzy matches
+        recommendation:
+          type: string
+          enum: [keep_newest, keep_largest, manual_review]
+        spaceWasted:
+          type: integer
+          description: Bytes that could be freed by removing duplicates
+
+    OrganizationSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [folder_creation, file_move, folder_rename, structure_optimization]
+        title:
+          type: string
+          description: Short description of suggestion
+        description:
+          type: string
+          description: Detailed explanation
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: AI confidence in suggestion
+        impact:
+          type: string
+          enum: [low, medium, high]
+          description: Expected improvement impact
+        affectedFiles:
+          type: integer
+          description: Number of files that would be affected
+        estimatedTimeMinutes:
+          type: integer
+          description: Estimated time to implement
+        prerequisites:
+          type: array
+          items:
+            type: string
+          description: Required actions before implementation
+
+    OrganizationRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Human-readable rule name
+        description:
+          type: string
+          description: Rule purpose and behavior
+        pattern:
+          type: string
+          description: File matching pattern or criteria
+        action:
+          type: string
+          enum: [move, rename, tag, organize]
+          description: Action to perform on matching files
+        target:
+          type: string
+          description: Target location or naming pattern
+        conditions:
+          type: object
+          properties:
+            fileTypes:
+              type: array
+              items:
+                type: string
+              description: File types to match
+            namePattern:
+              type: string
+              description: Regex pattern for file names
+            sizeRange:
+              type: object
+              properties:
+                min:
+                  type: integer
+                max:
+                  type: integer
+            dateRange:
+              type: object
+              properties:
+                after:
+                  type: string
+                  format: date-time
+                before:
+                  type: string
+                  format: date-time
+        isActive:
+          type: boolean
+          description: Whether rule is currently active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Execution priority (lower numbers run first)
+        createdAt:
+          type: string
+          format: date-time
+        lastApplied:
+          type: string
+          format: date-time
+          nullable: true
+
+  responses:
+    BadRequest:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validation_error:
+              summary: Validation failure
+              value:
+                error: "invalid_request"
+                message: "Request validation failed"
+                details: "Required field 'userId' is missing"
+                timestamp: "2024-12-13T10:30:00Z"
+                requestId: "req_123abc"
+
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_auth:
+              summary: Missing authentication
+              value:
+                error: "unauthorized"
+                message: "No authorization token provided"
+                timestamp: "2024-12-13T10:30:00Z"
+            invalid_token:
+              summary: Invalid token
+              value:
+                error: "invalid_token"
+                message: "Authorization token is expired or invalid"
+                timestamp: "2024-12-13T10:30:00Z"
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until retry is allowed
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per time window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Requests remaining in current window
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "rate_limit_exceeded"
+            message: "Too many requests, please try again later"
+            timestamp: "2024-12-13T10:30:00Z"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            service_error:
+              summary: Service unavailable
+              value:
+                error: "internal_server_error"
+                message: "An unexpected error occurred"
+                timestamp: "2024-12-13T10:30:00Z"
+                requestId: "req_456def"
+            dependency_failure:
+              summary: External service failure
+              value:
+                error: "service_unavailable"
+                message: "Google Drive API is temporarily unavailable"
+                details: "Upstream service returned 503"
+                timestamp: "2024-12-13T10:30:00Z"
+
+tags:
+  - name: Authentication
+    description: OAuth 2.0 authentication with Google Drive
+  - name: Workflows
+    description: File management and analysis workflows
+  - name: AI
+    description: AI-powered file analysis and organization
+  - name: System
+    description: Health checks and system monitoring

@@ -1,8 +1,10 @@
 import { google } from 'googleapis';
 import { Firestore } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
+import { createCheckpointManager, ScanCheckpoint } from './checkpoint-manager';
+import { createJobChainManager } from './job-chain';
 
-type ScanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+type ScanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'chained';
 
 interface ScanProgress {
   current: number;
@@ -12,6 +14,7 @@ interface ScanProgress {
   estimatedTimeRemaining?: number;
   bytesProcessed?: number;
   totalBytes?: number;
+  filesProcessed?: number;
 }
 
 interface ScanJobDoc {
@@ -46,504 +49,407 @@ interface FileIndexEntry {
   lastScanId: string;
   createdAt: number;
   updatedAt: number;
-  isDeleted?: boolean;
 }
 
-const COLLECTIONS = {
-  SCAN_JOBS: 'scanJobs',
-  FILE_INDEX: 'fileIndex',
-  SCAN_DELTAS: 'scanDeltas',
-  USERS: 'users',
-} as const;
+interface ScanResults {
+  pages: number;
+  writeOps: number;
+  durationMs: number;
+  filesProcessed: number;
+  bytesProcessed: number;
+  duplicatesFound?: number;
+}
 
-export async function runScanJob(db: Firestore, jobId: string) {
-  const jobRef = db.collection(COLLECTIONS.SCAN_JOBS).doc(jobId);
-  const snap = await jobRef.get();
-  if (!snap.exists) {
-    logger.error('Scan job not found', { jobId });
-    return;
+export class ScanRunner {
+  private db: Firestore;
+  private jobId: string;
+  private uid: string;
+  private _accessToken: string; // Prefixed with _ to indicate intentionally unused
+  private checkpointManager;
+  private jobChainManager;
+  private drive: any;
+  private startTime: number;
+
+  constructor(
+    db: Firestore, 
+    jobId: string, 
+    uid: string, 
+    accessToken: string
+  ) {
+    this.db = db;
+    this.jobId = jobId;
+    this.uid = uid;
+    this._accessToken = accessToken;
+    this.checkpointManager = createCheckpointManager(db);
+    this.jobChainManager = createJobChainManager(db);
+    this.startTime = Date.now();
+
+    // Initialize Google Drive API
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({ access_token: this._accessToken });
+    this.drive = google.drive({ version: 'v3', auth });
   }
-  const job = snap.data() as ScanJobDoc;
-  if (job.status !== 'pending') {
-    logger.info('Scan job not pending; skipping', { jobId, status: job.status });
-    return;
-  }
 
-  const { uid, config } = job;
-  const forceFull = !!(config as any)?.forceFull;
-  const forceDelta = !!(config as any)?.forceDelta;
+  /**
+   * Main scan execution method
+   */
+  async runScan(): Promise<ScanResults> {
+    try {
+      logger.info('Starting scan', { jobId: this.jobId, uid: this.uid });
 
-  const setProgress = async (progress: Partial<ScanProgress>, status?: ScanStatus) => {
-    const update: any = { updatedAt: Date.now() };
-    if (status) {
-      update.status = status;
-      if (status === 'running' && !job.startedAt) update.startedAt = Date.now();
-      if (status === 'completed' || status === 'failed') update.completedAt = Date.now();
+      // Check for existing checkpoint
+      const checkpoint = await this.checkpointManager.getCheckpoint(this.uid, this.jobId);
+      
+      // Update job status
+      await this.updateJobStatus('running', {
+        current: 0,
+        total: 0,
+        percentage: 0,
+        currentStep: 'Initializing scan...',
+        filesProcessed: 0,
+        bytesProcessed: 0,
+      });
+
+      // Execute scan with checkpoint recovery
+      const results = await this.executeScanWithCheckpoints(checkpoint);
+
+      // Clean up checkpoint on success
+      await this.checkpointManager.deleteCheckpoint(this.uid, this.jobId);
+
+      // Update final status
+      await this.updateJobStatus('completed', {
+        current: results.filesProcessed,
+        total: results.filesProcessed,
+        percentage: 100,
+        currentStep: 'Scan completed',
+        filesProcessed: results.filesProcessed,
+        bytesProcessed: results.bytesProcessed,
+      }, results);
+
+      logger.info('Scan completed', { 
+        jobId: this.jobId, 
+        results 
+      });
+
+      return results;
+
+    } catch (error) {
+      logger.error('Scan failed', { 
+        jobId: this.jobId, 
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      // Create recovery checkpoint
+      await this.checkpointManager.createRecoveryCheckpoint(
+        this.jobId,
+        this.uid,
+        error instanceof Error ? error : new Error(String(error)),
+        {}
+      );
+
+      await this.updateJobStatus('failed', undefined, undefined, 
+        error instanceof Error ? error.message : 'Scan failed'
+      );
+
+      throw error;
     }
-    if (progress) {
-      const cur = ((await jobRef.get()).data() as any)?.progress || {};
-      update.progress = { ...cur, ...progress };
-      if (update.progress.current && update.progress.total) {
-        update.progress.percentage = Math.round((update.progress.current / update.progress.total) * 100);
+  }
+
+  /**
+   * Execute scan with checkpoint support
+   */
+  private async executeScanWithCheckpoints(checkpoint: ScanCheckpoint | null): Promise<ScanResults> {
+    let pageToken = checkpoint?.pageToken;
+    let filesProcessed = checkpoint?.filesProcessed || 0;
+    let bytesProcessed = checkpoint?.bytesProcessed || 0;
+    let totalPages = 0;
+    let writeOps = 0;
+
+    try {
+      // Scan files from Drive API
+      do {
+        // Check if we should chain the job
+        if (this.jobChainManager.shouldChainJob(0)) {
+          return await this.chainJob(pageToken, filesProcessed, bytesProcessed);
+        }
+
+        // List files from Google Drive
+        const response = await this.drive.files.list({
+          pageSize: 1000,
+          pageToken,
+          fields: 'nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, md5Checksum)',
+          q: 'trashed=false',
+        });
+
+        const files = response.data.files || [];
+        pageToken = response.data.nextPageToken;
+        totalPages++;
+
+        // Process files in batches
+        for (let i = 0; i < files.length; i += 100) {
+          const batch = files.slice(i, i + 100);
+          const batchResults = await this.processBatch(batch);
+          
+          filesProcessed += batchResults.filesProcessed;
+          bytesProcessed += batchResults.bytesProcessed;
+          writeOps += batchResults.writeOps;
+
+          // Update progress
+          await this.updateJobStatus('running', {
+            current: filesProcessed,
+            total: Math.max(filesProcessed, 1000), // Estimate
+            percentage: Math.min(95, (filesProcessed / 1000) * 100),
+            currentStep: `Processing files: ${filesProcessed} processed`,
+            filesProcessed,
+            bytesProcessed,
+          });
+
+          // Check for checkpointing
+          if (this.checkpointManager.shouldCheckpoint(batch.length)) {
+            const checkpointData: ScanCheckpoint = {
+              jobId: this.jobId,
+              uid: this.uid,
+              scanId: `scan_${Date.now()}`,
+              pageToken,
+              filesProcessed,
+              bytesProcessed,
+              scanType: 'full',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+              metadata: {
+                duplicatesFound: 0,
+                indexUpdates: {
+                  created: writeOps,
+                  modified: 0,
+                  deleted: 0,
+                },
+                pagesProcessed: totalPages,
+                errors: [],
+              },
+            };
+            
+            await this.checkpointManager.saveCheckpoint(checkpointData);
+          }
+        }
+
+      } while (pageToken);
+
+      return {
+        pages: totalPages,
+        writeOps,
+        durationMs: Date.now() - this.startTime,
+        filesProcessed,
+        bytesProcessed,
+        duplicatesFound: 0,
+      };
+
+    } catch (error) {
+      logger.error('Scan execution error', { 
+        jobId: this.jobId, 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Process a batch of files
+   */
+  private async processBatch(files: any[]): Promise<{ filesProcessed: number; bytesProcessed: number; writeOps: number }> {
+    const batch = this.db.batch();
+    let filesProcessed = 0;
+    let bytesProcessed = 0;
+    let writeOps = 0;
+
+    for (const file of files) {
+      try {
+        const fileEntry: FileIndexEntry = {
+          id: file.id,
+          uid: this.uid,
+          name: file.name,
+          mimeType: file.mimeType,
+          size: parseInt(file.size || '0'),
+          modifiedTime: file.modifiedTime,
+          parentId: file.parents?.[0],
+          md5Checksum: file.md5Checksum,
+          version: 1,
+          lastScanId: this.jobId,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        batch.set(
+          this.db.collection('fileIndex').doc(file.id),
+          fileEntry,
+          { merge: true }
+        );
+
+        filesProcessed++;
+        bytesProcessed += fileEntry.size;
+        writeOps++;
+
+      } catch (error) {
+        logger.warn('Failed to process file', { 
+          fileId: file.id, 
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }
-    await jobRef.update(update);
-  };
 
-  const isCancelled = async (): Promise<boolean> => {
-    const s = (await jobRef.get()).data() as ScanJobDoc;
-    return s.status === 'cancelled';
-  };
+    // Commit batch
+    await batch.commit();
 
-  const fail = async (message: string) => {
-    await jobRef.update({ status: 'failed', error: message, completedAt: Date.now(), updatedAt: Date.now() });
-  };
+    return { filesProcessed, bytesProcessed, writeOps };
+  }
 
-  const complete = async (results: any) => {
-    await jobRef.update({ status: 'completed', results, completedAt: Date.now(), updatedAt: Date.now(), progress: { current: 1, total: 1, percentage: 100, currentStep: 'Scan completed successfully' } });
-  };
-
-  const startedAt = Date.now();
-  const metrics = { pages: 0, writeOps: 0 };
-  try {
-    await setProgress({ currentStep: 'Initializing scan...' }, 'running');
-    await setProgress({ current: 1, total: 6, currentStep: 'Checking scan requirements...' });
-
-    const scanDecision = await shouldRunFullScan(db, uid);
-
-    await setProgress({ current: 2, total: 6, currentStep: 'Connecting to Google Drive...' });
-    if (await isCancelled()) return await fail('Scan cancelled by user');
-
-    const drive = await driveForUser(db, uid);
-
-    await setProgress({ current: 3, total: 6, currentStep: 'Scanning Google Drive files...' });
-    if (await isCancelled()) return await fail('Scan cancelled by user');
-
-    const scanId = `scan_${jobId}_${Date.now()}`;
-    let totalSize = 0;
-    let totalFiles = 0;
-    let duplicates = 0;
-
-    // Decide mode; allow forceDelta only if we have a saved token
-    const savedToken = await getSavedPageToken(db, uid);
-    if (!forceDelta && (forceFull || scanDecision.shouldRunFull)) {
-      const res = await scanAndIndexFiles(db, uid, drive, config, scanId, jobRef, setProgress, isCancelled, metrics);
-      totalSize = res.totalSize;
-      totalFiles = res.totalFiles;
-      duplicates = res.duplicates;
-      // Initialize or advance the Drive Changes page token for future delta scans
-      const newToken = await getStartPageToken(drive);
-      await saveDriveState(db, uid, { pageToken: newToken });
-    } else {
-      const res = await scanChangesAndIndexFiles(db, uid, drive, config, scanId, jobRef, setProgress, isCancelled, metrics, savedToken || undefined);
-      totalSize = res.totalSize;
-      totalFiles = res.totalFiles;
-      duplicates = res.duplicates;
-    }
-
-    await setProgress({ current: 5, total: 6, currentStep: 'Analyzing for duplicates...' });
-    if (await isCancelled()) return await fail('Scan cancelled by user');
-
-    const durationMs = Date.now() - startedAt;
-    const results = {
-      scanId,
-      filesFound: totalFiles,
-      duplicatesDetected: duplicates,
-      totalSize,
-      insights: {
-        totalFiles,
-        duplicateGroups: duplicates,
-        totalSize,
-        archiveCandidates: Math.floor(totalFiles * 0.05),
-        qualityScore: Math.max(20, 100 - Math.floor((duplicates / Math.max(1, totalFiles)) * 100)),
-        recommendedActions: [
-          duplicates > 0 ? 'Remove duplicate files to save storage' : 'No duplicates found',
-          'Archive old files to improve organization',
-          'Set up automated organization rules',
-        ].filter(Boolean),
-        scanType: (!forceDelta && (forceFull || scanDecision.shouldRunFull)) ? 'full' : 'delta',
-        metrics: { pages: metrics.pages, writeOps: metrics.writeOps, durationMs },
+  /**
+   * Chain job when approaching timeout
+   */
+  private async chainJob(
+    pageToken: string | undefined,
+    filesProcessed: number,
+    bytesProcessed: number
+  ): Promise<ScanResults> {
+    const checkpoint: ScanCheckpoint = {
+      jobId: this.jobId,
+      uid: this.uid,
+      scanId: `scan_${Date.now()}`,
+      pageToken,
+      filesProcessed,
+      bytesProcessed,
+      scanType: 'full',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+      metadata: {
+        duplicatesFound: 0,
+        indexUpdates: {
+          created: filesProcessed,
+          modified: 0,
+          deleted: 0,
+        },
+        pagesProcessed: 1,
+        errors: [],
       },
     };
 
-    await setProgress({ current: 6, total: 6, currentStep: 'Finalizing scan results...' });
-    if (await isCancelled()) return await fail('Scan cancelled by user');
+    const chainedJobId = await this.jobChainManager.createChainedJob(
+      this.jobId,
+      this.uid,
+      checkpoint
+    );
 
-    await complete(results);
-    logger.info('Scan completed', { jobId, uid, files: totalFiles });
-  } catch (e: any) {
-    logger.error('Scan job failed', e);
-    await jobRef.update({ status: 'failed', error: e?.message || String(e), completedAt: Date.now(), updatedAt: Date.now() });
-  }
-}
-
-async function driveForUser(db: Firestore, uid: string) {
-  const doc = await db.collection(`users/${uid}/secrets`).doc('googleDrive').get();
-  const refreshToken = (doc.exists ? (doc.data() as any)?.refreshToken : null) as string | null;
-  if (!refreshToken) throw new Error('No Google Drive connection');
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error('Missing Google OAuth credentials');
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-  oauth2Client.setCredentials({ refresh_token: refreshToken });
-  return google.drive({ version: 'v3', auth: oauth2Client });
-}
-
-async function shouldRunFullScan(db: Firestore, uid: string): Promise<{ shouldRunFull: boolean; reason: string; lastScanTime?: string; fileCount?: number }> {
-  try {
-    const completed = await db.collection(COLLECTIONS.SCAN_JOBS)
-      .where('uid', '==', uid)
-      .where('status', '==', 'completed')
-      .orderBy('completedAt', 'desc')
-      .limit(1)
-      .get();
-    let lastScanTime: string | undefined;
-    if (!completed.empty) {
-      const t = completed.docs[0].data().completedAt;
-      lastScanTime = t ? new Date(t).toISOString() : undefined;
-    }
-    if (!lastScanTime) return { shouldRunFull: true, reason: 'No previous scan found' };
-    const days = (Date.now() - new Date(lastScanTime).getTime()) / (24 * 60 * 60 * 1000);
-    if (days > 7) return { shouldRunFull: true, reason: 'Last scan is more than 7 days old', lastScanTime };
-    const indexSnapshot = await db.collection(COLLECTIONS.FILE_INDEX).where('uid', '==', uid).where('isDeleted', '!=', true).get();
-    const fileCount = indexSnapshot.size;
-    if (fileCount < 100) return { shouldRunFull: true, reason: 'File index is incomplete (<100 files)', lastScanTime, fileCount };
-    return { shouldRunFull: false, reason: 'Delta scan sufficient', lastScanTime, fileCount };
-  } catch (e: any) {
-    logger.warn('shouldRunFullScan error; defaulting to full', e);
-    return { shouldRunFull: true, reason: 'Error checking scan requirements' };
-  }
-}
-
-async function scanAndIndexFiles(
-  db: Firestore,
-  uid: string,
-  drive: any,
-  config: any,
-  scanId: string,
-  jobRef: FirebaseFirestore.DocumentReference,
-  setProgress: (p: Partial<ScanProgress>, s?: ScanStatus) => Promise<void>,
-  isCancelled: () => Promise<boolean>,
-  metrics: { pages: number; writeOps: number },
-) {
-  let pageToken: string | undefined;
-  let totalSize = 0;
-  let totalFiles = 0;
-  let duplicateGroups = 0;
-  let pageCount = 0;
-
-  // Load existing index once for delta comparison
-  const existingSnapshot = await db.collection(COLLECTIONS.FILE_INDEX)
-    .where('uid', '==', uid)
-    .where('isDeleted', '!=', true)
-    .get();
-  const existing = new Map<string, FileIndexEntry>();
-  existingSnapshot.forEach(d => existing.set((d.data() as any).id, d.data() as FileIndexEntry));
-
-  const scannedIds = new Set<string>();
-
-  do {
-    if (await isCancelled()) throw new Error('Scan cancelled by user');
-    const res: any = await withBackoff(() => drive.files.list({
-      pageSize: 1000,
-      pageToken,
-      q: config?.includeTrashed ? undefined : 'trashed = false',
-      fields: 'nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, md5Checksum, version)',
-      includeItemsFromAllDrives: true,
-      supportsAllDrives: true,
-    }));
-    const files: any[] = res.data.files || [];
-    pageCount++;
-    metrics.pages++;
-    totalFiles += files.length;
-    for (const f of files) totalSize += parseInt(f.size || '0');
-
-    // Update progress
-    await setProgress({
-      currentStep: `Scanning: ${totalFiles.toLocaleString()} files found (${Math.round(totalSize / 1024 / 1024 / 1024)} GB)` ,
-      current: 3,
-      total: 6,
-      bytesProcessed: totalSize,
+    // Update current job status
+    await this.updateJobStatus('chained', {
+      current: filesProcessed,
+      total: filesProcessed,
+      percentage: 50,
+      currentStep: `Continuing in chained job: ${chainedJobId}`,
+      filesProcessed,
+      bytesProcessed,
     });
 
-    // Index update per page
-    const writer = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
-    const batch = writer || db.batch();
-    for (const file of files) {
-      scannedIds.add(file.id);
-      const current = existing.get(file.id);
-      const entry: Omit<FileIndexEntry, 'createdAt' | 'updatedAt'> = {
-        id: file.id,
-        uid,
-        name: file.name,
-        mimeType: file.mimeType || 'unknown',
-        size: parseInt(file.size || '0'),
-        modifiedTime: file.modifiedTime || new Date().toISOString(),
-        parentId: file.parents?.[0],
-        md5Checksum: file.md5Checksum,
-        version: parseInt(file.version || '1'),
-        lastScanId: scanId,
-        isDeleted: false,
-      } as any;
-      const docRef = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${file.id}`);
-      if (current) {
-        const hasChanged = current.modifiedTime !== entry.modifiedTime || current.size !== entry.size || current.name !== entry.name || current.parentId !== entry.parentId;
-        if (hasChanged) {
-          const deltaRef = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-          if (writer) {
-            writer.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'modified', fileId: file.id, fileName: file.name, sizeChange: entry.size - (current.size || 0), timestamp: Date.now(), processed: false });
-            writer.update(docRef, { ...entry, updatedAt: Date.now() });
-          } else {
-            batch.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'modified', fileId: file.id, fileName: file.name, sizeChange: entry.size - (current.size || 0), timestamp: Date.now(), processed: false });
-            batch.update(docRef, { ...entry, updatedAt: Date.now() });
-          }
-          metrics.writeOps += 2;
-        }
-      } else {
-        const deltaRef = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-        if (writer) {
-          writer.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'created', fileId: file.id, fileName: file.name, timestamp: Date.now(), processed: false });
-          writer.set(docRef, { ...entry, createdAt: Date.now(), updatedAt: Date.now() });
-        } else {
-          batch.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'created', fileId: file.id, fileName: file.name, timestamp: Date.now(), processed: false });
-          batch.set(docRef, { ...entry, createdAt: Date.now(), updatedAt: Date.now() });
-        }
-        metrics.writeOps += 2;
-      }
-    }
-    if (writer) {
-      await writer.close();
-    } else {
-      await (batch as FirebaseFirestore.WriteBatch).commit();
-    }
-
-    // Simple duplicate group count per page (size + name/md5)
-    duplicateGroups += countDuplicateGroups(files);
-
-    pageToken = res.data.nextPageToken || undefined;
-    if (pageToken) await sleep(100);
-  } while (pageToken);
-
-  // Mark missing files as deleted
-  const writer2 = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
-  const batch2 = writer2 || db.batch();
-  for (const [fileId, cur] of existing) {
-    if (!scannedIds.has(fileId) && !cur.isDeleted) {
-      const fileDoc = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${fileId}`);
-      if (writer2) {
-        writer2.update(fileDoc, { isDeleted: true, lastScanId: scanId, updatedAt: Date.now() });
-      } else {
-        batch2.update(fileDoc, { isDeleted: true, lastScanId: scanId, updatedAt: Date.now() });
-      }
-      const deltaDoc = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-      if (writer2) {
-        writer2.set(deltaDoc, { id: deltaDoc.id, uid, scanId, type: 'deleted', fileId, fileName: cur.name, timestamp: Date.now(), processed: false });
-      } else {
-        batch2.set(deltaDoc, { id: deltaDoc.id, uid, scanId, type: 'deleted', fileId, fileName: cur.name, timestamp: Date.now(), processed: false });
-      }
-      metrics.writeOps += 2;
-    }
-  }
-  if (writer2) {
-    await writer2.close();
-  } else {
-    await (batch2 as FirebaseFirestore.WriteBatch).commit();
+    return {
+      pages: 1,
+      writeOps: 0,
+      durationMs: Date.now() - this.startTime,
+      filesProcessed,
+      bytesProcessed,
+      duplicatesFound: 0,
+    };
   }
 
-  return { totalSize, totalFiles, duplicates: duplicateGroups };
+  /**
+   * Update job status in Firestore
+   */
+  private async updateJobStatus(
+    status: ScanStatus,
+    progress?: ScanProgress,
+    results?: any,
+    error?: string
+  ): Promise<void> {
+    const update: Partial<ScanJobDoc> = {
+      status,
+      updatedAt: Date.now(),
+    };
+
+    if (status === 'running' && !update.startedAt) {
+      update.startedAt = Date.now();
+    }
+
+    if (status === 'completed' || status === 'failed') {
+      update.completedAt = Date.now();
+    }
+
+    if (progress) {
+      update.progress = progress;
+    }
+
+    if (results) {
+      update.results = results;
+    }
+
+    if (error) {
+      update.error = error;
+    }
+
+    await this.db
+      .collection('scanJobs')
+      .doc(this.jobId)
+      .update(update);
+  }
 }
 
-// Delta scan via Drive Changes API
-async function scanChangesAndIndexFiles(
+/**
+ * Factory function for creating scan runner
+ */
+export function createScanRunner(
   db: Firestore,
+  jobId: string,
   uid: string,
-  drive: any,
-  config: any,
-  scanId: string,
-  jobRef: FirebaseFirestore.DocumentReference,
-  setProgress: (p: Partial<ScanProgress>, s?: ScanStatus) => Promise<void>,
-  isCancelled: () => Promise<boolean>,
-  metrics: { pages: number; writeOps: number },
-  startPageToken?: string,
-) {
-  let totalSize = 0;
-  let totalFiles = 0;
-  let duplicates = 0;
-  const changedFilesForDup: any[] = [];
-
-  // Load existing index for quick lookups
-  const existingSnapshot = await db.collection(COLLECTIONS.FILE_INDEX)
-    .where('uid', '==', uid)
-    .where('isDeleted', '!=', true)
-    .get();
-  const existing = new Map<string, FileIndexEntry>();
-  existingSnapshot.forEach(d => existing.set((d.data() as any).id, d.data() as FileIndexEntry));
-
-  // Get or init page token
-  let pageToken = startPageToken || await getSavedPageToken(db, uid);
-  if (!pageToken) pageToken = await getStartPageToken(drive);
-
-  let nextPageToken: string | undefined = pageToken;
-  let newStartPageToken: string | undefined;
-  const touched = new Set<string>();
-
-  do {
-    if (await isCancelled()) throw new Error('Scan cancelled by user');
-    const res: any = await withBackoff(() => drive.changes.list({
-      pageToken: nextPageToken,
-      pageSize: 1000,
-      fields: 'nextPageToken,newStartPageToken,changes(removed,fileId,file(id,name,mimeType,size,modifiedTime,parents,md5Checksum,version,trashed))',
-      includeItemsFromAllDrives: true,
-      supportsAllDrives: true,
-      restrictToMyDrive: false,
-      spaces: 'drive',
-    }));
-
-    const changes: any[] = res.data.changes || [];
-    newStartPageToken = res.data.newStartPageToken || newStartPageToken;
-    nextPageToken = res.data.nextPageToken || undefined;
-
-    metrics.pages++;
-    const writer = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
-    const batch = writer || db.batch();
-    for (const ch of changes) {
-      const fileId = ch.fileId as string;
-      touched.add(fileId);
-      const file = ch.file;
-      const removed = !!ch.removed || (file?.trashed === true);
-      const fileRef = db.collection(COLLECTIONS.FILE_INDEX).doc(`${uid}_${fileId}`);
-      if (removed) {
-        if (writer) {
-          writer.update(fileRef, { isDeleted: true, lastScanId: scanId, updatedAt: Date.now() });
-        } else {
-          batch.update(fileRef, { isDeleted: true, lastScanId: scanId, updatedAt: Date.now() });
-        }
-        const deltaRef = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-        if (writer) {
-          writer.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'deleted', fileId, fileName: existing.get(fileId)?.name || '', timestamp: Date.now(), processed: false });
-        } else {
-          batch.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'deleted', fileId, fileName: existing.get(fileId)?.name || '', timestamp: Date.now(), processed: false });
-        }
-        metrics.writeOps += 2;
-        continue;
-      }
-      if (!file) continue;
-      const entry: Omit<FileIndexEntry, 'createdAt' | 'updatedAt'> = {
-        id: file.id,
-        uid,
-        name: file.name,
-        mimeType: file.mimeType || 'unknown',
-        size: parseInt(file.size || '0'),
-        modifiedTime: file.modifiedTime || new Date().toISOString(),
-        parentId: file.parents?.[0],
-        md5Checksum: file.md5Checksum,
-        version: parseInt(file.version || '1'),
-        lastScanId: scanId,
-        isDeleted: false,
-      } as any;
-      totalFiles += 1;
-      totalSize += entry.size || 0;
-      const current = existing.get(fileId);
-      changedFilesForDup.push(file);
-      if (current) {
-        const hasChanged = current.modifiedTime !== entry.modifiedTime || current.size !== entry.size || current.name !== entry.name || current.parentId !== entry.parentId;
-        if (hasChanged) {
-          const deltaRef = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-          if (writer) {
-            writer.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'modified', fileId, fileName: file.name, sizeChange: entry.size - (current.size || 0), timestamp: Date.now(), processed: false });
-            writer.update(fileRef, { ...entry, updatedAt: Date.now() });
-          } else {
-            batch.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'modified', fileId, fileName: file.name, sizeChange: entry.size - (current.size || 0), timestamp: Date.now(), processed: false });
-            batch.update(fileRef, { ...entry, updatedAt: Date.now() });
-          }
-          metrics.writeOps += 2;
-        }
-      } else {
-        const deltaRef = db.collection(COLLECTIONS.SCAN_DELTAS).doc();
-        if (writer) {
-          writer.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'created', fileId, fileName: file.name, timestamp: Date.now(), processed: false });
-          writer.set(fileRef, { ...entry, createdAt: Date.now(), updatedAt: Date.now() });
-        } else {
-          batch.set(deltaRef, { id: deltaRef.id, uid, scanId, type: 'created', fileId, fileName: file.name, timestamp: Date.now(), processed: false });
-          batch.set(fileRef, { ...entry, createdAt: Date.now(), updatedAt: Date.now() });
-        }
-        metrics.writeOps += 2;
-      }
-    }
-    if (writer) {
-      await writer.close();
-    } else {
-      await (batch as FirebaseFirestore.WriteBatch).commit();
-    }
-
-    // Progress update
-    await setProgress({
-      currentStep: `Delta: ${touched.size.toLocaleString()} changes (${Math.round(totalSize / 1024 / 1024 / 1024)} GB)` ,
-      current: 3,
-      total: 6,
-      bytesProcessed: totalSize,
-    });
-
-    // Approximate duplicate groups among changed files on this page
-    duplicates += countDuplicateGroups(changedFilesForDup.splice(0));
-    if (nextPageToken) await sleep(100);
-  } while (nextPageToken);
-
-  // Save new start page token for future runs
-  if (newStartPageToken) {
-    await saveDriveState(db, uid, { pageToken: newStartPageToken });
-  }
-
-  // duplicates already aggregated per page from changed files
-
-  return { totalSize, totalFiles, duplicates };
+  accessToken: string
+): ScanRunner {
+  return new ScanRunner(db, jobId, uid, accessToken);
 }
 
-async function getSavedPageToken(db: Firestore, uid: string): Promise<string | null> {
-  const ref = db.collection(COLLECTIONS.USERS).doc(uid).collection('secrets').doc('driveState');
-  const snap = await ref.get();
-  if (!snap.exists) return null;
-  return (snap.data() as any)?.pageToken || null;
-}
-
-async function saveDriveState(db: Firestore, uid: string, state: { pageToken: string }) {
-  const ref = db.collection(COLLECTIONS.USERS).doc(uid).collection('secrets').doc('driveState');
-  await ref.set({ ...state, updatedAt: Date.now() }, { merge: true });
-}
-
-async function getStartPageToken(drive: any): Promise<string> {
-  const res: any = await withBackoff(() => drive.changes.getStartPageToken({ supportsAllDrives: true }));
-  const token = res.data.startPageToken as string;
-  if (!token) throw new Error('Failed to obtain Drive start page token');
-  return token;
-}
-
-function countDuplicateGroups(files: any[]): number {
-  const groups = new Map<string, number>();
-  for (const f of files) {
-    const size = f.size || '0';
-    if (size === '0') continue;
-    const key = (f.md5Checksum || (f.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')) + `:${size}`;
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  let count = 0;
-  groups.forEach(v => { if (v > 1) count++; });
-  return count;
-}
-
-async function withBackoff<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
+/**
+ * Main function to run a scan job (called by Cloud Function trigger)
+ */
+export async function runScanJob(
+  db: Firestore,
+  jobId: string
+): Promise<void> {
   try {
-    return await fn();
-  } catch (e: any) {
-    const msg = e?.errors?.[0]?.reason || e?.code || e?.message || '';
-    if (attempt >= 5) throw e;
-    if (String(msg).includes('rateLimit') || String(msg).includes('userRateLimit') || (e?.response?.status >= 500)) {
-      const delay = Math.min(2000 * Math.pow(2, attempt), 15000);
-      await sleep(delay);
-      return withBackoff(fn, attempt + 1);
+    // Get job details from Firestore
+    const jobDoc = await db.collection('scanJobs').doc(jobId).get();
+    if (!jobDoc.exists) {
+      throw new Error(`Job ${jobId} not found`);
     }
-    throw e;
+    
+    const jobData = jobDoc.data();
+    if (!jobData) {
+      throw new Error(`Job ${jobId} has no data`);
+    }
+    
+    // Get access token from user's token store
+    const tokenDoc = await db.collection('tokens').doc(jobData.uid).get();
+    if (!tokenDoc.exists) {
+      throw new Error(`No access token found for user ${jobData.uid}`);
+    }
+    
+    const tokenData = tokenDoc.data();
+    if (!tokenData?.access_token) {
+      throw new Error(`Invalid access token for user ${jobData.uid}`);
+    }
+    
+    const runner = createScanRunner(db, jobId, jobData.uid, tokenData.access_token);
+    await runner.runScan();
+  } catch (error) {
+    logger.error('Failed to run scan job', {
+      jobId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
   }
 }
-
-function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
