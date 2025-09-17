@@ -1,0 +1,272 @@
+{
+  "manifest_version": "1.0.0",
+  "project": "drivemind_debug",
+  "orchestrator": {
+    "version": "1.7",
+    "status": "ACTIVE",
+    "initialized_at": "2025-09-16T00:00:00Z"
+  },
+  "agents": [
+    {
+      "id": "cx-safety-coordinator",
+      "role": "safety",
+      "status": "READY",
+      "priority": 1,
+      "responsibilities": [
+        "System snapshot creation",
+        "Rollback procedure management",
+        "Health monitoring",
+        "Circuit breaker configuration"
+      ],
+      "dependencies": [],
+      "outputs": [
+        "system_snapshot.json",
+        "rollback_procedures.md",
+        "health_status.json"
+      ]
+    },
+    {
+      "id": "cx-architect",
+      "role": "architecture",
+      "status": "READY",
+      "priority": 2,
+      "responsibilities": [
+        "System design analysis",
+        "Integration point identification",
+        "Performance bottleneck detection",
+        "Architecture recommendations"
+      ],
+      "dependencies": ["cx-safety-coordinator"],
+      "outputs": [
+        "architecture_analysis.md",
+        "integration_points.json",
+        "performance_profile.json"
+      ]
+    },
+    {
+      "id": "cx-backend-specialist",
+      "role": "backend",
+      "status": "READY",
+      "priority": 3,
+      "responsibilities": [
+        "API endpoint implementation",
+        "SSE streaming fixes",
+        "Background job processing",
+        "Error handling improvement"
+      ],
+      "dependencies": ["cx-architect"],
+      "outputs": [
+        "api_endpoints.ts",
+        "background_processor.ts",
+        "error_handlers.ts"
+      ]
+    },
+    {
+      "id": "cx-frontend-specialist",
+      "role": "frontend",
+      "status": "READY",
+      "priority": 3,
+      "responsibilities": [
+        "UI component fixes",
+        "SSE client implementation",
+        "Progress visualization",
+        "User feedback enhancement"
+      ],
+      "dependencies": ["cx-architect"],
+      "outputs": [
+        "scan_manager.tsx",
+        "progress_display.tsx",
+        "error_feedback.tsx"
+      ]
+    },
+    {
+      "id": "cx-db-specialist",
+      "role": "database",
+      "status": "READY",
+      "priority": 3,
+      "responsibilities": [
+        "Schema completion",
+        "Index optimization",
+        "Transaction management",
+        "Data integrity checks"
+      ],
+      "dependencies": ["cx-architect"],
+      "outputs": [
+        "schema_updates.sql",
+        "indexes.sql",
+        "integrity_checks.ts"
+      ]
+    },
+    {
+      "id": "cx-test-specialist",
+      "role": "testing",
+      "status": "READY",
+      "priority": 4,
+      "responsibilities": [
+        "Unit test creation",
+        "Integration test suite",
+        "E2E test scenarios",
+        "Performance testing"
+      ],
+      "dependencies": [
+        "cx-backend-specialist",
+        "cx-frontend-specialist",
+        "cx-db-specialist"
+      ],
+      "outputs": [
+        "unit_tests.spec.ts",
+        "integration_tests.spec.ts",
+        "e2e_tests.spec.ts"
+      ]
+    },
+    {
+      "id": "cx-integration-specialist",
+      "role": "integration",
+      "status": "READY",
+      "priority": 4,
+      "responsibilities": [
+        "Component integration",
+        "API contract validation",
+        "Data flow verification",
+        "System cohesion"
+      ],
+      "dependencies": [
+        "cx-backend-specialist",
+        "cx-frontend-specialist",
+        "cx-db-specialist"
+      ],
+      "outputs": [
+        "integration_report.md",
+        "data_flow_diagram.json",
+        "contract_tests.ts"
+      ]
+    },
+    {
+      "id": "cx-deploy-specialist",
+      "role": "deployment",
+      "status": "READY",
+      "priority": 5,
+      "responsibilities": [
+        "Deployment pipeline",
+        "Environment configuration",
+        "Rollout strategy",
+        "Post-deployment validation"
+      ],
+      "dependencies": [
+        "cx-test-specialist",
+        "cx-integration-specialist"
+      ],
+      "outputs": [
+        "deployment_config.yaml",
+        "rollout_plan.md",
+        "validation_scripts.sh"
+      ]
+    },
+    {
+      "id": "cx-monitor",
+      "role": "monitoring",
+      "status": "READY",
+      "priority": 6,
+      "responsibilities": [
+        "Metric collection",
+        "Alert configuration",
+        "Dashboard creation",
+        "Performance tracking"
+      ],
+      "dependencies": ["cx-deploy-specialist"],
+      "outputs": [
+        "metrics_config.yaml",
+        "alerts.yaml",
+        "dashboard.html"
+      ]
+    },
+    {
+      "id": "cx-sentinel",
+      "role": "security",
+      "status": "READY",
+      "priority": 1,
+      "responsibilities": [
+        "Security scanning",
+        "Vulnerability assessment",
+        "Access control validation",
+        "Compliance verification"
+      ],
+      "dependencies": [],
+      "outputs": [
+        "security_report.md",
+        "vulnerability_scan.json",
+        "compliance_check.json"
+      ]
+    }
+  ],
+  "execution_phases": [
+    {
+      "phase": 1,
+      "name": "Safety Initialization",
+      "duration_minutes": 5,
+      "agents": ["cx-safety-coordinator", "cx-sentinel"],
+      "parallel": true,
+      "checkpoint": "safety_initialized"
+    },
+    {
+      "phase": 2,
+      "name": "Diagnostic Analysis",
+      "duration_minutes": 10,
+      "agents": ["cx-architect", "cx-backend-specialist", "cx-frontend-specialist", "cx-db-specialist"],
+      "parallel": true,
+      "checkpoint": "diagnostics_complete"
+    },
+    {
+      "phase": 3,
+      "name": "Implementation Sprint",
+      "duration_minutes": 30,
+      "agents": ["cx-backend-specialist", "cx-frontend-specialist", "cx-db-specialist"],
+      "parallel": true,
+      "checkpoint": "implementation_complete"
+    },
+    {
+      "phase": 4,
+      "name": "Integration & Testing",
+      "duration_minutes": 15,
+      "agents": ["cx-test-specialist", "cx-integration-specialist"],
+      "parallel": true,
+      "checkpoint": "testing_complete"
+    },
+    {
+      "phase": 5,
+      "name": "Deployment",
+      "duration_minutes": 10,
+      "agents": ["cx-deploy-specialist", "cx-monitor"],
+      "parallel": false,
+      "checkpoint": "deployment_complete"
+    }
+  ],
+  "communication": {
+    "protocol": "event_driven",
+    "message_queue": "redis",
+    "status_reporting": "real_time",
+    "conflict_resolution": "orchestrator_arbitration"
+  },
+  "monitoring": {
+    "dashboard_url": "/artifacts/dashboard/live.html",
+    "metrics_endpoint": "/api/metrics",
+    "health_endpoint": "/api/health",
+    "status_endpoint": "/api/status"
+  },
+  "rollback": {
+    "trigger_conditions": [
+      "error_rate > 5%",
+      "response_time_p95 > 2000ms",
+      "memory_usage > 512MB",
+      "cpu_usage > 80%"
+    ],
+    "procedure": "automatic",
+    "notification": "immediate"
+  },
+  "compliance": {
+    "alpha_codename": "v1.8",
+    "aei21": "compliant",
+    "audit_trail": "enabled",
+    "security_gates": "enforced"
+  }
+}

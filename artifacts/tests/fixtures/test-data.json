@@ -1,5 +1,39 @@
 {
   "users": {
+    "testUser": {
+      "id": "test-user-123",
+      "email": "test@example.com",
+      "name": "Test User",
+      "drivePermissions": ["read", "write", "delete"],
+      "preferences": {
+        "aiMode": true,
+        "notifications": true,
+        "theme": "light"
+      }
+    },
+    "adminUser": {
+      "id": "admin-user-456",
+      "email": "admin@example.com",
+      "name": "Admin User",
+      "role": "admin",
+      "drivePermissions": ["read", "write", "delete", "admin"],
+      "preferences": {
+        "aiMode": true,
+        "notifications": true,
+        "theme": "dark"
+      }
+    },
+    "limitedUser": {
+      "id": "limited-user-789",
+      "email": "limited@example.com",
+      "name": "Limited User",
+      "drivePermissions": ["read"],
+      "preferences": {
+        "aiMode": false,
+        "notifications": false,
+        "theme": "light"
+      }
+    },
     "test_user_basic": {
       "uid": "test_user_basic_123",
       "email": "basic.user@test.drivemind.ai",

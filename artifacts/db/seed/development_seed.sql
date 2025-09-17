@@ -1,12 +1,21 @@
--- DriveMind Development Seed Data
--- Version: 1.0.0
--- Last Updated: 2025-09-12
--- Purpose: Safe development and testing data for DriveMind
--- Standards: ALPHA-CODENAME v1.4 compliant
+-- ============================================================================
+-- DriveMind Development Seed Data - ENHANCED FOR DATABASE REPAIR TESTING
+-- Version: 2.0.0-REPAIR
+-- Date: 2025-09-17
+-- Purpose: Comprehensive test data for database repair validation
+-- Standards: ALPHA-CODENAME v1.8 + AEI21 compliant
+-- ============================================================================
 --
--- This seed data creates realistic but safe test data for development
--- and testing environments. All data is clearly marked as test data
--- and should never be used in production.
+-- ENHANCED SEED DATA FEATURES:
+-- 1. Encrypted token test scenarios
+-- 2. GDPR consent management test cases
+-- 3. Enhanced scan job test data with checkpoints
+-- 4. Comprehensive audit trail examples
+-- 5. Security event test scenarios
+-- 6. Performance optimization validation data
+--
+-- CRITICAL: This is TEST DATA ONLY - Never use in production
+-- All credentials are encrypted placeholders for testing purposes
 
 -- =============================================================================
 -- SEED DATA SAFETY CHECKS
@@ -226,12 +235,12 @@ INSERT INTO users (
 COMMIT;
 
 -- =============================================================================
--- TEST OAUTH TOKENS (ENCRYPTED PLACEHOLDERS)
+-- ENHANCED ENCRYPTED TOKEN TEST DATA
 -- =============================================================================
 
--- Create OAuth token records for testing
--- Note: These are placeholder tokens for testing - not real credentials
-BEGIN TRANSACTION;
+-- Create comprehensive encrypted OAuth token test scenarios
+-- SECURITY: All tokens are AES-256-GCM encrypted placeholders for testing
+BEGIN TRANSACTION 'encrypted_token_test_data';
 
 INSERT INTO users/test_user_001_dev/secrets (
     secret_type,

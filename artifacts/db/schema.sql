@@ -1,11 +1,21 @@
--- DriveMind Firestore Schema Definition
--- Version: 1.0.0
--- Last Updated: 2025-09-12
--- Standards: ALPHA-CODENAME v1.4 compliant
+-- ============================================================================
+-- DriveMind Database Schema for Firestore (NoSQL)
+-- Production Database Repair & Optimization
+-- Version: 2.0.0-REPAIR
+-- Date: 2025-09-17
+-- Standards: ALPHA-CODENAME v1.8 + AEI21 compliant
+-- ============================================================================
 -- 
--- This schema defines the Firestore document structure for DriveMind.
--- While Firestore is NoSQL, we define the expected document schemas
--- for validation, security rules, and migration planning.
+-- CRITICAL REPAIRS IMPLEMENTED:
+-- 1. Token encryption with AES-256-GCM + Cloud KMS
+-- 2. Comprehensive audit logging for compliance
+-- 3. Scan state persistence with checkpoint/resume
+-- 4. Optimized indexes for performance
+-- 5. Data integrity validation schemas
+-- 6. GDPR-compliant PII consent management
+-- 7. Rate limiting and abuse prevention
+-- 8. Backup and recovery procedures
+-- ============================================================================
 
 -- =============================================================================
 -- CORE AUTHENTICATION & USER DATA
@@ -57,29 +67,102 @@ CREATE COLLECTION users (
     )
 );
 
--- Subcollection: users/{uid}/secrets
+-- Subcollection: users/{uid}/secrets/googleDrive
 -- Document ID: 'googleDrive'
--- Purpose: Encrypted OAuth refresh tokens (server-only access)
+-- Purpose: ENCRYPTED OAuth refresh tokens with Cloud KMS (server-only access)
+-- SECURITY: AES-256-GCM encryption with automatic key rotation
 CREATE SUBCOLLECTION users/{uid}/secrets (
-    secret_type STRING NOT NULL, -- 'googleDrive'
-    refresh_token STRING NOT NULL, -- Encrypted at application layer
-    access_token_expires_at TIMESTAMP,
+    secret_type STRING NOT NULL DEFAULT 'googleDrive',
+    
+    -- ENCRYPTED TOKEN DATA (AES-256-GCM with Cloud KMS)
+    encryptedRefreshToken STRING NOT NULL, -- Base64 encoded ciphertext
+    encryptedAccessToken STRING, -- Optional cached access token
+    keyVersion STRING NOT NULL, -- Cloud KMS key version reference
+    iv STRING NOT NULL, -- Initialization vector (base64)
+    authTag STRING NOT NULL, -- Authentication tag (base64)
+    
+    -- TOKEN METADATA
     scope ARRAY<STRING> NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    tokenType STRING NOT NULL DEFAULT 'Bearer',
+    expiresAt TIMESTAMP,
     
-    -- Token validation
-    token_version INTEGER NOT NULL DEFAULT 1,
-    is_valid BOOLEAN NOT NULL DEFAULT true,
-    last_validated_at TIMESTAMP,
-    validation_error STRING,
+    -- ENCRYPTION METADATA
+    encryptionAlgorithm STRING NOT NULL DEFAULT 'AES-256-GCM',
+    keySource STRING NOT NULL DEFAULT 'CloudKMS',
+    encryptionTimestamp TIMESTAMP NOT NULL,
     
-    -- Usage tracking
-    usage_count INTEGER NOT NULL DEFAULT 0,
-    last_used_at TIMESTAMP,
+    -- VALIDATION & HEALTH
+    isValid BOOLEAN NOT NULL DEFAULT true,
+    lastValidatedAt TIMESTAMP,
+    validationError STRING,
+    healthCheckCount INTEGER DEFAULT 0,
     
+    -- USAGE & LIFECYCLE
+    usageCount INTEGER NOT NULL DEFAULT 0,
+    lastUsedAt TIMESTAMP,
+    refreshCount INTEGER DEFAULT 0,
+    lastRefreshAt TIMESTAMP,
+    
+    -- AUDIT TRAIL
+    auditLog ARRAY<MAP<STRING, ANY>> DEFAULT [],
+    
+    -- TIMESTAMPS
+    createdAt TIMESTAMP NOT NULL,
+    updatedAt TIMESTAMP NOT NULL,
+    
+    -- SECURITY CONSTRAINTS
     CONSTRAINT valid_scope CHECK (ARRAY_LENGTH(scope) > 0),
-    CONSTRAINT valid_token_version CHECK (token_version > 0)
+    CONSTRAINT valid_encryption_fields CHECK (
+        encryptedRefreshToken IS NOT NULL AND 
+        keyVersion IS NOT NULL AND 
+        iv IS NOT NULL AND 
+        authTag IS NOT NULL
+    ),
+    CONSTRAINT valid_algorithm CHECK (encryptionAlgorithm = 'AES-256-GCM'),
+    CONSTRAINT valid_key_source CHECK (keySource = 'CloudKMS'),
+    CONSTRAINT valid_usage_count CHECK (usageCount >= 0),
+    CONSTRAINT valid_refresh_count CHECK (refreshCount >= 0)
+);
+
+-- Subcollection: users/{uid}/consent/aiProcessing
+-- Document ID: 'aiProcessing'
+-- Purpose: GDPR-compliant consent management for PII processing
+CREATE SUBCOLLECTION users/{uid}/consent (
+    consentType STRING NOT NULL DEFAULT 'aiProcessing',
+    
+    -- CONSENT STATUS
+    granted BOOLEAN NOT NULL DEFAULT false,
+    purposes ARRAY<STRING> NOT NULL DEFAULT [], -- ['file_classification', 'duplicate_detection']
+    dataTypes ARRAY<STRING> NOT NULL DEFAULT [], -- ['file_names', 'file_metadata']
+    
+    -- CONSENT LIFECYCLE
+    grantedAt TIMESTAMP,
+    revokedAt TIMESTAMP,
+    expiresAt TIMESTAMP,
+    autoRenewal BOOLEAN DEFAULT false,
+    
+    -- CONSENT VERSION & COMPLIANCE
+    consentVersion STRING NOT NULL DEFAULT 'v1.0',
+    gdprLegalBasis STRING DEFAULT 'consent', -- Article 6(1)(a)
+    privacyPolicyVersion STRING,
+    
+    -- CONSENT HISTORY & AUDIT
+    consentHistory ARRAY<MAP<STRING, ANY>> DEFAULT [],
+    auditTrail ARRAY<MAP<STRING, ANY>> DEFAULT [],
+    
+    -- PROCESSING RESTRICTIONS
+    processingRestrictions MAP<STRING, ANY> DEFAULT {},
+    dataRetentionPeriod INTEGER DEFAULT 2555, -- Days (7 years default)
+    
+    -- TIMESTAMPS
+    createdAt TIMESTAMP NOT NULL,
+    updatedAt TIMESTAMP NOT NULL,
+    
+    -- GDPR COMPLIANCE CONSTRAINTS
+    CONSTRAINT valid_purposes CHECK (ARRAY_LENGTH(purposes) >= 0),
+    CONSTRAINT valid_data_types CHECK (ARRAY_LENGTH(dataTypes) >= 0),
+    CONSTRAINT valid_legal_basis CHECK (gdprLegalBasis IN ('consent', 'legitimate_interest', 'contract')),
+    CONSTRAINT valid_retention_period CHECK (dataRetentionPeriod > 0)
 );
 
 -- =============================================================================
@@ -150,60 +233,131 @@ CREATE SUBCOLLECTION users/{uid}/inventory (
 
 -- Subcollection: users/{uid}/scans
 -- Document ID: {scan_id} (auto-generated)
--- Purpose: Background scan state and results
+-- Purpose: Background scan state with checkpoint/resume support
+-- ENHANCEMENT: Persistent scan state with crash recovery
 CREATE SUBCOLLECTION users/{uid}/scans (
-    scan_id STRING NOT NULL,
-    status STRING NOT NULL, -- 'queued', 'running', 'completed', 'failed', 'cancelled'
-    scan_type STRING NOT NULL DEFAULT 'full', -- 'full', 'incremental', 'duplicates_only'
+    scanId STRING NOT NULL,
+    status STRING NOT NULL DEFAULT 'pending', -- 'pending', 'running', 'completed', 'failed', 'cancelled', 'paused'
+    scanType STRING NOT NULL DEFAULT 'full', -- 'full', 'incremental', 'duplicates_only', 'delta'
+    priority INTEGER NOT NULL DEFAULT 5, -- 1-10, lower = higher priority
     
-    -- Scan configuration
+    -- SCAN CONFIGURATION
     config MAP<STRING, ANY> DEFAULT {
-        'max_depth': 20,
-        'include_trashed': false,
-        'scan_shared_drives': false,
-        'enable_ai_analysis': true
+        'maxDepth': 20,
+        'includeTrashed': false,
+        'scanSharedDrives': false,
+        'enableAiAnalysis': true,
+        'checkpointInterval': 100, -- Files processed per checkpoint
+        'maxRetries': 3,
+        'timeoutMinutes': 60
     },
     
-    -- Progress tracking
-    progress_percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
-    files_processed INTEGER NOT NULL DEFAULT 0,
-    total_files_estimated INTEGER DEFAULT 0,
+    -- PROGRESS TRACKING WITH CHECKPOINTS
+    progress MAP<STRING, ANY> DEFAULT {
+        'current': 0,
+        'total': 0,
+        'percentage': 0,
+        'currentStep': 'Initializing scan...',
+        'estimatedTimeRemaining': null,
+        'bytesProcessed': 0,
+        'totalBytes': 0,
+        'filesProcessedThisSession': 0,
+        'lastProcessedFileId': null
+    },
     
-    -- Timing
-    started_at TIMESTAMP NOT NULL,
-    completed_at TIMESTAMP,
-    estimated_completion_at TIMESTAMP,
-    processing_duration_seconds INTEGER,
+    -- CHECKPOINT & RESUME DATA
+    checkpoint MAP<STRING, ANY> DEFAULT {
+        'pageToken': null,
+        'lastProcessedFileId': null,
+        'processedFileIds': [],
+        'foldersToScan': [],
+        'currentFolderId': null,
+        'resumeData': {},
+        'lastCheckpointAt': null
+    },
     
-    -- Results summary
-    results MAP<STRING, ANY> DEFAULT {},
+    -- TIMING & PERFORMANCE
+    startedAt TIMESTAMP,
+    completedAt TIMESTAMP,
+    pausedAt TIMESTAMP,
+    resumedAt TIMESTAMP,
+    lastActivityAt TIMESTAMP,
+    processingDurationSeconds INTEGER DEFAULT 0,
+    estimatedCompletionAt TIMESTAMP,
     
-    -- Error handling
-    error_message STRING,
-    error_code STRING,
-    retry_count INTEGER NOT NULL DEFAULT 0,
-    last_retry_at TIMESTAMP,
+    -- RESULTS & INSIGHTS
+    results MAP<STRING, ANY> DEFAULT {
+        'totalFiles': 0,
+        'filesScanned': 0,
+        'duplicatesFound': 0,
+        'errorsEncountered': 0,
+        'sizeBytesProcessed': 0,
+        'insights': {},
+        'summary': {}
+    },
     
-    -- Resource usage
-    api_calls_made INTEGER NOT NULL DEFAULT 0,
-    bandwidth_used_bytes INTEGER NOT NULL DEFAULT 0,
+    -- ERROR HANDLING & RECOVERY
+    errorMessage STRING,
+    errorCode STRING,
+    errorDetails MAP<STRING, ANY> DEFAULT {},
+    retryCount INTEGER NOT NULL DEFAULT 0,
+    maxRetries INTEGER NOT NULL DEFAULT 3,
+    lastRetryAt TIMESTAMP,
+    nextRetryAt TIMESTAMP,
+    recoveryAttempts INTEGER DEFAULT 0,
     
-    -- Metadata
-    triggered_by STRING NOT NULL, -- 'user', 'scheduled', 'webhook'
-    cloud_function_execution_id STRING,
+    -- RESOURCE TRACKING
+    resourceUsage MAP<STRING, ANY> DEFAULT {
+        'apiCallsMade': 0,
+        'bandwidthUsedBytes': 0,
+        'memoryPeakMB': 0,
+        'cpuTimeSeconds': 0,
+        'executionRegion': null
+    },
     
-    -- Audit fields
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    -- EXECUTION METADATA
+    triggeredBy STRING NOT NULL DEFAULT 'user', -- 'user', 'scheduled', 'webhook', 'auto'
+    cloudFunctionExecutionId STRING,
+    executionEnvironment STRING DEFAULT 'cloud_function',
+    version STRING DEFAULT '1.0',
     
+    -- QUALITY & VALIDATION
+    qualityMetrics MAP<STRING, ANY> DEFAULT {
+        'dataIntegrityScore': 0,
+        'validationErrors': [],
+        'warningCount': 0,
+        'successRate': 0
+    },
+    
+    -- AUDIT & COMPLIANCE
+    auditTrail ARRAY<MAP<STRING, ANY>> DEFAULT [],
+    complianceFlags MAP<STRING, BOOLEAN> DEFAULT {
+        'gdprCompliant': true,
+        'dataMinimized': true,
+        'auditLogged': true
+    },
+    
+    -- TIMESTAMPS
+    createdAt TIMESTAMP NOT NULL,
+    updatedAt TIMESTAMP NOT NULL,
+    
+    -- ENHANCED CONSTRAINTS
     CONSTRAINT valid_status CHECK (
-        status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+        status IN ('pending', 'running', 'completed', 'failed', 'cancelled', 'paused')
     ),
     CONSTRAINT valid_scan_type CHECK (
-        scan_type IN ('full', 'incremental', 'duplicates_only')
+        scanType IN ('full', 'incremental', 'duplicates_only', 'delta')
     ),
-    CONSTRAINT valid_progress CHECK (progress_percentage >= 0 AND progress_percentage <= 100),
-    CONSTRAINT valid_retry_count CHECK (retry_count >= 0 AND retry_count <= 5)
+    CONSTRAINT valid_priority CHECK (priority >= 1 AND priority <= 10),
+    CONSTRAINT valid_retry_count CHECK (retryCount >= 0 AND retryCount <= maxRetries),
+    CONSTRAINT valid_max_retries CHECK (maxRetries >= 0 AND maxRetries <= 10),
+    CONSTRAINT valid_progress_percentage CHECK (
+        progress.percentage >= 0 AND progress.percentage <= 100
+    ),
+    CONSTRAINT valid_resource_usage CHECK (
+        resourceUsage.apiCallsMade >= 0 AND 
+        resourceUsage.bandwidthUsedBytes >= 0
+    )
 );
 
 -- =============================================================================
@@ -362,52 +516,188 @@ CREATE COLLECTION system_metrics (
 
 -- Collection: audit_logs
 -- Document ID: auto-generated
--- Purpose: Immutable audit trail for compliance
+-- Purpose: IMMUTABLE audit trail for security compliance and forensics
+-- ENHANCEMENT: Comprehensive audit logging with retention and integrity
 CREATE COLLECTION audit_logs (
-    event_id STRING NOT NULL PRIMARY KEY,
-    event_type STRING NOT NULL, -- 'auth', 'data_access', 'data_modification', 'system'
-    event_action STRING NOT NULL, -- 'login', 'logout', 'token_refresh', 'scan_start', etc.
+    eventId STRING NOT NULL PRIMARY KEY,
+    eventType STRING NOT NULL, -- 'auth', 'data_access', 'data_modification', 'system', 'security'
+    eventAction STRING NOT NULL, -- 'login', 'logout', 'token_refresh', 'scan_start', 'file_access', etc.
+    severity STRING NOT NULL DEFAULT 'info', -- 'debug', 'info', 'warn', 'error', 'critical'
     
-    -- Actor information
-    user_id STRING, -- Firebase UID (null for system events)
-    user_email STRING,
-    ip_address STRING,
-    user_agent STRING,
+    -- ACTOR INFORMATION
+    userId STRING, -- Firebase UID (null for system events)
+    userEmail STRING,
+    actorType STRING DEFAULT 'user', -- 'user', 'system', 'service', 'admin'
     
-    -- Resource information
-    resource_type STRING, -- 'user', 'scan', 'file', 'rule', 'system'
-    resource_id STRING,
+    -- REQUEST CONTEXT
+    ipAddress STRING,
+    userAgent STRING,
+    sessionId STRING,
+    requestId STRING,
+    correlationId STRING, -- For tracing across services
     
-    -- Event data
-    event_data MAP<STRING, ANY> DEFAULT {},
+    -- API CONTEXT
+    apiEndpoint STRING,
+    httpMethod STRING,
+    httpStatusCode INTEGER,
+    requestSize INTEGER,
+    responseSize INTEGER,
     
-    -- Request context
-    request_id STRING,
-    session_id STRING,
-    api_endpoint STRING,
-    http_method STRING,
+    -- RESOURCE INFORMATION
+    resourceType STRING, -- 'user', 'scan', 'file', 'rule', 'token', 'consent', 'system'
+    resourceId STRING,
+    resourceOwner STRING, -- User ID who owns the resource
     
-    -- Compliance fields
-    data_classification STRING DEFAULT 'internal', -- 'public', 'internal', 'confidential', 'restricted'
-    retention_date DATE, -- Auto-calculated based on classification
+    -- EVENT DATA & CHANGES
+    eventData MAP<STRING, ANY> DEFAULT {},
+    beforeData MAP<STRING, ANY> DEFAULT {}, -- State before change
+    afterData MAP<STRING, ANY> DEFAULT {}, -- State after change
+    changesSummary ARRAY<STRING> DEFAULT [], -- Human-readable change list
     
-    -- Geographic data
-    country_code STRING,
+    -- SECURITY & COMPLIANCE
+    dataClassification STRING DEFAULT 'internal', -- 'public', 'internal', 'confidential', 'restricted'
+    gdprRelevant BOOLEAN DEFAULT false,
+    dataSubject STRING, -- User ID for GDPR data subject
+    legalBasis STRING, -- GDPR legal basis for processing
+    processingPurpose STRING, -- Why the data was processed
+    
+    -- PII & SENSITIVE DATA
+    containsPii BOOLEAN DEFAULT false,
+    piiTypes ARRAY<STRING> DEFAULT [], -- Types of PII detected
+    redactionApplied BOOLEAN DEFAULT false,
+    
+    -- RETENTION & LIFECYCLE
+    retentionDate DATE, -- Auto-calculated based on classification
+    retentionPolicy STRING DEFAULT 'standard',
+    archiveAfterDays INTEGER DEFAULT 365,
+    deleteAfterDays INTEGER DEFAULT 2555, -- 7 years
+    
+    -- GEOGRAPHIC & JURISDICTION
+    countryCode STRING,
     region STRING,
+    timezone STRING,
+    jurisdiction STRING DEFAULT 'US',
     
-    -- Event metadata
-    event_timestamp TIMESTAMP NOT NULL,
-    processing_time_ms INTEGER,
+    -- EVENT TIMING
+    eventTimestamp TIMESTAMP NOT NULL,
+    processingTimeMs INTEGER,
     
-    -- Immutability - no updated_at field by design
-    created_at TIMESTAMP NOT NULL,
+    -- SYSTEM METADATA
+    applicationVersion STRING,
+    environmentType STRING DEFAULT 'production', -- 'development', 'staging', 'production'
+    serverInstance STRING,
+    executionContext STRING,
     
+    -- INTEGRITY & VERIFICATION
+    eventHash STRING, -- SHA-256 hash of critical fields for integrity
+    previousEventHash STRING, -- Chain of custody
+    signature STRING, -- Digital signature for non-repudiation
+    verified BOOLEAN DEFAULT false,
+    
+    -- ERROR TRACKING
+    errorCode STRING,
+    errorMessage STRING,
+    stackTrace STRING,
+    
+    -- PERFORMANCE METRICS
+    performanceMetrics MAP<STRING, ANY> DEFAULT {
+        'memoryUsageMB': 0,
+        'cpuUsagePercent': 0,
+        'dbConnectionCount': 0,
+        'cacheHitRate': 0
+    },
+    
+    -- COMPLIANCE TAGS
+    complianceTags ARRAY<STRING> DEFAULT [], -- ['gdpr', 'ccpa', 'sox', 'pci']
+    auditTrailVersion STRING DEFAULT 'v1.0',
+    
+    -- IMMUTABLE TIMESTAMP (no updated_at by design)
+    createdAt TIMESTAMP NOT NULL,
+    
+    -- ENHANCED CONSTRAINTS
     CONSTRAINT valid_event_type CHECK (
-        event_type IN ('auth', 'data_access', 'data_modification', 'system')
+        eventType IN ('auth', 'data_access', 'data_modification', 'system', 'security', 'compliance')
+    ),
+    CONSTRAINT valid_severity CHECK (
+        severity IN ('debug', 'info', 'warn', 'error', 'critical')
     ),
     CONSTRAINT valid_data_classification CHECK (
-        data_classification IN ('public', 'internal', 'confidential', 'restricted')
-    )
+        dataClassification IN ('public', 'internal', 'confidential', 'restricted')
+    ),
+    CONSTRAINT valid_actor_type CHECK (
+        actorType IN ('user', 'system', 'service', 'admin', 'api')
+    ),
+    CONSTRAINT valid_retention_period CHECK (deleteAfterDays > archiveAfterDays),
+    CONSTRAINT valid_http_status CHECK (httpStatusCode IS NULL OR (httpStatusCode >= 100 AND httpStatusCode < 600)),
+    CONSTRAINT valid_processing_time CHECK (processingTimeMs IS NULL OR processingTimeMs >= 0)
+);
+
+-- Collection: security_events
+-- Document ID: auto-generated
+-- Purpose: Dedicated security event logging for threat detection
+CREATE COLLECTION security_events (
+    eventId STRING NOT NULL PRIMARY KEY,
+    eventType STRING NOT NULL, -- 'authentication_failure', 'rate_limit_exceeded', 'suspicious_activity'
+    severity STRING NOT NULL, -- 'low', 'medium', 'high', 'critical'
+    
+    -- THREAT CLASSIFICATION
+    threatCategory STRING, -- 'brute_force', 'data_exfiltration', 'privilege_escalation'
+    riskScore INTEGER DEFAULT 0, -- 0-100
+    confidence DECIMAL(3,2) DEFAULT 0, -- 0-1
+    
+    -- SOURCE INFORMATION
+    sourceIp STRING NOT NULL,
+    sourceCountry STRING,
+    sourceAsn STRING, -- Autonomous System Number
+    isKnownThreat BOOLEAN DEFAULT false,
+    threatIntelligence MAP<STRING, ANY> DEFAULT {},
+    
+    -- TARGET INFORMATION
+    targetUserId STRING,
+    targetResource STRING,
+    targetEndpoint STRING,
+    
+    -- ATTACK DETAILS
+    attackVector STRING,
+    attackPayload STRING,
+    userAgent STRING,
+    requestCount INTEGER DEFAULT 1,
+    timeWindow STRING, -- Duration of attack
+    
+    -- RESPONSE & MITIGATION
+    blocked BOOLEAN DEFAULT false,
+    blockedAt TIMESTAMP,
+    blockDuration INTEGER, -- Minutes
+    mitigationApplied ARRAY<STRING> DEFAULT [],
+    
+    -- INVESTIGATION
+    investigated BOOLEAN DEFAULT false,
+    investigatedBy STRING,
+    investigatedAt TIMESTAMP,
+    investigationNotes STRING,
+    falsePositive BOOLEAN DEFAULT false,
+    
+    -- COMPLIANCE & REPORTING
+    reportedToSiem BOOLEAN DEFAULT false,
+    reportedToAuthorities BOOLEAN DEFAULT false,
+    reportingRequired BOOLEAN DEFAULT false,
+    incidentId STRING,
+    
+    -- TIMESTAMPS
+    firstSeen TIMESTAMP NOT NULL,
+    lastSeen TIMESTAMP NOT NULL,
+    createdAt TIMESTAMP NOT NULL,
+    
+    -- CONSTRAINTS
+    CONSTRAINT valid_security_event_type CHECK (
+        eventType IN ('authentication_failure', 'rate_limit_exceeded', 'suspicious_activity', 
+                     'data_breach_attempt', 'privilege_escalation', 'malicious_upload')
+    ),
+    CONSTRAINT valid_security_severity CHECK (
+        severity IN ('low', 'medium', 'high', 'critical')
+    ),
+    CONSTRAINT valid_risk_score CHECK (riskScore >= 0 AND riskScore <= 100),
+    CONSTRAINT valid_confidence CHECK (confidence >= 0 AND confidence <= 1)
 );
 
 -- Collection: rate_limits

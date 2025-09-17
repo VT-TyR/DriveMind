@@ -1,29 +1,33 @@
 openapi: 3.0.3
 info:
-  title: DriveMind API - Security Hardened
+  title: DriveMind API - Production Repair Analysis
   description: |
-    **SECURITY-FIRST** Google Drive management platform with zero-critical-vulnerability architecture.
+    **PRODUCTION DEPLOYED** Google Drive management platform with CRITICAL FUNCTIONALITY ISSUES.
     
-    ## SECURITY ENHANCEMENTS (v2.0.0)
-    - **SAST-001 FIXED**: AES-256-GCM encrypted OAuth token storage with Google Cloud KMS
-    - **SAST-002 FIXED**: Comprehensive PII redaction for AI services with user consent
-    - **DAST-001 FIXED**: HSTS security headers with preload and 1-year max-age
-    - **PKCE Implementation**: OAuth 2.0 with Proof Key for Code Exchange
-    - **User Context Validation**: Server-side enforcement of user boundaries
-    - **Security Headers**: Complete CSP, HSTS, X-Frame-Options suite
+    ## PRODUCTION STATUS (v3.0.0-REPAIR)
+    - **DEPLOYMENT**: ✅ Live at https://studio--drivemind-q69b7.us-central1.hosted.app
+    - **AUTHENTICATION**: ✅ Google OAuth working
+    - **CORE FEATURES**: ❌ BROKEN (Background scans, real inventory, file operations)
+    - **USER EXPERIENCE**: ❌ NON-FUNCTIONAL (Users see stubbed data only)
     
-    ## Authentication (ENHANCED SECURITY)
-    DriveMind uses OAuth 2.0 with PKCE for enhanced security. All tokens are encrypted at rest
-    using AES-256-GCM with Google Cloud KMS. Users must provide explicit consent for AI processing.
+    ## CRITICAL ISSUES IDENTIFIED
+    - **Background Scans**: Start but never complete, jobs stuck in running state
+    - **File Inventory**: Using mock data instead of real Google Drive files
+    - **File Operations**: All APIs disabled (in api-disabled folder)
+    - **Real-time Updates**: UI shows indefinite loading states
+    - **Token Persistence**: Authentication may not persist reliably
     
-    ## Rate Limits (MULTI-TIER)
-    - OAuth endpoints: 50 requests/minute per IP (reduced for security)
-    - Workflow endpoints: 30 requests/minute per user
-    - AI endpoints: 20 requests/minute per user (with PII redaction)
+    ## IMMEDIATE REPAIR REQUIRED
+    Emergency fixes needed within 48-72 hours to restore basic functionality.
+    Core user journey (authenticate → scan → view files → manage) currently broken.
+    
+    ## Rate Limits (CURRENT)
+    - OAuth endpoints: 50 requests/minute per IP
+    - Workflow endpoints: 30 requests/minute per user  
+    - AI endpoints: 20 requests/minute per user
     - Health/metrics: 100 requests/minute per IP
-    - Security endpoints: 10 requests/minute per user
     
-  version: 2.0.0
+  version: 3.0.0-REPAIR
   contact:
     name: DriveMind Support
     email: support@drivemind.ai

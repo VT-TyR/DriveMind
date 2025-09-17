@@ -33,12 +33,18 @@ class ApiError extends Error {
   }
 }
 
-async function apiCall(endpoint: string, data: any) {
+async function apiCall(endpoint: string, data: any, token?: string) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(data),
   });
 
@@ -50,24 +56,23 @@ async function apiCall(endpoint: string, data: any) {
   return response.json();
 }
 
-export async function moveFileApi(request: MoveFileRequest): Promise<void> {
-  await apiCall('/api/files/move', request);
+export async function moveFileApi(request: MoveFileRequest, token?: string): Promise<void> {
+  await apiCall('/api/files/move', request, token);
 }
 
-export async function deleteFileApi(request: DeleteFileRequest): Promise<void> {
-  await apiCall('/api/files/delete', request);
+export async function deleteFileApi(request: DeleteFileRequest, token?: string): Promise<void> {
+  await apiCall('/api/files/delete', request, token);
 }
 
-export async function renameFileApi(request: RenameFileRequest): Promise<void> {
-  await apiCall('/api/files/rename', request);
+export async function renameFileApi(request: RenameFileRequest, token?: string): Promise<void> {
+  await apiCall('/api/files/rename', request, token);
 }
 
-export async function restoreFileApi(request: DeleteFileRequest): Promise<void> {
-  // Restore is the same as delete but with trashed: false
-  await apiCall('/api/files/restore', request);
+export async function restoreFileApi(request: DeleteFileRequest, token?: string): Promise<void> {
+  await apiCall('/api/files/restore', request, token);
 }
 
-export async function createFolderApi(request: CreateFolderRequest): Promise<string> {
-  const result = await apiCall('/api/folders/create', request);
+export async function createFolderApi(request: CreateFolderRequest, token?: string): Promise<string> {
+  const result = await apiCall('/api/folders/create', request, token);
   return result.folderId;
 }

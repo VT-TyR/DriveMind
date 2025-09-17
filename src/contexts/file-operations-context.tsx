@@ -8,6 +8,7 @@ import {
   deleteFileApi,
   renameFileApi,
   createFolderApi,
+  restoreFileApi,
 } from '@/lib/file-api';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -81,7 +82,8 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     
     setIsProcessing(true);
     try {
-      await moveFileApi({ uid: user.uid, fileId, newParentId });
+      const token = await user.getIdToken();
+      await moveFileApi({ uid: user.uid, fileId, newParentId }, token);
       handleSuccess(`"${fileName}" moved successfully`);
     } catch (error) {
       handleError(error, 'Move file');
@@ -96,7 +98,8 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     
     setIsProcessing(true);
     try {
-      await deleteFileApi({ uid: user.uid, fileId });
+      const token = await user.getIdToken();
+      await deleteFileApi({ uid: user.uid, fileId }, token);
       handleSuccess(`"${fileName}" moved to trash`);
     } catch (error) {
       handleError(error, 'Delete file');
@@ -111,9 +114,9 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     
     setIsProcessing(true);
     try {
-      // For now, we'll implement restore as a placeholder
-      // In a real implementation, we'd need a restore API endpoint
-      handleSuccess(`"${fileName}" restore functionality coming soon`);
+      const token = await user.getIdToken();
+      await restoreFileApi({ uid: user.uid, fileId }, token);
+      handleSuccess(`"${fileName}" restored from trash`);
     } catch (error) {
       handleError(error, 'Restore file');
       throw error;
@@ -127,7 +130,8 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     
     setIsProcessing(true);
     try {
-      await renameFileApi({ uid: user.uid, fileId, newName });
+      const token = await user.getIdToken();
+      await renameFileApi({ uid: user.uid, fileId, newName }, token);
       handleSuccess(`File renamed from "${fileName}" to "${newName}"`);
     } catch (error) {
       handleError(error, 'Rename file');
@@ -142,7 +146,8 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     
     setIsProcessing(true);
     try {
-      const folderId = await createFolderApi({ uid: user.uid, name, parentId });
+      const token = await user.getIdToken();
+      const folderId = await createFolderApi({ uid: user.uid, name, parentId }, token);
       handleSuccess(`Folder "${name}" created successfully`);
       return folderId;
     } catch (error) {
@@ -179,6 +184,7 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
     if (!user || operations.length === 0) return;
     
     setIsProcessing(true);
+    const token = await user.getIdToken();
     const updatedOperations = [...operations];
     
     try {
@@ -197,17 +203,17 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
                 uid: user.uid,
                 fileId: operation.fileId,
                 newParentId: operation.details?.newParentId || 'root'
-              });
+              }, token);
               break;
             case 'delete':
-              await deleteFileApi({ uid: user.uid, fileId: operation.fileId });
+              await deleteFileApi({ uid: user.uid, fileId: operation.fileId }, token);
               break;
             case 'rename':
               await renameFileApi({
                 uid: user.uid,
                 fileId: operation.fileId,
                 newName: operation.details?.newName || `${operation.fileName}_renamed`
-              });
+              }, token);
               break;
           }
           

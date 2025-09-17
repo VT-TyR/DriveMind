@@ -59,7 +59,7 @@ export function useSSE(options: SSEOptions) {
   }, []);
 
   const connect = useCallback(() => {
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || !url) return;
     
     cleanup();
 
@@ -217,7 +217,12 @@ export function useSSE(options: SSEOptions) {
 
   useEffect(() => {
     mountedRef.current = true;
-    connect();
+    
+    if (url && token) {
+      connect();
+    } else {
+      cleanup();
+    }
 
     return () => {
       mountedRef.current = false;

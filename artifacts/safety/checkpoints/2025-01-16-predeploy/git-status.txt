@@ -1,0 +1,8 @@
+ M src/components/scans/ScanManager.tsx
+ M src/hooks/useAuth.ts
+ M tsconfig.tsbuildinfo
+?? DEPLOYMENT_SUCCESS.md
+?? TEAM_DEPLOY_SUMMARY.md
+?? artifacts/dashboard/
+?? artifacts/orchestrator/
+?? artifacts/safety/

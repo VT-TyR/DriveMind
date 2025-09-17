@@ -55,3 +55,14 @@ export async function deleteUserRefreshToken(uid: string): Promise<boolean> {
   tokenCache.delete(uid);
   return true;
 }
+
+export async function getStoredTokens(uid: string): Promise<{ access_token?: string; refresh_token?: string } | null> {
+  const refreshToken = await getUserRefreshToken(uid);
+  if (!refreshToken) return null;
+  
+  return {
+    refresh_token: refreshToken,
+    // Note: access_token would need to be generated from refresh_token using OAuth2
+    // This is a simplified version - in production you'd refresh the access token
+  };
+}

@@ -5,11 +5,12 @@ import MainLayout from '@/components/shared/main-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/hooks/useAuth';
 import { useOperatingMode } from '@/contexts/operating-mode-context';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScanProgress } from '@/components/dashboard/scan-progress';
+import { LoadingState } from '@/components/ui/loading-state';
 import { db as clientDb } from '@/lib/firebase';
 import { collection, query as fsQuery, where, orderBy, limit as fsLimit, onSnapshot } from 'firebase/firestore';
 
@@ -72,7 +73,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, token, loading: authLoading, tokenError } = useAuth();
   const { isAiEnabled } = useOperatingMode();
   const [stats, setStats] = React.useState<DashboardStats>({
     totalFiles: 0,
@@ -85,7 +86,8 @@ export default function DashboardPage() {
     scanStatus: 'idle',
     lastScanMode: null,
   });
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const [activeScanJob, setActiveScanJob] = React.useState<ScanJob | null>(null);
   const scanSubRef = React.useRef<() => void>();
 

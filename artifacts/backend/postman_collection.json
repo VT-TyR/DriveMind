@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "DriveMind API - Production Test Collection",
-    "description": "Comprehensive API test collection for DriveMind backend services following ALPHA standards",
-    "version": "1.0.0",
+    "name": "DriveMind API - Backend Repair Test Collection",
+    "description": "Comprehensive API test collection for DriveMind backend repair validation. Tests P0-EMERGENCY fixes: scan completion, token sync, restored file operations, SSE streaming, health monitoring.",
+    "version": "1.0.0-REPAIR",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {

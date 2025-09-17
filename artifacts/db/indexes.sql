@@ -1,16 +1,26 @@
--- DriveMind Firestore Composite Indexes
--- Version: 1.0.0
--- Last Updated: 2025-09-12
--- Standards: ALPHA-CODENAME v1.4 compliant
+-- ============================================================================
+-- DriveMind Firestore Composite Indexes - PERFORMANCE OPTIMIZED
+-- Version: 2.0.0-REPAIR
+-- Date: 2025-09-17
+-- Standards: ALPHA-CODENAME v1.8 + AEI21 compliant
+-- ============================================================================
 --
--- This file defines composite indexes for Firebase Firestore to optimize
--- query performance for DriveMind's most critical access patterns.
--- 
--- All indexes are designed for production workloads with consideration for:
--- - Query performance optimization
--- - Index write costs
--- - Storage efficiency
--- - Real-time query requirements
+-- CRITICAL PERFORMANCE INDEXES FOR DATABASE REPAIR:
+-- 1. Token lookup and validation performance
+-- 2. Scan state checkpoint and resume optimization  
+-- 3. File metadata search and filtering indexes
+-- 4. Audit trail performance for compliance
+-- 5. Security event detection and analysis
+-- 6. Rate limiting real-time enforcement
+-- 7. Consent management GDPR compliance
+-- 8. Background job queue optimization
+--
+-- PERFORMANCE TARGETS:
+-- - Query response time: P95 < 100ms, P99 < 250ms
+-- - Index write overhead: < 10% of total write cost
+-- - Concurrent query support: 1000+ simultaneous queries
+-- - Real-time updates: < 1s propagation delay
+-- ============================================================================
 
 -- =============================================================================
 -- USER AUTHENTICATION & MANAGEMENT INDEXES
@@ -45,24 +55,53 @@ ON users (deleted_at ASC, created_at ASC)
 WHERE deleted_at IS NOT NULL;
 
 -- =============================================================================
--- OAUTH TOKEN MANAGEMENT INDEXES
+-- ENCRYPTED TOKEN MANAGEMENT INDEXES (CRITICAL FOR AUTH PERFORMANCE)
 -- =============================================================================
 
--- Token validation and refresh operations
--- Supports: Authentication middleware, token refresh flows
-CREATE INDEX idx_secrets_validation 
-ON users/{uid}/secrets (is_valid DESC, last_validated_at ASC, token_version DESC);
+-- PRIORITY 1: Real-time token validation and health checks
+-- Supports: Authentication middleware, rapid token validation, health monitoring
+CREATE INDEX idx_secrets_realtime_validation 
+ON users/{uid}/secrets (isValid DESC, lastValidatedAt DESC, healthCheckCount ASC, keyVersion DESC);
 
--- Token usage tracking for monitoring and quotas
--- Supports: Usage analytics, rate limiting, suspicious activity detection
-CREATE INDEX idx_secrets_usage 
-ON users/{uid}/secrets (last_used_at DESC, usage_count DESC, is_valid ASC);
+-- PRIORITY 2: Token usage tracking for security and monitoring  
+-- Supports: Usage analytics, suspicious activity detection, refresh patterns
+CREATE INDEX idx_secrets_security_monitoring 
+ON users/{uid}/secrets (lastUsedAt DESC, usageCount DESC, refreshCount DESC, isValid ASC);
 
--- Expired token cleanup for security
--- Supports: Automated token cleanup, security maintenance
-CREATE INDEX idx_secrets_expiry 
-ON users/{uid}/secrets (access_token_expires_at ASC, is_valid ASC)
-WHERE is_valid = true;
+-- PRIORITY 3: Encryption key rotation and management
+-- Supports: Key rotation workflows, encryption health, compliance
+CREATE INDEX idx_secrets_encryption_management 
+ON users/{uid}/secrets (keyVersion DESC, encryptionTimestamp DESC, encryptionAlgorithm ASC);
+
+-- PRIORITY 4: Token expiry and refresh operations
+-- Supports: Token refresh flows, expiry management, automated cleanup
+CREATE INDEX idx_secrets_expiry_management 
+ON users/{uid}/secrets (expiresAt ASC, lastRefreshAt DESC, isValid ASC)
+WHERE isValid = true;
+
+-- PRIORITY 5: Audit trail queries for compliance
+-- Supports: Security audits, compliance reporting, forensic analysis
+CREATE INDEX idx_secrets_audit_compliance 
+ON users/{uid}/secrets (updatedAt DESC, usageCount DESC, refreshCount DESC);
+
+-- =============================================================================
+-- GDPR CONSENT MANAGEMENT INDEXES (COMPLIANCE CRITICAL)
+-- =============================================================================
+
+-- PRIORITY 1: Real-time consent validation for AI processing
+-- Supports: Real-time consent checks, PII processing validation, GDPR compliance
+CREATE INDEX idx_consent_realtime_validation 
+ON users/{uid}/consent (granted ASC, expiresAt ASC, consentVersion DESC, updatedAt DESC);
+
+-- PRIORITY 2: Consent expiry and renewal management
+-- Supports: Consent renewal workflows, expiry notifications, compliance automation
+CREATE INDEX idx_consent_expiry_management 
+ON users/{uid}/consent (expiresAt ASC, autoRenewal ASC, granted ASC, grantedAt DESC);
+
+-- PRIORITY 3: Consent audit and compliance reporting
+-- Supports: GDPR audits, consent history, compliance reporting
+CREATE INDEX idx_consent_audit_compliance 
+ON users/{uid}/consent (grantedAt DESC, revokedAt DESC, consentVersion DESC);
 
 -- =============================================================================
 -- FILE INVENTORY PERFORMANCE INDEXES
@@ -121,35 +160,64 @@ ON users/{uid}/inventory (trashed ASC, modified_time DESC, size DESC)
 WHERE trashed = true;
 
 -- =============================================================================
--- BACKGROUND SCAN OPTIMIZATION INDEXES
+-- ENHANCED SCAN JOB INDEXES (CHECKPOINT/RESUME OPTIMIZED)
 -- =============================================================================
 
--- Active scan monitoring - critical for real-time status
--- Supports: Scan progress tracking, concurrent scan management
-CREATE INDEX idx_scans_active_monitoring 
-ON users/{uid}/scans (status ASC, updated_at DESC, started_at DESC)
-WHERE status IN ('queued', 'running');
+-- PRIORITY 1: Real-time active scan monitoring with checkpoints
+-- Supports: Real-time scan progress, checkpoint/resume, concurrent scan management
+CREATE INDEX idx_scans_realtime_monitoring 
+ON users/{uid}/scans (status ASC, lastActivityAt DESC, priority ASC, startedAt DESC)
+WHERE status IN ('pending', 'running', 'paused');
 
--- Scan history and performance analysis
--- Supports: Scan history, performance optimization, failure analysis
-CREATE INDEX idx_scans_performance_analysis 
-ON users/{uid}/scans (status ASC, processing_duration_seconds ASC, completed_at DESC, files_processed DESC);
+-- PRIORITY 2: Checkpoint and resume operations (CRITICAL FOR RELIABILITY)
+-- Supports: Crash recovery, checkpoint restoration, scan resumption
+CREATE INDEX idx_scans_checkpoint_resume 
+ON users/{uid}/scans (status ASC, scanType ASC, updatedAt DESC)
+WHERE status IN ('paused', 'running');
 
--- Failed scan analysis for debugging and retry logic
--- Supports: Error analysis, retry mechanisms, reliability metrics
-CREATE INDEX idx_scans_failure_analysis 
-ON users/{uid}/scans (status ASC, error_code ASC, retry_count ASC, last_retry_at DESC)
+-- PRIORITY 3: Scan queue management with priority
+-- Supports: Queue processing, priority-based scheduling, load balancing
+CREATE INDEX idx_scans_queue_management 
+ON users/{uid}/scans (status ASC, priority ASC, createdAt ASC)
+WHERE status = 'pending';
+
+-- PRIORITY 4: Scan performance and resource analysis
+-- Supports: Performance optimization, resource planning, cost analysis
+CREATE INDEX idx_scans_performance_optimization 
+ON users/{uid}/scans (
+    scanType ASC, 
+    status ASC, 
+    processingDurationSeconds ASC, 
+    completedAt DESC
+);
+
+-- PRIORITY 5: Failed scan recovery and retry analysis
+-- Supports: Error analysis, retry logic, reliability improvement
+CREATE INDEX idx_scans_failure_recovery 
+ON users/{uid}/scans (
+    status ASC, 
+    errorCode ASC, 
+    retryCount ASC, 
+    nextRetryAt ASC
+)
 WHERE status = 'failed';
 
--- Scan type performance tracking
--- Supports: Scan type optimization, resource planning
-CREATE INDEX idx_scans_type_performance 
-ON users/{uid}/scans (scan_type ASC, status ASC, processing_duration_seconds ASC, completed_at DESC);
+-- PRIORITY 6: Resource usage and cost tracking
+-- Supports: Cost optimization, resource monitoring, quota management
+CREATE INDEX idx_scans_resource_optimization 
+ON users/{uid}/scans (
+    completedAt DESC, 
+    scanType ASC
+)
+WHERE status = 'completed';
 
--- Resource usage tracking for cost optimization
--- Supports: Cost analysis, resource optimization, quota management
-CREATE INDEX idx_scans_resource_tracking 
-ON users/{uid}/scans (completed_at DESC, api_calls_made DESC, bandwidth_used_bytes DESC)
+-- PRIORITY 7: Scan quality and validation tracking
+-- Supports: Quality assurance, data integrity, validation reporting
+CREATE INDEX idx_scans_quality_assurance 
+ON users/{uid}/scans (
+    status ASC, 
+    completedAt DESC
+)
 WHERE status = 'completed';
 
 -- =============================================================================
@@ -242,48 +310,156 @@ CREATE INDEX idx_metrics_resource_usage
 ON system_metrics (metric_date DESC, total_bandwidth_gb DESC, total_storage_gb DESC);
 
 -- =============================================================================
--- AUDIT LOG PERFORMANCE INDEXES
+-- ENHANCED AUDIT LOG INDEXES (SECURITY & COMPLIANCE OPTIMIZED)
 -- =============================================================================
 
--- User activity audit trails - critical for security and compliance
--- Supports: Security investigation, user activity tracking, compliance reporting
-CREATE INDEX idx_audit_user_activity 
-ON audit_logs (user_id ASC, event_timestamp DESC, event_type ASC)
-WHERE user_id IS NOT NULL;
+-- PRIORITY 1: Real-time security monitoring and threat detection
+-- Supports: Real-time security alerts, threat detection, incident response
+CREATE INDEX idx_audit_security_realtime 
+ON audit_logs (
+    severity ASC, 
+    eventType ASC, 
+    eventTimestamp DESC, 
+    userId ASC, 
+    ipAddress ASC
+)
+WHERE severity IN ('error', 'critical') AND eventType = 'security';
 
--- Resource access patterns for security analysis
--- Supports: Security analysis, access pattern monitoring, threat detection
-CREATE INDEX idx_audit_resource_access 
-ON audit_logs (resource_type ASC, resource_id ASC, event_timestamp DESC, user_id ASC);
+-- PRIORITY 2: User activity forensics and investigation
+-- Supports: Security investigations, forensic analysis, user behavior tracking
+CREATE INDEX idx_audit_user_forensics 
+ON audit_logs (
+    userId ASC, 
+    eventTimestamp DESC, 
+    eventType ASC, 
+    resourceType ASC, 
+    ipAddress ASC
+)
+WHERE userId IS NOT NULL;
 
--- Authentication events for security monitoring
--- Supports: Authentication monitoring, security alerts, fraud detection
-CREATE INDEX idx_audit_auth_events 
-ON audit_logs (event_type ASC, event_action ASC, event_timestamp DESC, ip_address ASC)
-WHERE event_type = 'auth';
+-- PRIORITY 3: Resource access audit and compliance
+-- Supports: Resource access monitoring, compliance audits, data access tracking
+CREATE INDEX idx_audit_resource_compliance 
+ON audit_logs (
+    resourceType ASC, 
+    resourceId ASC, 
+    eventAction ASC, 
+    eventTimestamp DESC, 
+    dataSubject ASC
+);
 
--- Data modification tracking for compliance
--- Supports: Compliance reporting, data modification tracking, audit trails
-CREATE INDEX idx_audit_data_modifications 
-ON audit_logs (event_type ASC, resource_type ASC, event_timestamp DESC, user_id ASC)
-WHERE event_type = 'data_modification';
+-- PRIORITY 4: Authentication security monitoring
+-- Supports: Authentication failure detection, brute force detection, security alerts
+CREATE INDEX idx_audit_auth_security 
+ON audit_logs (
+    eventType ASC, 
+    eventAction ASC, 
+    severity ASC, 
+    eventTimestamp DESC, 
+    ipAddress ASC
+)
+WHERE eventType = 'auth';
 
--- Geographic access patterns for security and analytics
--- Supports: Geographic analysis, security monitoring, user behavior analysis
-CREATE INDEX idx_audit_geographic_access 
-ON audit_logs (country_code ASC, event_timestamp DESC, user_id ASC, event_type ASC);
+-- PRIORITY 5: GDPR and PII compliance tracking
+-- Supports: GDPR compliance, PII access tracking, data subject rights
+CREATE INDEX idx_audit_gdpr_compliance 
+ON audit_logs (
+    gdprRelevant ASC, 
+    dataSubject ASC, 
+    eventTimestamp DESC, 
+    processingPurpose ASC
+)
+WHERE gdprRelevant = true;
 
--- Data retention compliance for automated cleanup
--- Supports: Compliance automation, data retention, privacy compliance
-CREATE INDEX idx_audit_retention_compliance 
-ON audit_logs (retention_date ASC, data_classification ASC, created_at ASC)
-WHERE retention_date IS NOT NULL;
+-- PRIORITY 6: Data retention and lifecycle management
+-- Supports: Automated data retention, compliance cleanup, lifecycle management
+CREATE INDEX idx_audit_retention_lifecycle 
+ON audit_logs (
+    retentionDate ASC, 
+    dataClassification ASC, 
+    createdAt ASC, 
+    archiveAfterDays ASC
+)
+WHERE retentionDate IS NOT NULL;
 
--- API endpoint performance tracking
--- Supports: API performance analysis, optimization, monitoring
-CREATE INDEX idx_audit_api_performance 
-ON audit_logs (api_endpoint ASC, event_timestamp DESC, processing_time_ms ASC)
-WHERE api_endpoint IS NOT NULL;
+-- PRIORITY 7: Performance monitoring and optimization
+-- Supports: API performance analysis, system optimization, SLA monitoring
+CREATE INDEX idx_audit_performance_monitoring 
+ON audit_logs (
+    apiEndpoint ASC, 
+    httpStatusCode ASC, 
+    processingTimeMs DESC, 
+    eventTimestamp DESC
+)
+WHERE apiEndpoint IS NOT NULL;
+
+-- PRIORITY 8: Error tracking and system reliability
+-- Supports: Error analysis, system reliability, debugging, alerting
+CREATE INDEX idx_audit_error_tracking 
+ON audit_logs (
+    severity ASC, 
+    errorCode ASC, 
+    eventTimestamp DESC, 
+    apiEndpoint ASC
+)
+WHERE severity IN ('error', 'critical');
+
+-- =============================================================================
+-- SECURITY EVENTS INDEXES (THREAT DETECTION OPTIMIZED)
+-- =============================================================================
+
+-- PRIORITY 1: Real-time threat detection and blocking
+-- Supports: Real-time threat detection, automatic blocking, incident response
+CREATE INDEX idx_security_threat_realtime 
+ON security_events (
+    severity ASC, 
+    riskScore DESC, 
+    lastSeen DESC, 
+    blocked ASC, 
+    sourceIp ASC
+);
+
+-- PRIORITY 2: Source IP threat analysis
+-- Supports: IP-based threat analysis, geolocation security, source tracking
+CREATE INDEX idx_security_source_analysis 
+ON security_events (
+    sourceIp ASC, 
+    sourceCountry ASC, 
+    threatCategory ASC, 
+    lastSeen DESC, 
+    requestCount DESC
+);
+
+-- PRIORITY 3: Attack pattern recognition
+-- Supports: Attack pattern analysis, threat intelligence, security research
+CREATE INDEX idx_security_attack_patterns 
+ON security_events (
+    threatCategory ASC, 
+    attackVector ASC, 
+    confidence DESC, 
+    firstSeen DESC
+);
+
+-- PRIORITY 4: Investigation and incident management
+-- Supports: Security investigations, incident response, false positive analysis
+CREATE INDEX idx_security_investigation 
+ON security_events (
+    investigated ASC, 
+    falsePositive ASC, 
+    severity ASC, 
+    lastSeen DESC
+);
+
+-- PRIORITY 5: Blocked threats and mitigation tracking
+-- Supports: Mitigation effectiveness, blocked threat analysis, security metrics
+CREATE INDEX idx_security_mitigation_tracking 
+ON security_events (
+    blocked ASC, 
+    blockedAt DESC, 
+    mitigationApplied ASC, 
+    riskScore DESC
+)
+WHERE blocked = true;
 
 -- =============================================================================
 -- RATE LIMITING PERFORMANCE INDEXES

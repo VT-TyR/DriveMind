@@ -1,20 +1,39 @@
-version: 2.0.0
+version: 3.0.0-PRODUCTION-REPAIR
 project: drivemind
-generated: 2025-09-12T15:00:00Z
-description: Security-first development backlog - CRITICAL VULNERABILITY REMEDIATION
-security_status: ZERO CRITICAL VULNERABILITIES TARGETED
-critical_fixes:
-  SAST-001: "AES-256-GCM token encryption with Google Cloud KMS"
-  SAST-002: "Comprehensive PII redaction with user consent management"
-  DAST-001: "HSTS security headers with preload and 1-year max-age"
+productionUrl: "https://studio--drivemind-q69b7.us-central1.hosted.app"
+generated: 2025-09-16T15:00:00Z
+description: PRODUCTION REPAIR BACKLOG - Critical functionality restoration
+deploymentStatus: LIVE BUT NON-FUNCTIONAL
+criticalProductionIssues:
+  PROD-001: "Background scan system failing - jobs start but never complete"
+  PROD-002: "File inventory using mock data - real Drive enumeration broken"
+  PROD-003: "File operations completely disabled - APIs in api-disabled folder" 
+  PROD-004: "Authentication tokens not persisting properly"
+  PROD-005: "Real-time updates broken - UI shows indefinite loading states"
 
 epics:
-  - id: EPIC-001
-    title: "CRITICAL VULNERABILITY REMEDIATION"
-    description: "Address 3 CRITICAL security vulnerabilities identified in security audit"
+  - id: EPIC-PROD-001
+    title: "CRITICAL PRODUCTION REPAIR"
+    description: "Fix core functionality issues preventing app from working in production"
+    priority: P0-EMERGENCY
+    estimatedStoryPoints: 34
+    timeline: "48-72 hours (emergency repair)"
+    urgency: "Users cannot use the application - zero functional value"
+    
+  - id: EPIC-PROD-002
+    title: "Real Drive Integration Restoration"
+    description: "Replace stub data with actual Google Drive file enumeration"
     priority: P0-CRITICAL
+    estimatedStoryPoints: 21
+    timeline: "1 week"
+    impact: "Core value proposition currently broken"
+    
+  - id: EPIC-001
+    title: "SECURITY VULNERABILITY REMEDIATION" 
+    description: "Address security vulnerabilities (moved to P1 due to production emergency)"
+    priority: P1-HIGH
     estimatedStoryPoints: 55
-    timeline: "1-2 weeks (emergency sprint)"
+    timeline: "2-3 weeks (after production repair)"
     compliance: "Zero critical vulnerability deployment gate"
     
   - id: EPIC-002  
@@ -42,7 +61,215 @@ epics:
     estimatedStoryPoints: 19
 
 tickets:
-  # EPIC-001: CRITICAL VULNERABILITY REMEDIATION
+  # EPIC-PROD-001: CRITICAL PRODUCTION REPAIR - IMMEDIATE
+  - id: PROD-001
+    epic: EPIC-PROD-001
+    title: "FIX CRITICAL: Background scan system completion failure"
+    type: production_emergency
+    priority: P0-EMERGENCY
+    storyPoints: 13
+    urgency: "IMMEDIATE - Core feature completely broken"
+    timeline: "24 hours"
+    description: |
+      PRODUCTION EMERGENCY: Background scans start successfully but never complete.
+      Users see infinite "scanning..." state with no results or error feedback.
+      Investigation shows scan jobs created in Firestore but processor fails silently.
+    rootCause:
+      - Background scan processor in `processBackgroundScan` function failing
+      - Possible Google Drive API rate limiting or timeout issues
+      - Error handling not providing feedback to users
+      - Scan completion logic may have bugs preventing job finalization
+    acceptanceCriteria:
+      - Background scans complete successfully for typical Drive accounts (< 1000 files)
+      - Scan progress updates properly show completion percentage
+      - Scan results are persisted and displayed to users
+      - Error cases provide clear feedback and recovery options
+      - Failed scans can be retried by users
+    definition_of_done:
+      - Test scan completes on production with real Google Drive account
+      - Scan results visible in dashboard and inventory
+      - Error logging provides actionable debugging information
+      - Performance acceptable for drives with 1000+ files
+    implementation:
+      files:
+        - "src/app/api/workflows/background-scan/route.ts (fix processor)"
+        - "src/lib/firebase-db.ts (scan job completion logic)"
+        - "src/lib/google-drive.ts (rate limiting and error handling)"
+        - "src/components/dashboard/scan-progress.tsx (error display)"
+      investigation:
+        - Check Cloud Function logs for scan processor errors
+        - Verify Google Drive API rate limits and quotas
+        - Test scan completion logic with small file sets
+        - Add comprehensive error logging and monitoring
+      estimatedHours: 24
+      
+  - id: PROD-002
+    epic: EPIC-PROD-001  
+    title: "FIX CRITICAL: Replace inventory stub data with real Drive files"
+    type: production_emergency
+    priority: P0-EMERGENCY
+    storyPoints: 8
+    urgency: "IMMEDIATE - Users see fake data instead of their files"
+    timeline: "24 hours"
+    description: |
+      PRODUCTION EMERGENCY: File inventory page shows sample/mock data instead of user's actual Drive files.
+      Users cannot see, manage, or interact with their real files - core value proposition is broken.
+      `listSampleFiles` AI flow returns limited sample data instead of real enumeration.
+    rootCause:
+      - Inventory page uses `listSampleFiles` AI flow which returns mock data
+      - Real Google Drive enumeration not implemented or broken
+      - File operations disabled (in `api-disabled` folder)
+      - Missing proper Drive API integration for file listing
+    acceptanceCriteria:
+      - Inventory page displays user's actual Google Drive files
+      - File metadata (name, size, type, modified date) shows real data
+      - File listing supports pagination for large drives
+      - Real-time file status updates work correctly
+      - File operations (view, download links) work with real files
+    definition_of_done:
+      - Test user can see their actual Drive files in inventory
+      - File counts and sizes match Google Drive web interface
+      - No mock/sample data visible in production
+      - File operations redirect properly to Google Drive
+    implementation:
+      files:
+        - "src/app/inventory/page.tsx (replace listSampleFiles with real API)"
+        - "src/app/api/workflows/inventory/route.ts (implement real Drive enumeration)"
+        - "src/lib/google-drive.ts (proper file listing implementation)"
+        - "src/components/inventory/file-table.tsx (real data rendering)"
+      estimatedHours: 16
+
+  - id: PROD-003
+    epic: EPIC-PROD-001
+    title: "FIX CRITICAL: Enable core file operations APIs"
+    type: production_emergency  
+    priority: P0-EMERGENCY
+    storyPoints: 5
+    urgency: "IMMEDIATE - All file management disabled"
+    timeline: "12 hours"
+    description: |
+      PRODUCTION EMERGENCY: All file operations (rename, delete, move, restore) are completely disabled.
+      APIs are in `api-disabled` folder, making file management impossible.
+      Users have no way to act on file insights or manage their Drive.
+    rootCause:
+      - All file operation APIs moved to `src/app/api-disabled/` folder
+      - File action buttons likely have no working handlers
+      - Missing proper error handling and validation for file operations
+      - Potential OAuth scope or permission issues
+    acceptanceCriteria:
+      - File rename operation works from inventory interface
+      - File delete/trash operation functions properly  
+      - File move between folders operational
+      - File restore from trash works
+      - Proper error handling and user feedback for all operations
+    definition_of_done:
+      - Test each file operation with real Google Drive files
+      - File operations reflect immediately in Google Drive web interface
+      - Error cases provide clear user feedback
+      - Operations log properly for debugging
+    implementation:
+      files:
+        - "src/app/api-disabled/files/* (move to src/app/api/files/*)"
+        - "src/app/api-disabled/folders/* (move to src/app/api/folders/*)"
+        - "src/components/shared/file-actions.tsx (connect to real APIs)"
+        - "src/lib/file-operations.ts (implement proper error handling)"
+      estimatedHours: 10
+
+  - id: PROD-004
+    epic: EPIC-PROD-001
+    title: "FIX CRITICAL: Authentication token persistence issues"
+    type: production_emergency
+    priority: P0-CRITICAL
+    storyPoints: 5
+    urgency: "HIGH - Authentication may be unreliable"
+    timeline: "12 hours"
+    description: |
+      PRODUCTION ISSUE: OAuth tokens may not be persisting properly between sessions.
+      Users may need to re-authenticate frequently or lose access unexpectedly.
+      Token refresh mechanism may be failing silently.
+    rootCause:
+      - Token storage to Firestore may be failing
+      - Token refresh logic in `src/lib/google-auth.ts` may have issues
+      - Cookie-based token storage may have expiration problems
+      - Missing proper error handling for token refresh failures
+    acceptanceCriteria:
+      - OAuth tokens persist across browser sessions
+      - Token refresh happens automatically before expiration
+      - Clear error messages when re-authentication required
+      - Token storage works reliably in production environment
+    definition_of_done:
+      - Test authentication persistence across multiple sessions
+      - Verify token refresh works automatically  
+      - No unexpected authentication failures in normal usage
+      - Clear user feedback when re-authentication needed
+    implementation:
+      files:
+        - "src/lib/token-store.ts (fix Firestore storage)"
+        - "src/lib/google-auth.ts (improve token refresh)"
+        - "src/app/api/auth/drive/sync/route.ts (fix sync issues)"
+        - "src/contexts/auth-context.tsx (better error handling)"
+      estimatedHours: 10
+
+  - id: PROD-005  
+    epic: EPIC-PROD-001
+    title: "FIX CRITICAL: Real-time UI updates and loading states"
+    type: production_emergency
+    priority: P0-CRITICAL
+    storyPoints: 3
+    urgency: "HIGH - Poor user experience with stuck loading states"
+    timeline: "8 hours"
+    description: |
+      PRODUCTION ISSUE: UI shows indefinite loading states and doesn't update properly.
+      Background scan progress gets stuck in "scanning..." state forever.
+      Dashboard stats remain at zero even after scans should complete.
+    rootCause:
+      - Firestore real-time subscriptions may not be working properly
+      - Loading states not updated when operations complete or fail
+      - Error states not properly handled in UI components
+      - Missing timeout handling for long operations
+    acceptanceCriteria:
+      - Loading states resolve properly when operations complete
+      - Error states provide clear feedback and recovery options
+      - Real-time updates work for scan progress and dashboard stats
+      - Timeout handling prevents indefinite loading states
+    definition_of_done:
+      - UI updates appropriately when background operations complete
+      - Error cases show helpful messages instead of perpetual loading
+      - Dashboard reflects actual scan results and statistics
+      - Loading states have reasonable timeouts with fallback options
+    implementation:
+      files:
+        - "src/app/dashboard/page.tsx (fix real-time subscriptions)"
+        - "src/components/dashboard/scan-progress.tsx (add error handling)"
+        - "src/app/inventory/page.tsx (improve loading states)"
+        - "src/hooks/useAuth.ts (better state management)"
+      estimatedHours: 6
+
+  # EPIC-PROD-002: REAL DRIVE INTEGRATION RESTORATION
+  - id: DRIVE-001
+    epic: EPIC-PROD-002
+    title: "Implement comprehensive Google Drive file enumeration"
+    type: story
+    priority: P0-CRITICAL
+    storyPoints: 8
+    description: |
+      Replace mock data throughout the application with real Google Drive API integration.
+      Implement proper file enumeration, metadata extraction, and caching strategies.
+    acceptanceCriteria:
+      - Real Google Drive files displayed instead of sample data
+      - Proper pagination for large drives (10k+ files)
+      - File metadata accurately reflects Drive contents
+      - Caching prevents excessive API calls
+      - Rate limiting respects Google Drive API quotas
+    implementation:
+      files:
+        - "src/lib/google-drive.ts (comprehensive file listing)"
+        - "src/ai/flows/drive-list-sample.ts (replace with real implementation)"
+        - "src/lib/file-api.ts (proper caching and pagination)"
+        - "src/app/api/workflows/inventory/route.ts"
+      estimatedHours: 16
+
+  # EXISTING SECURITY TICKETS - MOVED TO P1 PRIORITY
   - id: CRIT-001
     epic: EPIC-001
     title: "SAST-001: Implement AES-256-GCM Token Encryption with Google Cloud KMS"
@@ -808,15 +1035,39 @@ deployment_readiness:
       - User documentation and onboarding guides
     estimatedHours: 15
 
-# Sprint Planning Suggestions - CRITICAL SECURITY FOCUS
+# Sprint Planning - PRODUCTION EMERGENCY FOCUS
 sprint_planning:
-  emergency_sprint:
-    title: "CRITICAL VULNERABILITY REMEDIATION"
+  production_emergency_sprint:
+    title: "PRODUCTION REPAIR EMERGENCY"
+    duration: 48_hours
+    capacity: 40_story_points
+    tickets: ["PROD-001", "PROD-002", "PROD-003", "PROD-004", "PROD-005"]
+    goal: "RESTORE CORE FUNCTIONALITY - Make production app usable"
+    timeline: "Emergency repair within 48-72 hours"
+    urgency: "CRITICAL - Application deployed but non-functional"
+    success_criteria:
+      - "Background scans complete successfully in production"
+      - "Users can see their actual Google Drive files (no more mock data)"
+      - "File operations (rename, delete, move) work correctly"
+      - "Authentication persists across sessions reliably"
+      - "UI updates properly show scan progress and results"
+      - "Core user journey (authenticate → scan → view files → manage) works end-to-end"
+
+  sprint_2_drive_integration:
+    title: "REAL DRIVE INTEGRATION COMPLETION"
     duration: 1_week
+    capacity: 35_story_points
+    tickets: ["DRIVE-001", "remaining drive integration tickets"]
+    goal: "Complete replacement of mock data with real Drive integration"
+    prerequisite: "Production emergency sprint completed"
+
+  sprint_3_security_hardening:
+    title: "SECURITY VULNERABILITY REMEDIATION"
+    duration: 2_weeks
     capacity: 50_story_points  
     tickets: ["CRIT-001", "CRIT-002", "CRIT-003", "CRIT-004"]
     goal: "ZERO CRITICAL VULNERABILITIES - Address SAST-001, SAST-002, DAST-001"
-    timeline: "Emergency deployment within 7 days"
+    timeline: "After production functionality restored"
     success_criteria:
       - "SAST scan shows zero critical vulnerabilities"
       - "DAST scan shows zero critical vulnerabilities"  
@@ -896,19 +1147,35 @@ risks:
     mitigation: "Continuous performance testing in CI/CD (PERF-001)"
     owner: "Platform Team"
 
-# Success Metrics
+# Success Metrics - PRODUCTION REPAIR FOCUS
 success_metrics:
+  production_functionality:
+    - "CORE USER JOURNEY WORKS: Authentication → Scan → View Files → Manage Files"
+    - "Background scans complete successfully (> 95% completion rate)"
+    - "Real user files displayed in inventory (0% mock data)"
+    - "File operations functional (rename, delete, move, restore work)"
+    - "Authentication persistence across sessions (> 98% success)"
+    - "UI loading states resolve properly (< 30s max loading time)"
+    
+  user_experience:
+    - "Users can see their actual Google Drive files"
+    - "File operations reflect in Google Drive within 5 seconds"
+    - "Scan progress updates show real progress (not stuck states)"
+    - "Error messages provide actionable guidance"
+    - "No indefinite loading states or stuck UI components"
+    
+  technical_reliability:
+    - "Background scan success rate > 90%"
+    - "File enumeration works for drives with 1000+ files"
+    - "API endpoints return proper errors instead of timeouts"
+    - "Real-time updates functional via Firestore subscriptions"
+    
   performance:
-    - "API response time p95 < 250ms"
-    - "Frontend bundle size < 250KB gzipped"  
-    - "Page load time < 2.5s Time to Interactive"
+    - "File listing loads within 10 seconds for typical drives"
+    - "Scan initiation responds within 3 seconds"
+    - "Dashboard stats update within 5 seconds of scan completion"
     
-  reliability:
-    - "Uptime > 99.9%"
-    - "Error rate < 0.1%"
-    - "Mean time to recovery < 30 minutes"
-    
-  security:
+  security_post_repair:
     - "ZERO CRITICAL SECURITY VULNERABILITIES (SAST-001, SAST-002, DAST-001 RESOLVED)"
     - "AES-256-GCM token encryption operational"
     - "Comprehensive PII redaction with 50+ patterns active"
@@ -916,8 +1183,3 @@ success_metrics:
     - "GDPR compliance audit passes for AI processing"
     - "Penetration testing shows no critical findings"
     - "Security audit score > 95%"
-    
-  business:
-    - "User authentication success rate > 98%"
-    - "Drive scan completion rate > 95%"
-    - "AI feature usage > 70% of active users"

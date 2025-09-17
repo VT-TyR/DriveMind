@@ -1,0 +1,10 @@
+412fcd6 feat: Implement persistent background scan with checkpoint/resume system
+2168604 Deploy DriveMind v1.3.0 with enhanced security and monitoring
+4c1c55e Deploy DriveMind v1.2.1 Security Hardening Release
+4d94e34 Fix background scan persistence by using Cloud Function scan runner
+dfef0cc Add enhanced error logging to background scan API for debugging
+1a4de1f Fix TypeScript build errors preventing deployment
+d576be3 Complete Firebase Admin migration for background scans
+c73fce5 Complete Firebase Admin migration for background scans
+805a072 Implement comprehensive OAuth token persistence for Google Drive
+b9c364c Fix 500 error: Replace client-side Firebase with Firebase Admin in server-side functions

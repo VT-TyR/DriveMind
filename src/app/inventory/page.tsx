@@ -67,6 +67,28 @@ export default function InventoryPage() {
 
     setIsLoading(true);
     try {
+      // Get Firebase ID token for authentication
+      const token = await user.getIdToken();
+      
+      // First try to fetch from stored scan results
+      const response = await fetch('/api/dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const dashboardData = await response.json();
+        if (dashboardData.files && dashboardData.files.length > 0) {
+          const filesWithDuplicates = markDuplicates(dashboardData.files);
+          setFiles(filesWithDuplicates);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Fallback to sample files if no scan data available
       const authData = { uid: user.uid, email: user.email || undefined };
       const { files: driveFiles } = await listSampleFiles({ auth: authData });
       const mappedFiles: File[] = driveFiles.map((f, i) => ({
@@ -84,10 +106,11 @@ export default function InventoryPage() {
       const filesWithDuplicates = markDuplicates(mappedFiles);
       setFiles(filesWithDuplicates);
     } catch (error: any) {
+        console.error('Failed to fetch files:', error);
         toast({
             variant: 'destructive',
             title: 'Failed to fetch files',
-            description: error.message || 'Could not connect to Google Drive. Please connect on the AI/Dev page.',
+            description: error.message || 'Could not connect to Google Drive. Please run a scan first.',
         });
         setFiles([]);
     } finally {
@@ -198,6 +221,9 @@ export default function InventoryPage() {
             <p className="text-muted-foreground mb-4">
               Please sign in with your Google account to view your Drive files.
             </p>
+            <Button onClick={() => window.location.href = '/ai'} variant="outline">
+              Go to Sign In
+            </Button>
           </div>
         </div>
       </MainLayout>
@@ -218,14 +244,34 @@ export default function InventoryPage() {
             {isLoading ? 'Loading...' : 'Refresh Files'}
           </Button>
         </div>
-        <FileTable
-          files={files}
-          onScoreFile={handleScoreFile}
-          onCleanupSuggestion={handleCleanupSuggestion}
-          isAiEnabled={isAiEnabled}
-          isProcessing={isProcessing || isLoading}
-          onRefresh={fetchFiles}
-        />
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+            <h3 className="text-lg font-medium mb-2">Loading files...</h3>
+            <p className="text-muted-foreground">
+              Fetching your Google Drive files
+            </p>
+          </div>
+        ) : files.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <h3 className="text-lg font-medium mb-2">No files found</h3>
+            <p className="text-muted-foreground mb-4">
+              Run a scan first to see your Google Drive files here.
+            </p>
+            <Button onClick={() => window.location.href = '/dashboard'} variant="outline">
+              Go to Dashboard
+            </Button>
+          </div>
+        ) : (
+          <FileTable
+            files={files}
+            onScoreFile={handleScoreFile}
+            onCleanupSuggestion={handleCleanupSuggestion}
+            isAiEnabled={isAiEnabled}
+            isProcessing={isProcessing}
+            onRefresh={fetchFiles}
+          />
+        )}
         <BatchOperationsPanel onRefresh={fetchFiles} />
       </div>
 

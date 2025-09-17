@@ -14,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSSE } from '@/hooks/useSSE';
 import { useAuth } from '@/hooks/useAuth';
-import { Play, Pause, RefreshCw, AlertCircle, CheckCircle, Clock, Database, FileSearch, Activity } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertCircle, CheckCircle, Clock, Database, FileSearch, Activity, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ScanJob {
@@ -49,11 +49,12 @@ export function ScanManager() {
   // SSE connection for real-time updates
   const sseState = useSSE({
     url: activeScan ? `/api/scan/stream?jobId=${activeScan.id}` : '',
-    token,
+    token: token || undefined,
     onMessage: (event) => {
       try {
         const data = JSON.parse(event.data);
         handleProgressUpdate(data);
+        setError(null); // Clear errors on successful message
       } catch (err) {
         console.error('Failed to parse SSE message:', err);
       }
@@ -64,7 +65,7 @@ export function ScanManager() {
     onClose: () => {
       // Refresh scan status when stream closes
       if (activeScan) {
-        checkScanStatus();
+        setTimeout(() => checkScanStatus(), 1000);
       }
     },
   });
@@ -109,19 +110,38 @@ export function ScanManager() {
 
   // Start a new scan
   const startScan = async () => {
-    if (!token) {
-      setError('Authentication required');
+    if (!user) {
+      setError('Please sign in to start a scan');
       return;
     }
-
+    
+    // Try to get a fresh token
+    let authToken = token;
+    if (!authToken) {
+      try {
+        authToken = await user.getIdToken();
+      } catch (tokenError) {
+        console.error('Failed to get ID token:', tokenError);
+        setError('Failed to get authentication token. Please try signing out and back in.');
+        return;
+      }
+    }
+    
+    if (!authToken) {
+      setError('Authentication token not available. Please try refreshing the page.');
+      return;
+    }
+    
     setIsStarting(true);
     setError(null);
+    
+    console.log('Starting scan with token length:', authToken.length);
 
     try {
       const response = await fetch('/api/workflows/background-scan', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -134,8 +154,15 @@ export function ScanManager() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start scan');
+        console.error('Scan API response not ok:', response.status, response.statusText);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          throw new Error(`Scan failed with status ${response.status}: ${response.statusText}`);
+        }
+        throw new Error(errorData.error || `Scan failed with status ${response.status}`);
       }
 
       const data = await response.json();
@@ -148,7 +175,18 @@ export function ScanManager() {
       });
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start scan');
+      console.error('Scan start error:', err);
+      let errorMessage = 'Failed to start scan';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message || 'Unknown error occurred';
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && typeof err === 'object') {
+        errorMessage = (err as any).message || JSON.stringify(err);
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsStarting(false);
     }
@@ -182,6 +220,34 @@ export function ScanManager() {
       }
     } catch (err) {
       setError('Failed to cancel scan');
+    }
+  };
+
+  // Cleanup stuck scans
+  const cleanupStuckScans = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/workflows/background-scan/cleanup', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Cleanup result:', data);
+        setActiveScan(null);
+        setError(null);
+        // Refresh the page to get a clean state
+        window.location.reload();
+      } else {
+        setError('Failed to cleanup stuck scans');
+      }
+    } catch (err) {
+      setError('Failed to cleanup stuck scans');
     }
   };
 
@@ -224,9 +290,24 @@ export function ScanManager() {
 
   // Check for active scan on mount
   useEffect(() => {
-    checkScanStatus();
-    loadScanHistory();
-  }, [token]);
+    const initializeScans = async () => {
+      await checkScanStatus();
+      await loadScanHistory();
+      
+      // Auto-cleanup scans that have been running for more than 2 hours
+      if (activeScan && activeScan.status === 'running' && activeScan.createdAt) {
+        const scanAge = Date.now() - activeScan.createdAt;
+        if (scanAge > 2 * 60 * 60 * 1000) { // 2 hours
+          console.log('Detected stuck scan, auto-cleaning up...');
+          await cleanupStuckScans();
+        }
+      }
+    };
+    
+    if (token) {
+      initializeScans();
+    }
+  }, [token, activeScan?.createdAt]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -399,6 +480,29 @@ export function ScanManager() {
                   Cancel Scan
                 </Button>
               )}
+              {(activeScan.status === 'failed' || activeScan.status === 'cancelled') && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={checkScanStatus}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Refresh Status
+                </Button>
+              )}
+              {/* Emergency cleanup button for stuck scans */}
+              {activeScan.status === 'running' && activeScan.createdAt && 
+               (Date.now() - activeScan.createdAt) > 60 * 60 * 1000 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={cleanupStuckScans}
+                  className="border-yellow-500 text-yellow-700 hover:bg-yellow-50"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Force Cleanup
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -445,7 +549,7 @@ export function ScanManager() {
 
             <Button 
               onClick={startScan}
-              disabled={isStarting || !user}
+              disabled={isStarting || !user || !token}
               className="w-full"
             >
               {isStarting ? (
@@ -453,6 +557,10 @@ export function ScanManager() {
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Starting Scan...
                 </>
+              ) : !user ? (
+                'Sign in to start scan'
+              ) : !token ? (
+                'Loading authentication...'
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />

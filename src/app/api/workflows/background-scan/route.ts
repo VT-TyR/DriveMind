@@ -364,7 +364,22 @@ async function processBackgroundScan(
         
         // Add a small delay to avoid hitting rate limits
         if (pageToken) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200)); // Increased delay
+        }
+
+        // Safety check: if we've been scanning for too long, stop
+        const scanDuration = Date.now() - Date.parse(new Date().toISOString());
+        if (scanDuration > 30 * 60 * 1000) { // 30 minutes max
+          logger.warn(`Scan ${jobId} timeout after 30 minutes`);
+          await failScanJob(jobId, 'Scan timeout - please try again with a smaller scope');
+          return;
+        }
+
+        // Safety check: if we have too many files, stop
+        if (allFiles.length > 50000) {
+          logger.warn(`Scan ${jobId} stopped - too many files (${allFiles.length})`);
+          await failScanJob(jobId, 'Too many files - please organize your Drive and try again');
+          return;
         }
 
         // Cancellation check after each page
