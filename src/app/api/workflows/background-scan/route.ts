@@ -347,14 +347,32 @@ async function processBackgroundScan(
         allFiles.push(...files);
         pageCount++;
 
-        // Calculate total size
+        // Calculate total size (Google Workspace files often have no size)
+        let filesWithSize = 0;
         for (const file of files) {
-          totalSize += parseInt(file.size || '0');
+          const fileSize = parseInt(file.size || '0');
+          totalSize += fileSize;
+          if (fileSize > 0) filesWithSize++;
         }
 
-        // Update progress
+        // Format size display more accurately
+        const formatSize = (bytes: number) => {
+          if (bytes === 0) return '0 B';
+          const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+          let value = bytes;
+          let unitIndex = 0;
+          
+          while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex++;
+          }
+          
+          return `${value.toFixed(1)} ${units[unitIndex]}`;
+        };
+
+        // Update progress with better info
         await updateScanJobProgress(jobId, {
-          currentStep: `Scanning: ${allFiles.length.toLocaleString()} files found (${Math.round(totalSize / 1024 / 1024 / 1024)} GB)`,
+          currentStep: `Scanning: ${allFiles.length.toLocaleString()} files found (${formatSize(totalSize)}${filesWithSize < allFiles.length ? ` + ${allFiles.length - filesWithSize} workspace files` : ''})`,
           current: 3,
           total: 6,
           bytesProcessed: totalSize
@@ -396,7 +414,11 @@ async function processBackgroundScan(
       }
     } while (pageToken);
 
-    logger.info(`Completed Drive scan: ${allFiles.length} files, ${Math.round(totalSize / 1024 / 1024)} MB`);
+    // Count files with and without size data
+    const filesWithSize = allFiles.filter(f => parseInt(f.size || '0') > 0).length;
+    const filesWithoutSize = allFiles.length - filesWithSize;
+    
+    logger.info(`Completed Drive scan: ${allFiles.length} files (${filesWithSize} with size data, ${filesWithoutSize} workspace files), ${Math.round(totalSize / 1024 / 1024)} MB`);
 
     // Phase 3: Update file index (for delta scans)
     await updateScanJobProgress(jobId, {
@@ -443,6 +465,9 @@ async function processBackgroundScan(
       return;
     }
 
+    const resultsFilesWithSize = allFiles.filter(f => parseInt(f.size || '0') > 0).length;
+    const resultsFilesWithoutSize = allFiles.length - resultsFilesWithSize;
+    
     const results = {
       scanId,
       filesFound: allFiles.length,
@@ -450,12 +475,15 @@ async function processBackgroundScan(
       totalSize,
       insights: {
         totalFiles: allFiles.length,
+        filesWithSize: resultsFilesWithSize,
+        workspaceFiles: resultsFilesWithoutSize,
         duplicateGroups: duplicates.length,
         totalSize,
         archiveCandidates: Math.floor(allFiles.length * 0.05), // 5% archive candidates
         qualityScore: Math.max(20, 100 - Math.floor(duplicates.length / allFiles.length * 100)),
         recommendedActions: [
           duplicates.length > 0 ? 'Remove duplicate files to save storage' : 'No duplicates found',
+          resultsFilesWithoutSize > 0 ? `${resultsFilesWithoutSize} Google Workspace files (Docs, Sheets, Slides) found` : null,
           'Archive old files to improve organization',
           'Set up automated organization rules'
         ].filter(Boolean),
@@ -467,7 +495,10 @@ async function processBackgroundScan(
     // Complete the job
     await completeScanJob(jobId, results);
     
-    logger.info(`Background scan completed successfully for user ${uid}: ${allFiles.length} files, ${Math.round(totalSize / 1024 / 1024)} MB`);
+    const finalFilesWithSize = allFiles.filter(f => parseInt(f.size || '0') > 0).length;
+    const finalFilesWithoutSize = allFiles.length - finalFilesWithSize;
+    
+    logger.info(`Background scan completed successfully for user ${uid}: ${allFiles.length} files (${finalFilesWithSize} with size data, ${finalFilesWithoutSize} workspace files), ${Math.round(totalSize / 1024 / 1024)} MB`);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

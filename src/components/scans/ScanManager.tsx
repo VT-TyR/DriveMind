@@ -27,7 +27,6 @@ interface ScanJob {
     percentage: number;
     currentStep: string;
     bytesProcessed?: number;
-    filesProcessed?: number;
     estimatedTimeRemaining?: number;
   };
   createdAt: number;
@@ -408,12 +407,6 @@ export function ScanManager() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  {activeScan.progress.filesProcessed !== undefined && (
-                    <div>
-                      <span className="text-muted-foreground">Files Processed:</span>
-                      <p className="font-medium">{activeScan.progress.filesProcessed.toLocaleString()}</p>
-                    </div>
-                  )}
                   {activeScan.progress.bytesProcessed !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Data Scanned:</span>
@@ -462,9 +455,18 @@ export function ScanManager() {
                 <CheckCircle className="h-4 w-4" />
                 <AlertTitle>Scan Complete</AlertTitle>
                 <AlertDescription>
-                  Found {activeScan.results.filesFound} files
+                  Found {activeScan.results.filesFound.toLocaleString()} files
+                  {activeScan.results.insights?.filesWithSize !== undefined && 
+                    activeScan.results.insights?.workspaceFiles !== undefined && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {activeScan.results.insights.filesWithSize} files with size data + {activeScan.results.insights.workspaceFiles} Google Workspace files
+                    </div>
+                  )}
                   {activeScan.results.duplicatesDetected > 0 && 
-                    ` with ${activeScan.results.duplicatesDetected} duplicate groups`}
+                    `, ${activeScan.results.duplicatesDetected} duplicate groups detected`}
+                  <div className="mt-1 text-xs">
+                    Total storage: {formatBytes(activeScan.results.totalSize || 0)}
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
