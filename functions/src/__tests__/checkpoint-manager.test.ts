@@ -46,6 +46,7 @@ describe('CheckpointManager', () => {
       collection: jest.fn(() => mockCollection),
     };
 
+    // @ts-ignore - Mocking firestore for tests
     admin.firestore = jest.fn(() => mockDb as any);
     db = admin.firestore(); // Assign to db variable
     manager = createCheckpointManager(db);

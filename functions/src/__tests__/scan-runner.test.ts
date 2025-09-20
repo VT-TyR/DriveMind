@@ -1,5 +1,4 @@
 import { createScanRunner, ScanRunner } from '../scan-runner';
-import { google } from 'googleapis';
 import * as admin from 'firebase-admin';
 
 const PROJECT_ID = 'test-project';

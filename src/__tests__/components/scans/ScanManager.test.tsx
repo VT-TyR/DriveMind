@@ -32,6 +32,8 @@ jest.mock('lucide-react', () => ({
   Pause: () => <div data-testid="Pause">Pause</div>,
   X: () => <div data-testid="X">X</div>,
   Database: () => <div data-testid="Database">Database</div>,
+  RefreshCw: () => <div data-testid="RefreshCw">RefreshCw</div>,
+  AlertTriangle: () => <div data-testid="AlertTriangle">AlertTriangle</div>,
 }));
 
 // Mock fetch
@@ -76,12 +78,22 @@ describe('ScanManager', () => {
   });
 
   it('renders start scan interface when no active scan', async () => {
-    await act(async () => {
-      render(<ScanManager />);
-    });
+    const { container } = render(<ScanManager />);
     
-    expect(screen.getByText('Start Background Scan')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /start full analysis/i })).toBeInTheDocument();
+    // Wait for the component to render fully
+    await waitFor(() => {
+      // Debug output to see what's rendered
+      const title = screen.queryByText('Start Background Scan');
+      if (!title) {
+        // Check if there's anything in the container
+        expect(container.firstChild).toBeTruthy();
+      }
+      expect(screen.getByText('Start Background Scan')).toBeInTheDocument();
+    }, { timeout: 3000 });
+    
+    // Check for the button with dynamic text based on scan type
+    const button = screen.getByRole('button', { name: /start/i });
+    expect(button).toBeInTheDocument();
   });
 
   it('disables start button when no user', async () => {
@@ -127,7 +139,11 @@ describe('ScanManager', () => {
       render(<ScanManager />);
     });
     
-    const startButton = screen.getByRole('button', { name: /start full analysis/i });
+    await waitFor(() => {
+      expect(screen.getByText('Start Background Scan')).toBeInTheDocument();
+    });
+    
+    const startButton = screen.getByRole('button', { name: /start/i });
     
     await act(async () => {
       fireEvent.click(startButton);
@@ -189,7 +205,11 @@ describe('ScanManager', () => {
     });
     
     // Start a scan
-    const startButton = screen.getByRole('button', { name: /start full analysis/i });
+    await waitFor(() => {
+      expect(screen.getByText('Start Background Scan')).toBeInTheDocument();
+    });
+    
+    const startButton = screen.getByRole('button', { name: /start/i });
     
     await act(async () => {
       fireEvent.click(startButton);

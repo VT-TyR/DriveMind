@@ -1,4 +1,4 @@
-import { createJobChainManager, JobChainManager, ChainedJob } from '../job-chain';
+import { createJobChainManager, JobChainManager } from '../job-chain';
 import { ScanCheckpoint } from '../checkpoint-manager';
 
 const PROJECT_ID = 'test-project';

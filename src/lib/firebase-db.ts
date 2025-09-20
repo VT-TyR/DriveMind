@@ -492,19 +492,26 @@ export async function getLatestAnalytics(uid: string, type?: string): Promise<an
  */
 export async function getDashboardStats(uid: string): Promise<any> {
   try {
-    // Get the latest drive scan
-    const latestScan = await getLatestAnalytics(uid, 'drive_scan');
-    
-    // Get recent analytics (last 7 days)
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
     const db = getDb();
-    const recentSnapshot = await db.collection(COLLECTIONS.ANALYTICS)
-      .where('uid', '==', uid)
-      .where('createdAt', '>=', weekAgo.getTime())
-      .orderBy('createdAt', 'desc')
-      .get();
+    
+    // Parallel fetch for better performance
+    const [latestScan, recentSnapshot] = await Promise.all([
+      // Get the latest drive scan
+      getLatestAnalytics(uid, 'drive_scan'),
+      
+      // Get recent analytics (last 7 days) with limit for performance
+      (() => {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        return db.collection(COLLECTIONS.ANALYTICS)
+          .where('uid', '==', uid)
+          .where('createdAt', '>=', weekAgo.getTime())
+          .orderBy('createdAt', 'desc')
+          .limit(100) // Add limit for performance
+          .get();
+      })()
+    ]);
     
     const stats = {
       totalFiles: 0,
