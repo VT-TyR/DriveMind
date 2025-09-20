@@ -213,7 +213,7 @@ export class PerformanceMonitor extends EventEmitter {
   ): void {
     const countKey = this.operationTypeMap[type];
     if (countKey && countKey !== 'errors' && countKey !== 'total') {
-      (this.operationCounts[countKey] as number)++;
+      this.operationCounts[countKey]++;
     }
     this.operationCounts.total++;
     
