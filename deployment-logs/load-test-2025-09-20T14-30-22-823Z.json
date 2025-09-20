@@ -1,0 +1,50 @@
+{
+  "summary": {
+    "duration": 30.354,
+    "totalRequests": 242,
+    "successfulRequests": 128,
+    "failedRequests": 114,
+    "requestsPerSecond": 7.972590103446004,
+    "errorRate": "47.11%"
+  },
+  "latency": {
+    "min": 77,
+    "max": 3864,
+    "mean": 179.53125,
+    "p50": 97,
+    "p95": 221,
+    "p99": 1891
+  },
+  "endpoints": {
+    "/api/health": {
+      "total": 80,
+      "successful": 80,
+      "failed": 0,
+      "meanLatency": 149.15,
+      "p95": 180,
+      "p99": 1891
+    },
+    "/api/metrics": {
+      "total": 48,
+      "successful": 48,
+      "failed": 0,
+      "meanLatency": 230.16666666666666,
+      "p95": 714,
+      "p99": 3864
+    },
+    "/api/auth/status": {
+      "total": 114,
+      "successful": 0,
+      "failed": 114,
+      "meanLatency": 0,
+      "p95": 0,
+      "p99": 0
+    }
+  },
+  "compliance": {
+    "P95 < 250ms": true,
+    "P99 < 1000ms": false,
+    "Error rate < 1%": false,
+    "ALPHA_COMPLIANT": false
+  }
+}

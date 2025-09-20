@@ -179,9 +179,13 @@ describe('ErrorBoundary', () => {
     });
 
     it('should provide reload page option', () => {
-      // Mock window.location.reload
+      // Mock window.location.reload using delete and reassign
+      const reloadMock = jest.fn();
       const originalReload = window.location.reload;
-      window.location.reload = jest.fn();
+      
+      // Delete the property first if it exists
+      delete (window.location as any).reload;
+      window.location.reload = reloadMock;
 
       render(
         <ErrorBoundary>
@@ -190,9 +194,9 @@ describe('ErrorBoundary', () => {
       );
 
       fireEvent.click(screen.getByText('Reload Page'));
-      expect(window.location.reload).toHaveBeenCalled();
-
-      // Restore original reload
+      expect(reloadMock).toHaveBeenCalled();
+      
+      // Restore original
       window.location.reload = originalReload;
     });
   });

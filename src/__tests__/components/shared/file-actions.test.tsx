@@ -135,7 +135,8 @@ describe('FileActions', () => {
     const nameInput = await screen.findByDisplayValue('test-file.txt');
     fireEvent.change(nameInput, { target: { value: 'new-name.txt' } });
 
-    const confirmButton = screen.getByRole('button', { name: 'Rename' });
+    const confirmButtons = screen.getAllByRole('button', { name: 'Rename' });
+    const confirmButton = confirmButtons[confirmButtons.length - 1]; // Get the last one (dialog button)
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -157,7 +158,8 @@ describe('FileActions', () => {
     fireEvent.click(deleteButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Move to trash')).toBeInTheDocument();
+      const deleteTexts = screen.getAllByText('Move to trash');
+      expect(deleteTexts.length).toBeGreaterThan(0);
       expect(screen.getByText(/Are you sure you want to move.*to trash/)).toBeInTheDocument();
     });
   });
@@ -171,7 +173,8 @@ describe('FileActions', () => {
     const deleteButton = await screen.findByText('Move to trash');
     fireEvent.click(deleteButton);
 
-    const confirmButton = await screen.findByRole('button', { name: 'Move to trash' });
+    const confirmButtons = await screen.findAllByRole('button', { name: 'Move to trash' });
+    const confirmButton = confirmButtons[confirmButtons.length - 1]; // Get the last one (dialog button)
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -192,7 +195,8 @@ describe('FileActions', () => {
     fireEvent.click(moveButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Move file')).toBeInTheDocument();
+      const moveTexts = screen.getAllByText('Move file');
+      expect(moveTexts.length).toBeGreaterThan(0);
       expect(screen.getByPlaceholderText(/Enter folder ID/)).toBeInTheDocument();
     });
   });
@@ -279,7 +283,8 @@ describe('FileActions', () => {
     const nameInput = await screen.findByDisplayValue('test-file.txt');
     fireEvent.change(nameInput, { target: { value: 'new-name.txt' } });
 
-    const confirmButton = screen.getByRole('button', { name: 'Rename' });
+    const confirmButtons = screen.getAllByRole('button', { name: 'Rename' });
+    const confirmButton = confirmButtons[confirmButtons.length - 1]; // Get the last one (dialog button)
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -299,7 +304,8 @@ describe('FileActions', () => {
     const nameInput = await screen.findByDisplayValue('test-file.txt');
     fireEvent.change(nameInput, { target: { value: '' } });
 
-    const confirmButton = screen.getByRole('button', { name: 'Rename' });
+    const confirmButtons = screen.getAllByRole('button', { name: 'Rename' });
+    const confirmButton = confirmButtons[confirmButtons.length - 1]; // Get the last one (dialog button)
     expect(confirmButton).toBeDisabled();
   });
 

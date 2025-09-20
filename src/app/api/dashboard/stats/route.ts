@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardStats } from '@/lib/firebase-db';
 import { auth } from '@/lib/admin';
+import { cacheManager, CacheNames } from '@/lib/performance/cache-manager';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
@@ -11,10 +15,29 @@ export async function GET(request: NextRequest) {
     }
 
     const decodedToken = await auth.verifyIdToken(token);
+    const cacheKey = `dashboard:${decodedToken.uid}`;
     
+    // Try cache first
+    const cachedStats = cacheManager.get(CacheNames.API_RESPONSES, cacheKey);
+    if (cachedStats) {
+      logger.performanceLog('dashboard_stats_cached', Date.now() - startTime);
+      return NextResponse.json(cachedStats);
+    }
+    
+    // Fetch fresh data
     const stats = await getDashboardStats(decodedToken.uid);
-
-    return NextResponse.json(stats);
+    
+    // Cache the results
+    cacheManager.set(CacheNames.API_RESPONSES, cacheKey, stats);
+    
+    const responseTime = Date.now() - startTime;
+    logger.performanceLog('dashboard_stats_fresh', responseTime);
+    
+    // Add performance header
+    const response = NextResponse.json(stats);
+    response.headers.set('X-Response-Time', `${responseTime}ms`);
+    
+    return response;
   } catch (error) {
     console.error('Dashboard stats API error:', error);
     return NextResponse.json(

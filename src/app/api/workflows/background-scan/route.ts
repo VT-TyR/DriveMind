@@ -24,6 +24,7 @@ import {
 import { driveFor } from '@/lib/google-drive';
 import { logger } from '@/lib/logger';
 import { recordScanResults } from '@/lib/dataconnect';
+import { errorHandler, createErrorResponse } from '@/lib/error-management/error-handler';
 
 const StartScanSchema = z.object({
   type: z.enum(['drive_scan', 'full_analysis', 'duplicate_detection']).optional().default('full_analysis'),
@@ -77,11 +78,7 @@ export async function POST(request: NextRequest) {
           const userHash = crypto.createHash('sha256').update(uid).digest('hex').substring(0, 8);
           logger.info('Token verified', { requestId, userHash });
         } catch (error) {
-          logger.error('Token verification failed', { requestId });
-          return NextResponse.json(
-            { error: 'Invalid authentication token', requestId },
-            { status: 401 }
-          );
+          return createErrorResponse(error, { requestId, operation: 'token_verification' });
         }
 
         // Check if there's already an active scan
@@ -99,11 +96,8 @@ export async function POST(request: NextRequest) {
             }, { status: 409 });
           }
         } catch (error) {
-          logger.error('Failed to check active scan', { requestId });
-          return NextResponse.json(
-            { error: 'Service error', requestId },
-            { status: 500 }
-          );
+          logger.warn('Failed to check active scan, continuing', { requestId });
+          // Non-critical error, continue with scan creation
         }
 
         // Parse and validate request body
