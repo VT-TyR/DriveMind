@@ -1,158 +1,256 @@
 /**
- * Health check endpoint - ALPHA-CODENAME Production Gate Requirement
- * Provides system health status without exposing sensitive information
+ * Health Check Endpoint
+ * Production-grade health monitoring
+ * Compliant with ALPHA-CODENAME v1.8 requirements
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseConfig } from '@/lib/firebase-config';
-import { logger } from '@/lib/logger';
-import crypto from 'crypto';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
+import { initAdmin } from '@/lib/firebase-admin';
+import { getShutdownStatus } from '@/lib/graceful-shutdown';
 
-export async function GET(request: NextRequest) {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-  
-  try {
-    // Check all dependencies
-    const [firebaseStatus, googleAuthStatus, dbStatus] = await Promise.all([
-      checkFirebase(),
-      checkGoogleAuth(),
-      checkDatabase(),
-    ]);
-    
-    const health = {
-      status: 'healthy',
-      version: process.env.npm_package_version || '1.2.1',
-      build: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local',
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
-      dependencies: {
-        firebase: firebaseStatus,
-        google_auth: googleAuthStatus,
-        database: dbStatus,
-      },
-      metrics: {
-        memory_used_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        memory_total_mb: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        response_time_ms: Date.now() - startTime,
-      },
-      compliance: {
-        alpha_codename: 'v1.8',
-        aei21: 'compliant',
-        security_headers: 'enabled',
-        rate_limiting: 'enabled',
-      },
+interface HealthCheckResult {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  uptime: number;
+  version: string;
+  commit?: string;
+  checks: {
+    [key: string]: {
+      status: 'pass' | 'fail' | 'warn';
+      message?: string;
+      responseTime?: number;
+      details?: any;
     };
+  };
+}
 
-    // Determine overall health
-    const isHealthy = Object.values(health.dependencies).every(dep => dep.status === 'healthy');
+/**
+ * Perform health check on Firestore
+ */
+async function checkFirestore(): Promise<{ status: 'pass' | 'fail'; responseTime: number; message?: string }> {
+  const start = Date.now();
+  try {
+    await initAdmin();
+    const db = getFirestore();
     
-    if (!isHealthy) {
-      health.status = 'degraded';
-      logger.warn('Health check detected degraded status', {
-        requestId,
-        dependencies: health.dependencies,
-      });
+    // Try to read a system collection
+    const testDoc = await db.collection('_health').doc('check').get();
+    
+    // Write a test document with timestamp
+    await db.collection('_health').doc('check').set({
+      timestamp: new Date(),
+      status: 'healthy',
+    });
+    
+    return {
+      status: 'pass',
+      responseTime: Date.now() - start,
+    };
+  } catch (error) {
+    return {
+      status: 'fail',
+      responseTime: Date.now() - start,
+      message: error instanceof Error ? error.message : 'Firestore check failed',
+    };
+  }
+}
+
+/**
+ * Perform health check on Storage
+ */
+async function checkStorage(): Promise<{ status: 'pass' | 'fail'; responseTime: number; message?: string }> {
+  const start = Date.now();
+  try {
+    await initAdmin();
+    const storage = getStorage();
+    const bucket = storage.bucket();
+    
+    // Check if bucket is accessible
+    const [metadata] = await bucket.getMetadata();
+    
+    if (!metadata || !metadata.name) {
+      throw new Error('Storage bucket not accessible');
     }
     
-    // Log health check (without PII)
-    logger.info('Health check completed', {
-      requestId,
-      status: health.status,
-      responseTime: health.metrics.response_time_ms,
-    });
-    
-    return NextResponse.json(health, {
-      status: isHealthy ? 200 : 503,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'X-Request-ID': requestId,
-      },
-    });
+    return {
+      status: 'pass',
+      responseTime: Date.now() - start,
+    };
   } catch (error) {
-    logger.error('Health check failed', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    
+    return {
+      status: 'fail',
+      responseTime: Date.now() - start,
+      message: error instanceof Error ? error.message : 'Storage check failed',
+    };
+  }
+}
+
+/**
+ * Check memory usage
+ */
+function checkMemory(): { status: 'pass' | 'warn' | 'fail'; details: any } {
+  const usage = process.memoryUsage();
+  const heapUsedPercent = (usage.heapUsed / usage.heapTotal) * 100;
+  
+  return {
+    status: heapUsedPercent > 90 ? 'fail' : heapUsedPercent > 70 ? 'warn' : 'pass',
+    details: {
+      heapUsed: Math.round(usage.heapUsed / 1024 / 1024) + ' MB',
+      heapTotal: Math.round(usage.heapTotal / 1024 / 1024) + ' MB',
+      rss: Math.round(usage.rss / 1024 / 1024) + ' MB',
+      external: Math.round(usage.external / 1024 / 1024) + ' MB',
+      heapUsedPercent: Math.round(heapUsedPercent) + '%',
+    },
+  };
+}
+
+/**
+ * Check CPU usage
+ */
+function checkCPU(): { status: 'pass' | 'warn' | 'fail'; details: any } {
+  const cpus = require('os').cpus();
+  const loadAvg = require('os').loadavg();
+  
+  // Get CPU usage percentage (rough estimate)
+  const avgLoad = loadAvg[0]; // 1 minute average
+  const cpuCount = cpus.length;
+  const loadPercent = (avgLoad / cpuCount) * 100;
+  
+  return {
+    status: loadPercent > 90 ? 'fail' : loadPercent > 70 ? 'warn' : 'pass',
+    details: {
+      cores: cpuCount,
+      loadAverage: {
+        '1min': loadAvg[0].toFixed(2),
+        '5min': loadAvg[1].toFixed(2),
+        '15min': loadAvg[2].toFixed(2),
+      },
+      loadPercent: Math.round(loadPercent) + '%',
+    },
+  };
+}
+
+/**
+ * Health check handler
+ */
+export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
+  // Check if we're shutting down
+  const shutdownStatus = getShutdownStatus();
+  if (shutdownStatus.isShuttingDown) {
     return NextResponse.json(
       {
         status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: 'Health check failed',
-        requestId,
+        message: 'Service is shutting down',
+        activeConnections: shutdownStatus.activeConnections,
       },
-      { status: 503 }
+      { 
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Retry-After': '60',
+        },
+      }
     );
   }
+  
+  // Perform health checks
+  const checks: HealthCheckResult['checks'] = {};
+  
+  // Basic checks (always perform)
+  checks.server = {
+    status: 'pass',
+    message: 'Server is responding',
+    responseTime: 0,
+  };
+  
+  // Memory check
+  const memoryCheck = checkMemory();
+  checks.memory = {
+    status: memoryCheck.status,
+    details: memoryCheck.details,
+  };
+  
+  // CPU check
+  const cpuCheck = checkCPU();
+  checks.cpu = {
+    status: cpuCheck.status,
+    details: cpuCheck.details,
+  };
+  
+  // Check query parameter for detailed checks
+  const detailed = request.nextUrl.searchParams.get('detailed') === 'true';
+  
+  if (detailed) {
+    // Firestore check
+    const firestoreCheck = await checkFirestore();
+    checks.firestore = firestoreCheck;
+    
+    // Storage check
+    const storageCheck = await checkStorage();
+    checks.storage = storageCheck;
+  }
+  
+  // Determine overall status
+  const failedChecks = Object.values(checks).filter(c => c.status === 'fail').length;
+  const warnChecks = Object.values(checks).filter(c => c.status === 'warn').length;
+  
+  let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
+  if (failedChecks > 0) {
+    overallStatus = 'unhealthy';
+  } else if (warnChecks > 0) {
+    overallStatus = 'degraded';
+  } else {
+    overallStatus = 'healthy';
+  }
+  
+  const response: HealthCheckResult = {
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: process.env.NEXT_PUBLIC_VERSION || '1.0.0',
+    commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || undefined,
+    checks,
+  };
+  
+  // Set appropriate status code
+  const statusCode = overallStatus === 'healthy' ? 200 : 
+                     overallStatus === 'degraded' ? 200 : 503;
+  
+  return NextResponse.json(response, {
+    status: statusCode,
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'X-Response-Time': `${Date.now() - startTime}ms`,
+    },
+  });
 }
 
-async function checkFirebase(): Promise<{ status: string; latency_ms?: number }> {
-  const start = Date.now();
-  try {
-    // Check Firebase configuration without exposing values
-    const config = getFirebaseConfig();
-    if (!config) {
-      return { status: 'unhealthy' };
-    }
-    
-    // Validate project ID format
-    if (!config.projectId || !config.projectId.match(/^[a-z0-9-]+$/)) {
-      return { status: 'unhealthy' };
-    }
-    
-    return { 
-      status: 'healthy',
-      latency_ms: Date.now() - start,
-    };
-  } catch (error) {
-    return { status: 'unhealthy' };
+/**
+ * HEAD request for simple health check
+ */
+export async function HEAD(request: NextRequest) {
+  const shutdownStatus = getShutdownStatus();
+  
+  if (shutdownStatus.isShuttingDown) {
+    return new NextResponse(null, {
+      status: 503,
+      headers: {
+        'X-Health-Status': 'unhealthy',
+        'X-Health-Message': 'Service is shutting down',
+        'Retry-After': '60',
+      },
+    });
   }
-}
-
-async function checkGoogleAuth(): Promise<{ status: string; configured?: boolean }> {
-  try {
-    // Check OAuth configuration without exposing secrets
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    
-    if (!clientId || !clientSecret) {
-      return { status: 'unhealthy', configured: false };
-    }
-    
-    // Validate format without exposing values
-    if (clientId.length < 10 || clientSecret.length < 10) {
-      return { status: 'unhealthy', configured: false };
-    }
-    
-    return { status: 'healthy', configured: true };
-  } catch (error) {
-    return { status: 'unhealthy', configured: false };
-  }
-}
-
-async function checkDatabase(): Promise<{ status: string; connected?: boolean }> {
-  try {
-    // Check if we can import Firebase Admin
-    const { getAdminFirestore } = await import('@/lib/admin');
-    const db = getAdminFirestore();
-    
-    if (!db) {
-      return { status: 'unhealthy', connected: false };
-    }
-    
-    // Try a simple read operation with timeout
-    const testPromise = db.collection('_health').doc('check').get();
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 2000)
-    );
-    
-    await Promise.race([testPromise, timeoutPromise]);
-    
-    return { status: 'healthy', connected: true };
-  } catch (error) {
-    // Database might be unavailable but that's okay for health check
-    return { status: 'degraded', connected: false };
-  }
+  
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'X-Health-Status': 'healthy',
+      'X-Uptime': String(process.uptime()),
+    },
+  });
 }

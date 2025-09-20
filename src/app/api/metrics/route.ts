@@ -1,233 +1,424 @@
 /**
- * Metrics endpoint - ALPHA-CODENAME Production Gate Requirement
- * Provides system and business metrics in Prometheus-compatible format
+ * Metrics Endpoint
+ * Production-grade metrics collection and reporting
+ * Compliant with ALPHA-CODENAME v1.8 requirements
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { rateLimiters } from '@/lib/security/rate-limiter';
-import { logger } from '@/lib/logger';
-import { z } from 'zod';
-import crypto from 'crypto';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initAdmin } from '@/lib/firebase-admin';
+import os from 'os';
 
-// In-memory metrics store (should use Redis/Prometheus in production)
-const metricsStore = {
-  requests: 0,
-  errors: 0,
-  latency: [] as number[],
-  businessMetrics: {
-    activeUsers: 0,
-    filesProcessed: 0,
-    duplicatesDetected: 0,
-    cleanupActionsExecuted: 0,
-  },
-};
+interface Metrics {
+  timestamp: string;
+  service: string;
+  version: string;
+  environment: string;
+  system: {
+    uptime: number;
+    platform: string;
+    arch: string;
+    nodeVersion: string;
+    hostname: string;
+  };
+  process: {
+    pid: number;
+    uptime: number;
+    memory: {
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+      arrayBuffers: number;
+    };
+    cpu: {
+      user: number;
+      system: number;
+    };
+  };
+  resources: {
+    cpu: {
+      cores: number;
+      loadAverage: [number, number, number];
+      utilizationPercent: number;
+    };
+    memory: {
+      total: number;
+      free: number;
+      used: number;
+      usagePercent: number;
+    };
+  };
+  application: {
+    requests: {
+      total: number;
+      success: number;
+      error: number;
+      rate: number; // requests per second
+    };
+    responseTime: {
+      p50: number;
+      p95: number;
+      p99: number;
+      mean: number;
+    };
+    activeConnections: number;
+    errors: {
+      total: number;
+      rate: number; // errors per minute
+      recent: Array<{
+        timestamp: string;
+        type: string;
+        message: string;
+      }>;
+    };
+  };
+  database?: {
+    connections: {
+      active: number;
+      idle: number;
+      total: number;
+    };
+    operations: {
+      reads: number;
+      writes: number;
+      deletes: number;
+    };
+    responseTime: {
+      p50: number;
+      p95: number;
+      p99: number;
+    };
+  };
+  custom?: Record<string, any>;
+}
 
-export async function GET(request: NextRequest) {
-  return rateLimiters.read(request, async (req) => {
-    const requestId = crypto.randomUUID();
-    const format = req.nextUrl.searchParams.get('format');
-    
-    try {
-      // Calculate percentiles for latency
-      const sortedLatency = [...metricsStore.latency].sort((a, b) => a - b);
-      const p50 = sortedLatency[Math.floor(sortedLatency.length * 0.5)] || 0;
-      const p95 = sortedLatency[Math.floor(sortedLatency.length * 0.95)] || 0;
-      const p99 = sortedLatency[Math.floor(sortedLatency.length * 0.99)] || 0;
-      
-      // Prometheus format for monitoring systems
-      if (format === 'prometheus') {
-        const prometheusMetrics = [
-          `# HELP drivemind_info Application information`,
-          `# TYPE drivemind_info gauge`,
-          `drivemind_info{version="${process.env.npm_package_version || '1.2.1'}",environment="${process.env.NODE_ENV || 'development'}"} 1`,
-          ``,
-          `# HELP drivemind_uptime_seconds Application uptime in seconds`,
-          `# TYPE drivemind_uptime_seconds gauge`,
-          `drivemind_uptime_seconds ${Math.floor(process.uptime())}`,
-          ``,
-          `# HELP drivemind_memory_usage_bytes Memory usage in bytes`,
-          `# TYPE drivemind_memory_usage_bytes gauge`,
-          `drivemind_memory_usage_bytes{type="heap_used"} ${process.memoryUsage().heapUsed}`,
-          `drivemind_memory_usage_bytes{type="heap_total"} ${process.memoryUsage().heapTotal}`,
-          `drivemind_memory_usage_bytes{type="external"} ${process.memoryUsage().external}`,
-          ``,
-          `# HELP drivemind_http_requests_total Total number of HTTP requests`,
-          `# TYPE drivemind_http_requests_total counter`,
-          `drivemind_http_requests_total ${metricsStore.requests}`,
-          ``,
-          `# HELP drivemind_http_errors_total Total number of HTTP errors`,
-          `# TYPE drivemind_http_errors_total counter`,
-          `drivemind_http_errors_total ${metricsStore.errors}`,
-          ``,
-          `# HELP drivemind_http_latency_seconds HTTP request latency in seconds`,
-          `# TYPE drivemind_http_latency_seconds summary`,
-          `drivemind_http_latency_seconds{quantile="0.5"} ${p50 / 1000}`,
-          `drivemind_http_latency_seconds{quantile="0.95"} ${p95 / 1000}`,
-          `drivemind_http_latency_seconds{quantile="0.99"} ${p99 / 1000}`,
-          ``,
-          `# HELP drivemind_business_metrics Business metrics`,
-          `# TYPE drivemind_business_metrics gauge`,
-          `drivemind_business_metrics{type="active_users"} ${metricsStore.businessMetrics.activeUsers}`,
-          `drivemind_business_metrics{type="files_processed"} ${metricsStore.businessMetrics.filesProcessed}`,
-          `drivemind_business_metrics{type="duplicates_detected"} ${metricsStore.businessMetrics.duplicatesDetected}`,
-          `drivemind_business_metrics{type="cleanup_actions"} ${metricsStore.businessMetrics.cleanupActionsExecuted}`,
-        ].join('\n');
-        
-        return new NextResponse(prometheusMetrics, {
-          headers: {
-            'Content-Type': 'text/plain; version=0.0.4',
-            'X-Request-ID': requestId,
-          },
-        });
-      }
-      
-      // JSON format (default)
-      const metrics = {
-        timestamp: new Date().toISOString(),
-        requestId,
-        application: {
-          name: 'drivemind',
-          version: process.env.npm_package_version || '1.2.1',
-          build: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local',
-          environment: process.env.NODE_ENV || 'development',
-          uptime_seconds: Math.floor(process.uptime()),
-        },
-        system: {
-          memory_mb: {
-            heap_used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-            heap_total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-            external: Math.round(process.memoryUsage().external / 1024 / 1024),
-          },
-          cpu: {
-            user_ms: process.cpuUsage().user,
-            system_ms: process.cpuUsage().system,
-          },
-          platform: process.platform,
-          node_version: process.version,
-        },
-        http: {
-          requests_total: metricsStore.requests,
-          errors_total: metricsStore.errors,
-          latency_ms: {
-            p50,
-            p95,
-            p99,
-            samples: metricsStore.latency.length,
-          },
-        },
-        business: metricsStore.businessMetrics,
-        compliance: {
-          alpha_codename: 'v1.8',
-          aei21: 'compliant',
-        },
-      };
-
-      logger.info('Metrics retrieved', { requestId, format: format || 'json' });
-      
-      return NextResponse.json(metrics, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'X-Request-ID': requestId,
-        },
-      });
-    } catch (error) {
-      logger.error('Metrics retrieval failed', {
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      
-      return NextResponse.json(
-        { error: 'Failed to retrieve metrics', requestId },
-        { status: 500 }
-      );
+// In-memory metrics storage (consider Redis for production)
+class MetricsCollector {
+  private static instance: MetricsCollector;
+  private requestCount = 0;
+  private successCount = 0;
+  private errorCount = 0;
+  private responseTimes: number[] = [];
+  private errors: Array<{ timestamp: string; type: string; message: string }> = [];
+  private startTime = Date.now();
+  private dbOperations = {
+    reads: 0,
+    writes: 0,
+    deletes: 0,
+  };
+  private dbResponseTimes: number[] = [];
+  
+  private constructor() {
+    // Clean up old data periodically
+    setInterval(() => this.cleanup(), 60000); // Every minute
+  }
+  
+  static getInstance(): MetricsCollector {
+    if (!MetricsCollector.instance) {
+      MetricsCollector.instance = new MetricsCollector();
     }
+    return MetricsCollector.instance;
+  }
+  
+  recordRequest(success: boolean, responseTime: number) {
+    this.requestCount++;
+    if (success) {
+      this.successCount++;
+    } else {
+      this.errorCount++;
+    }
+    this.responseTimes.push(responseTime);
+    
+    // Keep only last 1000 response times
+    if (this.responseTimes.length > 1000) {
+      this.responseTimes.shift();
+    }
+  }
+  
+  recordError(type: string, message: string) {
+    this.errors.push({
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+    });
+    
+    // Keep only last 100 errors
+    if (this.errors.length > 100) {
+      this.errors.shift();
+    }
+  }
+  
+  recordDatabaseOperation(operation: 'read' | 'write' | 'delete', responseTime: number) {
+    if (operation === 'read') this.dbOperations.reads++;
+    else if (operation === 'write') this.dbOperations.writes++;
+    else if (operation === 'delete') this.dbOperations.deletes++;
+    
+    this.dbResponseTimes.push(responseTime);
+    
+    // Keep only last 1000 response times
+    if (this.dbResponseTimes.length > 1000) {
+      this.dbResponseTimes.shift();
+    }
+  }
+  
+  getMetrics(): Metrics['application'] {
+    const uptime = (Date.now() - this.startTime) / 1000; // seconds
+    const requestRate = this.requestCount / uptime;
+    const errorRate = (this.errorCount / uptime) * 60; // errors per minute
+    
+    return {
+      requests: {
+        total: this.requestCount,
+        success: this.successCount,
+        error: this.errorCount,
+        rate: Math.round(requestRate * 100) / 100,
+      },
+      responseTime: this.calculatePercentiles(this.responseTimes),
+      activeConnections: 0, // Will be set from shutdown manager
+      errors: {
+        total: this.errorCount,
+        rate: Math.round(errorRate * 100) / 100,
+        recent: this.errors.slice(-10), // Last 10 errors
+      },
+    };
+  }
+  
+  getDatabaseMetrics(): Metrics['database'] {
+    return {
+      connections: {
+        active: 0, // Would need to track from connection pool
+        idle: 0,
+        total: 0,
+      },
+      operations: this.dbOperations,
+      responseTime: this.calculatePercentiles(this.dbResponseTimes),
+    };
+  }
+  
+  private calculatePercentiles(times: number[]): { p50: number; p95: number; p99: number; mean: number } {
+    if (times.length === 0) {
+      return { p50: 0, p95: 0, p99: 0, mean: 0 };
+    }
+    
+    const sorted = [...times].sort((a, b) => a - b);
+    const mean = times.reduce((a, b) => a + b, 0) / times.length;
+    
+    return {
+      p50: sorted[Math.floor(sorted.length * 0.5)] || 0,
+      p95: sorted[Math.floor(sorted.length * 0.95)] || 0,
+      p99: sorted[Math.floor(sorted.length * 0.99)] || 0,
+      mean: Math.round(mean * 100) / 100,
+    };
+  }
+  
+  private cleanup() {
+    // Clean up old data to prevent memory leaks
+    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+    this.errors = this.errors.filter(e => e.timestamp > oneHourAgo);
+  }
+}
+
+// Singleton instance (not exported as Next.js route field)
+const metricsCollector = MetricsCollector.getInstance();
+
+/**
+ * Get system metrics
+ */
+function getSystemMetrics(): Metrics['system'] {
+  return {
+    uptime: os.uptime(),
+    platform: os.platform(),
+    arch: os.arch(),
+    nodeVersion: process.version,
+    hostname: os.hostname(),
+  };
+}
+
+/**
+ * Get process metrics
+ */
+function getProcessMetrics(): Metrics['process'] {
+  const memoryUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
+  return {
+    pid: process.pid,
+    uptime: process.uptime(),
+    memory: {
+      rss: memoryUsage.rss,
+      heapTotal: memoryUsage.heapTotal,
+      heapUsed: memoryUsage.heapUsed,
+      external: memoryUsage.external,
+      arrayBuffers: memoryUsage.arrayBuffers || 0,
+    },
+    cpu: {
+      user: cpuUsage.user,
+      system: cpuUsage.system,
+    },
+  };
+}
+
+/**
+ * Get resource metrics
+ */
+function getResourceMetrics(): Metrics['resources'] {
+  const cpus = os.cpus();
+  const loadAvg = os.loadavg();
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  
+  return {
+    cpu: {
+      cores: cpus.length,
+      loadAverage: loadAvg as [number, number, number],
+      utilizationPercent: Math.round((loadAvg[0] / cpus.length) * 100),
+    },
+    memory: {
+      total: totalMem,
+      free: freeMem,
+      used: usedMem,
+      usagePercent: Math.round((usedMem / totalMem) * 100),
+    },
+  };
+}
+
+/**
+ * Metrics endpoint handler
+ */
+export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
+  // Check format parameter
+  const format = request.nextUrl.searchParams.get('format');
+  const includeDatabase = request.nextUrl.searchParams.get('database') === 'true';
+  
+  // Get active connections from shutdown manager
+  let activeConnections = 0;
+  try {
+    const { getShutdownStatus } = await import('@/lib/graceful-shutdown');
+    activeConnections = getShutdownStatus().activeConnections;
+  } catch (error) {
+    console.error('Failed to get shutdown status:', error);
+  }
+  
+  // Collect metrics
+  const applicationMetrics = metricsCollector.getMetrics();
+  applicationMetrics.activeConnections = activeConnections;
+  
+  const metrics: Metrics = {
+    timestamp: new Date().toISOString(),
+    service: 'drivemind',
+    version: process.env.NEXT_PUBLIC_VERSION || '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    system: getSystemMetrics(),
+    process: getProcessMetrics(),
+    resources: getResourceMetrics(),
+    application: applicationMetrics,
+  };
+  
+  // Add database metrics if requested
+  if (includeDatabase) {
+    metrics.database = metricsCollector.getDatabaseMetrics();
+  }
+  
+  // Add custom metrics
+  metrics.custom = {
+    buildTime: process.env.BUILD_TIME || 'unknown',
+    commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || 'unknown',
+    responseTime: Date.now() - startTime,
+  };
+  
+  // Format response based on format parameter
+  if (format === 'prometheus') {
+    // Prometheus format
+    const prometheusMetrics = formatPrometheus(metrics);
+    return new NextResponse(prometheusMetrics, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; version=0.0.4',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
+  }
+  
+  // Default JSON format
+  return NextResponse.json(metrics, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'X-Response-Time': `${Date.now() - startTime}ms`,
+    },
   });
 }
 
-// Schema for custom metrics
-const MetricSchema = z.object({
-  type: z.enum(['increment', 'gauge', 'timing']),
-  name: z.string().max(100),
-  value: z.number(),
-  tags: z.record(z.string()).optional(),
-});
-
-export async function POST(request: NextRequest) {
-  return rateLimiters.api(request, async (req) => {
-    const requestId = crypto.randomUUID();
-    
-    try {
-      // Verify authorization
-      const authHeader = req.headers.get('authorization');
-      if (!authHeader?.startsWith('Bearer ')) {
-        return NextResponse.json(
-          { error: 'Authorization required', requestId },
-          { status: 401 }
-        );
-      }
-      
-      const body = await req.json();
-      const parsed = MetricSchema.safeParse(body);
-      
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: 'Invalid metric data', requestId },
-          { status: 400 }
-        );
-      }
-      
-      const { type, name, value } = parsed.data;
-      
-      // Update metrics based on type
-      switch (type) {
-        case 'increment':
-          if (name === 'requests') metricsStore.requests += value;
-          else if (name === 'errors') metricsStore.errors += value;
-          else if (name in metricsStore.businessMetrics) {
-            (metricsStore.businessMetrics as any)[name] += value;
-          }
-          break;
-          
-        case 'gauge':
-          if (name in metricsStore.businessMetrics) {
-            (metricsStore.businessMetrics as any)[name] = value;
-          }
-          break;
-          
-        case 'timing':
-          if (name === 'latency') {
-            metricsStore.latency.push(value);
-            // Keep only last 1000 samples
-            if (metricsStore.latency.length > 1000) {
-              metricsStore.latency.shift();
-            }
-          }
-          break;
-      }
-      
-      logger.info('Custom metric recorded', {
-        requestId,
-        type,
-        name,
-        value,
-      });
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Metric recorded',
-        requestId,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      logger.error('Failed to record metric', {
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      
-      return NextResponse.json(
-        { error: 'Failed to record metric', requestId },
-        { status: 500 }
-      );
-    }
-  });
+/**
+ * Format metrics for Prometheus
+ */
+function formatPrometheus(metrics: Metrics): string {
+  const lines: string[] = [];
+  
+  // System metrics
+  lines.push(`# HELP system_uptime_seconds System uptime in seconds`);
+  lines.push(`# TYPE system_uptime_seconds gauge`);
+  lines.push(`system_uptime_seconds ${metrics.system.uptime}`);
+  
+  // Process metrics
+  lines.push(`# HELP process_uptime_seconds Process uptime in seconds`);
+  lines.push(`# TYPE process_uptime_seconds gauge`);
+  lines.push(`process_uptime_seconds ${metrics.process.uptime}`);
+  
+  lines.push(`# HELP process_memory_bytes Process memory usage in bytes`);
+  lines.push(`# TYPE process_memory_bytes gauge`);
+  lines.push(`process_memory_bytes{type="rss"} ${metrics.process.memory.rss}`);
+  lines.push(`process_memory_bytes{type="heap_total"} ${metrics.process.memory.heapTotal}`);
+  lines.push(`process_memory_bytes{type="heap_used"} ${metrics.process.memory.heapUsed}`);
+  
+  // Resource metrics
+  lines.push(`# HELP cpu_cores_total Number of CPU cores`);
+  lines.push(`# TYPE cpu_cores_total gauge`);
+  lines.push(`cpu_cores_total ${metrics.resources.cpu.cores}`);
+  
+  lines.push(`# HELP cpu_utilization_percent CPU utilization percentage`);
+  lines.push(`# TYPE cpu_utilization_percent gauge`);
+  lines.push(`cpu_utilization_percent ${metrics.resources.cpu.utilizationPercent}`);
+  
+  lines.push(`# HELP memory_usage_percent Memory usage percentage`);
+  lines.push(`# TYPE memory_usage_percent gauge`);
+  lines.push(`memory_usage_percent ${metrics.resources.memory.usagePercent}`);
+  
+  // Application metrics
+  lines.push(`# HELP http_requests_total Total number of HTTP requests`);
+  lines.push(`# TYPE http_requests_total counter`);
+  lines.push(`http_requests_total ${metrics.application.requests.total}`);
+  
+  lines.push(`# HELP http_requests_success_total Total number of successful HTTP requests`);
+  lines.push(`# TYPE http_requests_success_total counter`);
+  lines.push(`http_requests_success_total ${metrics.application.requests.success}`);
+  
+  lines.push(`# HELP http_requests_error_total Total number of failed HTTP requests`);
+  lines.push(`# TYPE http_requests_error_total counter`);
+  lines.push(`http_requests_error_total ${metrics.application.requests.error}`);
+  
+  lines.push(`# HELP http_request_duration_milliseconds HTTP request duration in milliseconds`);
+  lines.push(`# TYPE http_request_duration_milliseconds summary`);
+  lines.push(`http_request_duration_milliseconds{quantile="0.5"} ${metrics.application.responseTime.p50}`);
+  lines.push(`http_request_duration_milliseconds{quantile="0.95"} ${metrics.application.responseTime.p95}`);
+  lines.push(`http_request_duration_milliseconds{quantile="0.99"} ${metrics.application.responseTime.p99}`);
+  
+  lines.push(`# HELP active_connections Number of active connections`);
+  lines.push(`# TYPE active_connections gauge`);
+  lines.push(`active_connections ${metrics.application.activeConnections}`);
+  
+  // Database metrics if available
+  if (metrics.database) {
+    lines.push(`# HELP database_operations_total Total database operations`);
+    lines.push(`# TYPE database_operations_total counter`);
+    lines.push(`database_operations_total{operation="read"} ${metrics.database.operations.reads}`);
+    lines.push(`database_operations_total{operation="write"} ${metrics.database.operations.writes}`);
+    lines.push(`database_operations_total{operation="delete"} ${metrics.database.operations.deletes}`);
+  }
+  
+  return lines.join('\n') + '\n';
 }

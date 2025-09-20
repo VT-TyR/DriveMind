@@ -23,6 +23,7 @@ import {
 } from '@/lib/firebase-db';
 import { driveFor } from '@/lib/google-drive';
 import { logger } from '@/lib/logger';
+import { recordScanResults } from '@/lib/dataconnect';
 
 const StartScanSchema = z.object({
   type: z.enum(['drive_scan', 'full_analysis', 'duplicate_detection']).optional().default('full_analysis'),
@@ -30,7 +31,8 @@ const StartScanSchema = z.object({
     .object({
       maxDepth: z.number().int().min(1).max(10).optional(), // Reduced max depth for security
       includeTrashed: z.boolean().optional(),
-      rootFolderId: z.string().uuid().optional(), // Validate UUID format
+      // Google Drive folder IDs are not UUIDs; accept typical Drive ID format (letters, numbers, - and _)
+      rootFolderId: z.string().regex(/^[A-Za-z0-9_-]{10,200}$/).optional(),
       fileTypes: z.array(z.string().max(50)).max(10).optional(), // Limit array size
       forceFull: z.boolean().optional().default(false),
       forceDelta: z.boolean().optional().default(false),
@@ -494,6 +496,16 @@ async function processBackgroundScan(
 
     // Complete the job
     await completeScanJob(jobId, results);
+
+    // Fire-and-forget: record scan summary in DataConnect if enabled
+    recordScanResults({
+      id: jobId,
+      uid,
+      scanId,
+      filesFound: results.filesFound,
+      duplicatesDetected: results.duplicatesDetected,
+      totalSize: results.totalSize,
+    }).catch((e) => logger.warn('DataConnect scan summary publish failed', { jobId, uid, error: (e as Error).message }));
     
     const finalFilesWithSize = allFiles.filter(f => parseInt(f.size || '0') > 0).length;
     const finalFilesWithoutSize = allFiles.length - finalFilesWithSize;

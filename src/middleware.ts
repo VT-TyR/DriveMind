@@ -1,10 +1,11 @@
 /**
  * Next.js Edge Middleware for global security enforcement
- * ALPHA-CODENAME v1.8 compliant
+ * ALPHA-CODENAME v1.8 compliant with comprehensive security gates
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { rateLimiters } from '@/lib/security/rate-limiter';
+import { createRateLimiter, DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT, STRICT_RATE_LIMIT } from '@/lib/rate-limiter';
+import { applySecurityHeaders } from '@/lib/security-headers';
 
 // Define public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -13,17 +14,23 @@ const PUBLIC_ROUTES = [
   '/health',
   '/api/health',
   '/api/metrics',
+  '/api/about',
   '/api/auth/drive/begin',
   '/api/auth/drive/callback',
 ];
 
-// Define API routes that need rate limiting
-const RATE_LIMITED_ROUTES = {
-  '/api/auth': 'auth',
-  '/api/workflows': 'expensive',
-  '/api/ai': 'expensive',
-  '/api': 'api',
-} as const;
+// Define sensitive routes that need strict rate limiting
+const SENSITIVE_ROUTES = [
+  '/api/auth',
+  '/api/workflows/background-scan',
+  '/api/ai',
+  '/api/exports',
+];
+
+// Rate limiters for different route types
+const defaultRateLimiter = createRateLimiter(DEFAULT_RATE_LIMIT);
+const authRateLimiter = createRateLimiter(AUTH_RATE_LIMIT);
+const strictRateLimiter = createRateLimiter(STRICT_RATE_LIMIT);
 
 /**
  * Security headers to apply to all responses
@@ -34,6 +41,9 @@ const SECURITY_HEADERS = {
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // Opt-in to stronger isolation to mitigate cross-origin risks
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
 };
 
 /**
@@ -53,71 +63,81 @@ const CSP_DIRECTIVES = [
   "frame-ancestors 'none'",
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestId = crypto.randomUUID();
+  const startTime = Date.now();
   
-  // Clone the response to modify headers
-  const response = NextResponse.next();
+  // Apply rate limiting based on route type
+  let rateLimitResponse: NextResponse | null = null;
   
-  // Add security headers to all responses
-  Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
-    response.headers.set(key, value);
+  if (pathname.startsWith('/api/auth')) {
+    // Strict rate limiting for auth endpoints
+    rateLimitResponse = await authRateLimiter(request);
+  } else if (SENSITIVE_ROUTES.some(route => pathname.startsWith(route))) {
+    // Strict rate limiting for sensitive endpoints
+    rateLimitResponse = await strictRateLimiter(request);
+  } else if (pathname.startsWith('/api')) {
+    // Default rate limiting for other API endpoints
+    rateLimitResponse = await defaultRateLimiter(request);
+  }
+  
+  // Return rate limit response if triggered
+  if (rateLimitResponse && (rateLimitResponse.status === 429 || rateLimitResponse.status === 503)) {
+    return rateLimitResponse;
+  }
+  
+  // Continue with regular processing
+  let response = NextResponse.next();
+  
+  // Apply comprehensive security headers
+  response = applySecurityHeaders(response, {
+    csp: process.env.NODE_ENV === 'production',
+    cors: pathname.startsWith('/api') ? {
+      allowedOrigins: [
+        'https://studio--drivemind-q69b7.us-central1.hosted.app',
+        'https://drivemind-q69b7.firebaseapp.com',
+        'https://drivemind-q69b7.web.app',
+        process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '',
+      ].filter(Boolean),
+      credentials: true,
+    } : false,
   });
   
-  // Add CSP header (relaxed for development)
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set('Content-Security-Policy', CSP_DIRECTIVES.join('; '));
-  }
-  
-  // Add HSTS header for production
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set(
-      'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains; preload'
-    );
-  }
-  
-  // Add request ID for tracing
+  // Add request tracking headers
   response.headers.set('X-Request-ID', requestId);
+  response.headers.set('X-Response-Time', `${Date.now() - startTime}ms`);
   
-  // CORS handling for API routes
-  if (pathname.startsWith('/api')) {
-    const origin = request.headers.get('origin');
-    const allowedOrigins = [
-      'https://studio--drivemind-q69b7.us-central1.hosted.app',
-      'https://drivemind-q69b7.firebaseapp.com',
-      'https://drivemind-q69b7.web.app',
-      'http://localhost:3000', // Development
-    ];
-    
-    if (origin && allowedOrigins.includes(origin)) {
-      response.headers.set('Access-Control-Allow-Origin', origin);
-      response.headers.set('Access-Control-Allow-Credentials', 'true');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
-    }
-    
-    // Handle preflight requests
-    if (request.method === 'OPTIONS') {
-      return new NextResponse(null, { status: 204, headers: response.headers });
-    }
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers: response.headers });
   }
   
   // Authentication check for protected routes
-  if (!PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`))) {
-    const token = request.cookies.get('auth-token') || 
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  
+  if (!isPublicRoute) {
+    const token = request.cookies.get('auth-token')?.value || 
                   request.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!token && pathname.startsWith('/api')) {
       return NextResponse.json(
-        { error: 'Authentication required', requestId },
-        { status: 401, headers: response.headers }
+        { 
+          error: 'Authentication required',
+          message: 'Please provide a valid authentication token',
+          requestId 
+        },
+        { 
+          status: 401, 
+          headers: response.headers 
+        }
       );
     }
   }
   
-  // Request size limit check
+  // Request size limit check with circuit breaker
   const contentLength = request.headers.get('content-length');
   if (contentLength) {
     const size = parseInt(contentLength);
@@ -125,23 +145,34 @@ export function middleware(request: NextRequest) {
     
     if (size > maxSize) {
       return NextResponse.json(
-        { error: 'Request body too large', requestId },
-        { status: 413, headers: response.headers }
+        { 
+          error: 'Request body too large',
+          message: `Request size ${size} bytes exceeds maximum allowed size of ${maxSize} bytes`,
+          requestId 
+        },
+        { 
+          status: 413, 
+          headers: response.headers 
+        }
       );
     }
   }
   
-  // Log the request (without PII)
+  // Security logging (without PII)
   if (process.env.NODE_ENV === 'production') {
     console.log(JSON.stringify({
       timestamp: new Date().toISOString(),
       requestId,
       method: request.method,
       path: pathname,
-      userAgent: request.headers.get('user-agent'),
-      referer: request.headers.get('referer'),
+      responseTime: Date.now() - startTime,
+      userAgent: request.headers.get('user-agent')?.substring(0, 100), // Truncate for security
+      referer: request.headers.get('referer')?.replace(/[?#].*$/, ''), // Strip query/hash
     }));
   }
+  
+  // Metrics recording removed from middleware due to Edge Runtime limitations
+  // Metrics will be recorded in individual API routes instead
   
   return response;
 }

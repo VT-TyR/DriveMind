@@ -8,11 +8,16 @@
  */
 
 import {setGlobalOptions} from "firebase-functions";
-import * as logger from "firebase-functions/logger";
+import { logger } from './logger';
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
 import { runScanJob } from "./scan-runner";
+import { healthCheck } from './health';
+import { metrics } from './metrics';
+import { about } from './about';
+
+export { healthCheck, metrics, about };
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -51,7 +56,11 @@ export const onScanJobCreated = onDocumentCreated("scanJobs/{jobId}", async (eve
     logger.info("Worker acknowledged new scan job", { jobId: ref.id, uid: job.uid });
 
     // Run the scan job pipeline
-    await runScanJob(db, ref.id);
+    const dataConnectEndpoint = process.env.DATACONNECT_ENDPOINT;
+    if (!dataConnectEndpoint) {
+      throw new Error('DATACONNECT_ENDPOINT environment variable not set');
+    }
+    await runScanJob(db, ref.id, dataConnectEndpoint);
   } catch (e: any) {
     logger.error("Error in onScanJobCreated", e);
   }

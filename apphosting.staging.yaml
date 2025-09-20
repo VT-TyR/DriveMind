@@ -1,0 +1,77 @@
+# Staging configuration for Firebase App Hosting
+# Use this to enable file operations and test write flows safely.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 5
+  concurrency: 40
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: drivemind-q69b7
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: FIREBASE_API_KEY
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: drivemind-q69b7.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: drivemind-q69b7.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: FIREBASE_MESSAGING_SENDER_ID
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: FIREBASE_APP_ID
+    availability: [BUILD, RUNTIME]
+
+  - variable: NODE_ENV
+    value: production
+    availability: [BUILD, RUNTIME]
+
+  - variable: LOG_LEVEL
+    value: info
+    availability: [RUNTIME]
+
+  - variable: NEXT_PUBLIC_BASE_URL
+    value: https://studio--drivemind-q69b7.us-central1.hosted.app
+    availability: [BUILD, RUNTIME]
+
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+    availability: [RUNTIME]
+
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+    availability: [RUNTIME]
+
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+    availability: [RUNTIME]
+
+  # Enable file operations in staging
+  - variable: FEATURE_FILE_OPS_ENABLED
+    value: "true"
+    availability: [RUNTIME]
+  - variable: NEXT_PUBLIC_FEATURE_FILE_OPS
+    value: "true"
+    availability: [BUILD, RUNTIME]
+
+  # DataConnect (disabled by default in staging unless configured)
+  - variable: FEATURE_DATACONNECT_ENABLED
+    value: "false"
+    availability: [RUNTIME]
+  - variable: DATACONNECT_URL
+    secret: DATACONNECT_URL
+    availability: [RUNTIME]
+  - variable: DATACONNECT_API_KEY
+    secret: DATACONNECT_API_KEY
+    availability: [RUNTIME]

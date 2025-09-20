@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "DriveMind Phase 1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "d1b7a2f6-6f5a-47a3-9f7d-collection"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api","health"] }
+      }
+    },
+    {
+      "name": "Metrics (JSON)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/metrics", "host": ["{{baseUrl}}"], "path": ["api","metrics"] }
+      }
+    },
+    {
+      "name": "Metrics (Prometheus)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/metrics?format=prometheus", "host": ["{{baseUrl}}"], "path": ["api","metrics"], "query": [{"key":"format","value":"prometheus"}] }
+      }
+    },
+    {
+      "name": "Drive Status",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+        "url": { "raw": "{{baseUrl}}/api/auth/drive/status", "host": ["{{baseUrl}}"], "path": ["api","auth","drive","status"] }
+      }
+    },
+    {
+      "name": "Start Background Scan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key":"Authorization","value":"Bearer {{token}}"},
+          {"key":"Content-Type","value":"application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"full_analysis\",\n  \"config\": { \"includeTrashed\": false }\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/workflows/background-scan", "host": ["{{baseUrl}}"], "path": ["api","workflows","background-scan"] }
+      }
+    },
+    {
+      "name": "Get Scan Status",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+        "url": { "raw": "{{baseUrl}}/api/workflows/background-scan", "host": ["{{baseUrl}}"], "path": ["api","workflows","background-scan"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://studio--drivemind-q69b7.us-central1.hosted.app" },
+    { "key": "token", "value": "" },
+    { "key": "jobId", "value": "" }
+  ]
+}
+

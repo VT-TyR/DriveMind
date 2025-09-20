@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useFileOperations } from '@/contexts/file-operations-context';
 import { File } from '@/lib/types';
+import { isFileOpsEnabledClient } from '@/lib/feature-flags';
 import {
   MoreHorizontal,
   Move,
@@ -38,6 +39,9 @@ interface FileActionsProps {
 }
 
 export function FileActions({ file, onRefresh }: FileActionsProps) {
+  if (!isFileOpsEnabledClient()) {
+    return null;
+  }
   const {
     moveFileOperation,
     deleteFileOperation,

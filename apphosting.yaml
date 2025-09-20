@@ -82,3 +82,26 @@ env:
     secret: GEMINI_API_KEY
     availability:
       - RUNTIME
+
+  # Feature flags
+  - variable: FEATURE_FILE_OPS_ENABLED
+    value: "false"
+    availability:
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FEATURE_FILE_OPS
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: FEATURE_DATACONNECT_ENABLED
+    value: "false"
+    availability:
+      - RUNTIME
+  - variable: DATACONNECT_URL
+    secret: DATACONNECT_URL
+    availability:
+      - RUNTIME
+  - variable: DATACONNECT_API_KEY
+    secret: DATACONNECT_API_KEY
+    availability:
+      - RUNTIME

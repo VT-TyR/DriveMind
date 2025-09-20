@@ -1,0 +1,121 @@
+name: Post-Deploy Scan Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseUrl:
+        description: "Base URL of the deployed app"
+        required: false
+        default: "https://studio--drivemind-q69b7.us-central1.hosted.app"
+      scanType:
+        description: "Scan type to start"
+        required: false
+        default: "full_analysis"
+      token:
+        description: "Firebase ID token (use only if secret not configured)"
+        required: false
+        default: ""
+
+jobs:
+  scan-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ github.event.inputs.baseUrl || vars.BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app' }}
+      INPUT_TOKEN: ${{ github.event.inputs.token }}
+      SCAN_TYPE: ${{ github.event.inputs.scanType || 'full_analysis' }}
+    steps:
+      - name: Checkout (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Prepare token
+        id: token
+        run: |
+          set -e
+          # Prefer repository/organization secret SCAN_TEST_ID_TOKEN; fallback to workflow input
+          if [ -n "${{ secrets.SCAN_TEST_ID_TOKEN }}" ]; then
+            echo "token=${{ secrets.SCAN_TEST_ID_TOKEN }}" >> $GITHUB_OUTPUT
+          elif [ -n "$INPUT_TOKEN" ]; then
+            echo "token=$INPUT_TOKEN" >> $GITHUB_OUTPUT
+          else
+            echo "No token provided. Set repo secret SCAN_TEST_ID_TOKEN or pass 'token' input." >&2
+            exit 1
+          fi
+
+      - name: Health check
+        run: |
+          set -e
+          echo "Checking health at $BASE_URL/api/health"
+          code=$(curl -sS -o health.json -w "%{http_code}" "$BASE_URL/api/health")
+          echo "HTTP $code" && cat health.json || true
+          if [ "$code" -ne 200 ] && [ "$code" -ne 503 ]; then
+            echo "Unexpected health status code: $code" >&2
+            exit 1
+          fi
+
+      - name: Start background scan
+        id: start
+        run: |
+          set -e
+          echo "Starting $SCAN_TYPE scan"
+          code=$(curl -sS -o start.json -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${{ steps.token.outputs.token }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\":\"$SCAN_TYPE\",\"config\":{\"includeTrashed\":false}}" \
+            "$BASE_URL/api/workflows/background-scan")
+          echo "HTTP $code" && cat start.json || true
+          if [ "$code" -ge 400 ]; then
+            echo "Failed to start scan (status $code)" >&2
+            exit 1
+          fi
+          node -e '
+            const fs = require("fs");
+            const p = JSON.parse(fs.readFileSync("start.json", "utf8"));
+            if (!p.jobId) { console.error("No jobId in response", p); process.exit(1); }
+            console.log("JOB_ID=", p.jobId);
+          ' | tee job.txt
+
+      - name: Poll scan status
+        id: poll
+        run: |
+          set -e
+          JOB_ID=$(sed -n 's/^JOB_ID= //p' job.txt)
+          echo "Polling status for job $JOB_ID"
+          attempt=0
+          max_attempts=30 # ~5 minutes at 10s each
+          while [ $attempt -lt $max_attempts ]; do
+            code=$(curl -sS -o status.json -w "%{http_code}" \
+              -H "Authorization: Bearer ${{ steps.token.outputs.token }}" \
+              "$BASE_URL/api/workflows/background-scan")
+            node -e '
+              const fs = require("fs");
+              const p = JSON.parse(fs.readFileSync("status.json", "utf8"));
+              console.log("Status:", p.status, "Progress:", p.progress?.percentage ?? 0);
+            '
+            if [ "$code" -ge 400 ]; then
+              echo "Status check failed (HTTP $code)" >&2
+              exit 1
+            fi
+            STATUS=$(node -e 'const p=require("./status.json"); console.log(p.status || "");')
+            if [ "$STATUS" = "completed" ]; then
+              echo "✅ Scan completed"
+              break
+            elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "cancelled" ]; then
+              echo "❌ Scan ended with status: $STATUS" >&2
+              exit 1
+            fi
+            attempt=$((attempt+1))
+            sleep 10
+          done
+          if [ $attempt -ge $max_attempts ]; then
+            echo "Timed out waiting for scan completion" >&2
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "✅ Background scan smoke test passed for $BASE_URL" >> $GITHUB_STEP_SUMMARY
+

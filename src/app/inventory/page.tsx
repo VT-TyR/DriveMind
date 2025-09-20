@@ -26,6 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import FileTable from '@/components/inventory/file-table';
 import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 import { markDuplicates } from '@/lib/duplicate-detection';
 import { BatchOperationsPanel } from '@/components/shared/file-actions';
 
@@ -57,6 +58,7 @@ export default function InventoryPage() {
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const fetchFiles = React.useCallback(async () => {
     if (!user) {
@@ -121,6 +123,59 @@ export default function InventoryPage() {
   React.useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  const handleExport = async (format: 'csv' | 'json' = 'csv') => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Sign in Required', description: 'Please sign in to export inventory.' });
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const token = await user.getIdToken();
+      const res = await fetch('/api/exports/inventory', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ format }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to export inventory');
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] || `file-inventory.${format}`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Export complete', description: `${filename} downloaded.` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Export failed', description: err?.message || 'Unable to export inventory.' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Keyboard shortcuts: Ctrl+I CSV, Ctrl+Shift+I JSON
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!user || isExporting) return;
+      if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        if (e.shiftKey) handleExport('json'); else handleExport('csv');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [user, isExporting]);
 
   const handleScoreFile = async (file: File) => {
     if (!isAiEnabled) {
@@ -240,9 +295,17 @@ export default function InventoryPage() {
               File Inventory
             </h2>
           </div>
-          <Button onClick={fetchFiles} disabled={isLoading || isProcessing}>
-            {isLoading ? 'Loading...' : 'Refresh Files'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={fetchFiles} disabled={isLoading || isProcessing}>
+              {isLoading ? 'Loading...' : 'Refresh Files'}
+            </Button>
+            <Button variant="outline" onClick={() => handleExport('csv')} disabled={isExporting}>
+              <Download className="h-4 w-4 mr-1"/> Export CSV
+            </Button>
+            <Button variant="outline" onClick={() => handleExport('json')} disabled={isExporting}>
+              <Download className="h-4 w-4 mr-1"/> Export JSON
+            </Button>
+          </div>
         </div>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">

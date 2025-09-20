@@ -51,6 +51,7 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   const { toast } = useToast();
   const [operations, setOperations] = useState<FileOperation[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const fileOpsEnabled = (process.env.NEXT_PUBLIC_FEATURE_FILE_OPS || 'false') === 'true';
 
   const handleError = (error: unknown, operation: string, context?: any) => {
     logger.error(`File operation failed: ${operation}`, error as Error, {
@@ -78,6 +79,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   };
 
   const moveFileOperation = useCallback(async (fileId: string, fileName: string, newParentId: string) => {
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'File operations are disabled in this environment.' });
+      throw new Error('Feature disabled');
+    }
     if (!user) throw new Error('User not authenticated');
     
     setIsProcessing(true);
@@ -94,6 +99,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   }, [user, toast]);
 
   const deleteFileOperation = useCallback(async (fileId: string, fileName: string) => {
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'File operations are disabled in this environment.' });
+      throw new Error('Feature disabled');
+    }
     if (!user) throw new Error('User not authenticated');
     
     setIsProcessing(true);
@@ -110,6 +119,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   }, [user, toast]);
 
   const restoreFileOperation = useCallback(async (fileId: string, fileName: string) => {
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'File operations are disabled in this environment.' });
+      throw new Error('Feature disabled');
+    }
     if (!user) throw new Error('User not authenticated');
     
     setIsProcessing(true);
@@ -126,6 +139,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   }, [user, toast]);
 
   const renameFileOperation = useCallback(async (fileId: string, fileName: string, newName: string) => {
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'File operations are disabled in this environment.' });
+      throw new Error('Feature disabled');
+    }
     if (!user) throw new Error('User not authenticated');
     
     setIsProcessing(true);
@@ -142,6 +159,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
   }, [user, toast]);
 
   const createFolderOperation = useCallback(async (name: string, parentId?: string) => {
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'File operations are disabled in this environment.' });
+      throw new Error('Feature disabled');
+    }
     if (!user) throw new Error('User not authenticated');
     
     setIsProcessing(true);
@@ -161,6 +182,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
 
   const addToBatch = useCallback((type: 'move' | 'delete' | 'rename', fileId: string, fileName: string, details?: any) => {
     if (!user) return;
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'Batch file operations are disabled in this environment.' });
+      return;
+    }
 
     const operation: FileOperation = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -182,6 +207,10 @@ export function FileOperationsProvider({ children }: FileOperationsProviderProps
 
   const executeBatch = useCallback(async () => {
     if (!user || operations.length === 0) return;
+    if (!fileOpsEnabled) {
+      toast({ variant: 'destructive', title: 'Feature disabled', description: 'Batch file operations are disabled in this environment.' });
+      return;
+    }
     
     setIsProcessing(true);
     const token = await user.getIdToken();

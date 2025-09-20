@@ -1,3 +1,5 @@
+import React from 'react';
+
 export default function TestSimplePage() {
   return (
     <div className="p-8">

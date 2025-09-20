@@ -4,7 +4,7 @@
  */
 
 import { Firestore } from 'firebase-admin/firestore';
-import * as logger from 'firebase-functions/logger';
+import { logger } from './logger';
 
 export interface ScanCheckpoint {
   jobId: string;

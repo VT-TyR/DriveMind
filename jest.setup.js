@@ -1,5 +1,12 @@
 import '@testing-library/jest-dom'
 
+// Add TextEncoder/TextDecoder polyfills for Node.js environment
+if (typeof TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -51,17 +58,83 @@ jest.mock('googleapis', () => ({
   },
 }))
 
+// Mock Radix UI components
+jest.mock('@radix-ui/react-dropdown-menu', () => ({
+  Root: ({ children, ...props }) => <div data-testid="dropdown-root" {...props}>{children}</div>,
+  Trigger: ({ children, ...props }) => <div data-testid="dropdown-trigger" {...props}>{children}</div>,
+  Content: ({ children, ...props }) => <div data-testid="dropdown-content" {...props}>{children}</div>,
+  Item: ({ children, onClick, ...props }) => (
+    <button data-testid="dropdown-item" onClick={onClick} {...props}>
+      {children}
+    </button>
+  ),
+  Separator: () => <hr data-testid="dropdown-separator" />,
+  Portal: ({ children }) => children,
+  DropdownMenu: ({ children, ...props }) => <div data-testid="dropdown-menu" {...props}>{children}</div>,
+  DropdownMenuTrigger: ({ children, asChild, ...props }) => {
+    // If asChild, render the child element with trigger props
+    if (asChild && React.isValidElement(children)) {
+      return React.cloneElement(children, props);
+    }
+    return <button data-testid="dropdown-menu-trigger" {...props}>{children}</button>;
+  },
+  DropdownMenuContent: ({ children, ...props }) => (
+    <div data-testid="dropdown-menu-content" {...props}>{children}</div>
+  ),
+  DropdownMenuItem: ({ children, onClick, ...props }) => (
+    <button data-testid="dropdown-menu-item" onClick={onClick} {...props}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr data-testid="dropdown-menu-separator" />,
+}));
+
+jest.mock('@radix-ui/react-dialog', () => ({
+  Root: ({ children, open, ...props }) => open ? <div data-testid="dialog-root" {...props}>{children}</div> : null,
+  Trigger: ({ children, ...props }) => <button data-testid="dialog-trigger" {...props}>{children}</button>,
+  Portal: ({ children }) => children,
+  Overlay: ({ children, ...props }) => <div data-testid="dialog-overlay" {...props}>{children}</div>,
+  Content: ({ children, ...props }) => <div data-testid="dialog-content" {...props}>{children}</div>,
+  Header: ({ children, ...props }) => <div data-testid="dialog-header" {...props}>{children}</div>,
+  Title: ({ children, ...props }) => <h2 data-testid="dialog-title" {...props}>{children}</h2>,
+  Description: ({ children, ...props }) => <p data-testid="dialog-description" {...props}>{children}</p>,
+  Footer: ({ children, ...props }) => <div data-testid="dialog-footer" {...props}>{children}</div>,
+  Close: ({ children, ...props }) => <button data-testid="dialog-close" {...props}>{children}</button>,
+  Dialog: ({ children, open, ...props }) => open ? <div data-testid="dialog" {...props}>{children}</div> : null,
+  DialogTrigger: ({ children, ...props }) => <button data-testid="dialog-trigger-button" {...props}>{children}</button>,
+  DialogContent: ({ children, ...props }) => <div data-testid="dialog-content-wrapper" {...props}>{children}</div>,
+  DialogHeader: ({ children, ...props }) => <div data-testid="dialog-header-wrapper" {...props}>{children}</div>,
+  DialogTitle: ({ children, ...props }) => <h2 data-testid="dialog-title-wrapper" {...props}>{children}</h2>,
+  DialogDescription: ({ children, ...props }) => <p data-testid="dialog-description-wrapper" {...props}>{children}</p>,
+  DialogFooter: ({ children, ...props }) => <div data-testid="dialog-footer-wrapper" {...props}>{children}</div>,
+}));
+
 // Mock Lucide React icons
 jest.mock('lucide-react', () => ({
-  AlertTriangle: 'div',
-  CheckCircle: 'div',
-  XCircle: 'div',
-  Info: 'div',
-  Copy: 'div',
-  Download: 'div',
-  RefreshCw: 'div',
+  __esModule: true, // This is important for ES modules
+  AlertTriangle: ({ ...props }) => <div {...props}>AlertTriangle</div>,
+  CheckCircle: ({ ...props }) => <div {...props}>CheckCircle</div>,
+  XCircle: ({ ...props }) => <div {...props}>XCircle</div>,
+  Info: ({ ...props }) => <div {...props}>Info</div>,
+  Copy: ({ ...props }) => <div {...props}>Copy</div>,
+  Download: ({ ...props }) => <div {...props}>Download</div>,
+  RefreshCw: ({ ...props }) => <div {...props}>RefreshCw</div>,
+  MoreHorizontal: ({ ...props }) => <div {...props}>MoreHorizontal</div>,
+  Edit: ({ ...props }) => <div {...props}>Edit</div>,
+  Move: ({ ...props }) => <div {...props}>Move</div>,
+  Trash2: ({ ...props }) => <div {...props}>Trash2</div>,
+  RotateCcw: ({ ...props }) => <div {...props}>RotateCcw</div>,
+  Play: ({ ...props }) => <div {...props}>Play</div>,
+  X: ({ ...props }) => <div {...props}>X</div>,
+  // Scan Manager icons
+  Pause: ({ ...props }) => <div {...props}>Pause</div>,
+  AlertCircle: ({ ...props }) => <div {...props}>AlertCircle</div>,
+  Clock: ({ ...props }) => <div {...props}>Clock</div>,
+  Database: ({ ...props }) => <div {...props}>Database</div>,
+  FileSearch: ({ ...props }) => <div {...props}>FileSearch</div>,
+  Activity: ({ ...props }) => <div {...props}>Activity</div>,
   // Add other icons as needed
-}))
+}));
 
 // Mock react-hook-form
 jest.mock('react-hook-form', () => ({
@@ -105,90 +178,3 @@ jest.doMock('./src/lib/logger', () => ({
 global.mockLogger = mockLogger;
 global.mockWithTiming = mockWithTiming;
 global.mockLogErrorBoundary = mockLogErrorBoundary;
-
-// Mock window APIs
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-})
-
-// Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-}
-
-// Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-  constructor(cb) {
-    this.cb = cb;
-  }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-// Mock ReadableStream
-global.ReadableStream = class ReadableStream {
-  constructor() {}
-}
-
-// Enhanced Blob polyfill for Node.js environment
-global.Blob = class Blob {
-  constructor(blobParts, options) {
-    this.blobParts = blobParts || [];
-    this.type = options?.type || '';
-    this._content = this._buildContent();
-  }
-
-  _buildContent() {
-    return this.blobParts.map(part => {
-      if (typeof part === 'string') return part;
-      if (part && typeof part.toString === 'function') return part.toString();
-      return '';
-    }).join('');
-  }
-
-  text() {
-    return Promise.resolve(this._content);
-  }
-
-  stream() {
-    // Mock implementation
-    return new ReadableStream();
-  }
-
-  arrayBuffer() {
-    return Promise.resolve(new ArrayBuffer(this._content.length));
-  }
-
-  get size() {
-    return this._content.length;
-  }
-};
-
-// Mock FileReader for Blob polyfill  
-global.FileReader = class FileReader {
-  readAsText(blob) {
-    if (blob && typeof blob.text === 'function') {
-      blob.text().then(content => {
-        this.result = content;
-        if (this.onload) this.onload();
-      });
-    } else {
-      this.result = String(blob);
-      setTimeout(() => this.onload && this.onload(), 0);
-    }
-  }
-};

@@ -7,9 +7,15 @@ import { getAdminAuth } from '@/lib/admin';
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 import { getStoredTokens } from '@/lib/token-store';
+import { isFileOpsEnabledServer, featureMessages } from '@/lib/feature-flags';
 
 export async function POST(request: NextRequest) {
   try {
+    // Feature flag gate
+    if (!isFileOpsEnabledServer()) {
+      return NextResponse.json({ error: featureMessages.fileOpsDisabled }, { status: 404 });
+    }
+
     // Verify authentication
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {

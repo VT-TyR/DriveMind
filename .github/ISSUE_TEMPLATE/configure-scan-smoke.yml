@@ -1,0 +1,31 @@
+name: Configure Scan Smoke Test Secret
+description: Set the SCAN_TEST_ID_TOKEN secret for the post-deploy scan smoke workflow
+title: "CI: Configure SCAN_TEST_ID_TOKEN"
+labels: ["ci", "infrastructure"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue tracks the setup of the `SCAN_TEST_ID_TOKEN` secret used by the `Post-Deploy Scan Smoke` workflow.
+
+  - type: checkboxes
+    id: steps
+    attributes:
+      label: Setup steps
+      options:
+        - label: Generate a Firebase ID token for a test user (see docs/CI-SECRETS.md)
+          required: false
+        - label: Store the token as a GitHub secret named `SCAN_TEST_ID_TOKEN`
+          required: false
+        - label: Run the workflow manually to validate
+          required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / Links
+      description: Paste health run link or artifacts here
+      placeholder: e.g., https://github.com/<org>/<repo>/actions/runs/<id>
+    validations:
+      required: false
+

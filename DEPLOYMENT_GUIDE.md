@@ -95,6 +95,23 @@ npx firebase apphosting:backends:update studio
 npx firebase apphosting:deployments:list studio
 ```
 
+### Staging Config (optional)
+You can deploy with a staging configuration that enables file operations via feature flags.
+
+Files:
+- `apphosting.yaml` (production defaults, file ops disabled)
+- `apphosting.staging.yaml` (staging, file ops enabled)
+
+Deploy staging config:
+```bash
+# Copy staging config into place for a one-off deploy
+cp apphosting.staging.yaml apphosting.yaml
+npx firebase apphosting:backends:update studio
+
+# After testing, revert to production config
+git checkout -- apphosting.yaml
+```
+
 ## 🔍 Verification & Testing
 
 ### Health Check Endpoints
@@ -111,17 +128,35 @@ curl https://studio--drivemind-q69b7.us-central1.hosted.app/api/debug/config
 
 ### Post-Deployment Testing
 ```bash
-# Test OAuth endpoints
-curl -X POST https://studio--drivemind-q69b7.us-central1.hosted.app/api/auth/drive/begin \
-  -H "Content-Type: application/json" \
-  -d '{"userId":"test"}'
+# Set your base URL and token
+export BASE_URL=https://studio--drivemind-q69b7.us-central1.hosted.app
+export FIREBASE_ID_TOKEN=<paste a valid token>
 
-# Test background scan (requires valid Firebase token)
-curl -X POST https://studio--drivemind-q69b7.us-central1.hosted.app/api/workflows/background-scan \
-  -H "Authorization: Bearer FIREBASE_ID_TOKEN" \
+# Health & Metrics
+curl -s "$BASE_URL/api/health" | jq .
+curl -s "$BASE_URL/api/metrics" | jq .
+
+# Drive status (should be connected)
+curl -s -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  "$BASE_URL/api/auth/drive/status" | jq .
+
+# Start background scan
+curl -s -X POST \
+  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"type":"full_analysis","config":{"maxDepth":20}}'
+  -d '{"type":"full_analysis","config":{"includeTrashed":false}}' \
+  "$BASE_URL/api/workflows/background-scan" | jq .
+
+# Poll scan status
+curl -s -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  "$BASE_URL/api/workflows/background-scan" | jq .
 ```
+
+### CI Workflows
+- Post-deploy health: `.github/workflows/post-deploy-health.yml` (auto on push to main, or manual)
+- Background scan smoke (manual only): `.github/workflows/post-deploy-scan-smoke.yml`
+  - Requires `SCAN_TEST_ID_TOKEN` repo/org secret or pass a one-off token input
+  - Usage: Actions → Post-Deploy Scan Smoke → Run workflow
 
 ### Frontend Testing Checklist
 - [ ] Page loads without errors
@@ -130,6 +165,8 @@ curl -X POST https://studio--drivemind-q69b7.us-central1.hosted.app/api/workflow
 - [ ] Background scan buttons trigger API calls
 - [ ] Progress updates display correctly
 - [ ] Error messages are user-friendly
+ - [ ] Health endpoint returns healthy or degraded
+ - [ ] Metrics endpoint returns JSON and Prometheus formats
 
 ## 🔒 Security Configuration
 

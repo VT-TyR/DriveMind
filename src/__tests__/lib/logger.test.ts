@@ -4,6 +4,29 @@
  * since the actual logger is mocked globally in jest.setup.js for application tests
  */
 
+jest.mock('@/lib/logger', () => {
+  const mockLogger = {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    apiRequest: jest.fn(),
+    apiError: jest.fn(),
+    fileOperation: jest.fn(),
+    fileOperationError: jest.fn(),
+    authEvent: jest.fn(),
+    authError: jest.fn(),
+    performanceLog: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    logger: mockLogger,
+    withTiming: jest.fn((...args) => jest.requireActual('@/lib/logger').withTiming(...args)),
+    logErrorBoundary: jest.fn((...args) => jest.requireActual('@/lib/logger').logErrorBoundary(...args)),
+  };
+});
+
 import { logger, withTiming, logErrorBoundary } from '@/lib/logger';
 
 // Clear mocks before each test

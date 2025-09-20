@@ -11,6 +11,49 @@ import type { File } from '@/lib/types';
 
 // Mock dependencies
 jest.mock('@/contexts/file-operations-context');
+jest.mock('@/lib/feature-flags', () => ({
+  isFileOpsEnabledClient: jest.fn(() => true),
+}));
+
+// Mock UI components to make dropdown work in tests
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children, asChild }: any) => children,
+  DropdownMenuContent: ({ children }: any) => (
+    <div data-testid="dropdown-menu-content">{children}</div>
+  ),
+  DropdownMenuItem: ({ children, onClick }: any) => (
+    <button onClick={onClick}>{children}</button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+}));
+
+jest.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: any) => open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: any) => <div>{children}</div>,
+  DialogHeader: ({ children }: any) => <div>{children}</div>,
+  DialogTitle: ({ children }: any) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: any) => <p>{children}</p>,
+  DialogFooter: ({ children }: any) => <div>{children}</div>,
+}));
+
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, ...props }: any) => (
+    <button onClick={onClick} disabled={disabled} {...props}>
+      {children}
+    </button>
+  ),
+}));
+
+jest.mock('@/components/ui/input', () => ({
+  Input: ({ value, onChange, ...props }: any) => (
+    <input value={value} onChange={onChange} {...props} />
+  ),
+}));
+
+jest.mock('@/components/ui/label', () => ({
+  Label: ({ children, ...props }: any) => <label {...props}>{children}</label>,
+}));
 
 const mockUseFileOperations = useFileOperations as jest.MockedFunction<typeof useFileOperations>;
 

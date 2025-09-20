@@ -4,7 +4,7 @@
  */
 
 import { Firestore } from 'firebase-admin/firestore';
-import * as logger from 'firebase-functions/logger';
+import { logger } from './logger';
 import { ScanCheckpoint } from './checkpoint-manager';
 
 export interface ChainedJob {

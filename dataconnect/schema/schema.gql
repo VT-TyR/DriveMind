@@ -1,52 +1,128 @@
-# # Example schema for simple movie review app
+# DriveMind GraphQL Schema (DataConnect)
 
-# # User table is keyed by Firebase Auth UID.
-# type User @table {
-#   # `@default(expr: "auth.uid")` sets it to Firebase Auth UID during insert and upsert.
-#   id: String! @default(expr: "auth.uid")
-#   username: String! @col(dataType: "varchar(50)")
-#   # The `user: User!` field in the Review table generates the following one-to-many query field.
-#   #  reviews_on_user: [Review!]!
-#   # The `Review` join table the following many-to-many query field.
-#   #  movies_via_Review: [Movie!]!
-# }
+"User in the system (derived from Firebase Auth)"
+type User {
+  id: ID!
+  email: String
+  createdAt: String
+}
 
-# # Movie is keyed by a randomly generated UUID.
-# type Movie @table {
-#   # If you do not pass a 'key' to `@table`, Data Connect automatically adds the following 'id' column.
-#   # Feel free to uncomment and customize it.
-#   #  id: UUID! @default(expr: "uuidV4()")
-#   title: String!
-#   imageUrl: String!
-#   genre: String
-# }
+"A file indexed from Google Drive for delta scans and analytics"
+type FileIndexEntry {
+  id: ID!
+  uid: ID!
+  name: String!
+  mimeType: String!
+  size: Int!
+  modifiedTime: String!
+  parentId: String
+  md5Checksum: String
+  version: Int
+  lastScanId: ID
+  isDeleted: Boolean!
+  createdAt: String
+  updatedAt: String
+}
 
-# # MovieMetadata is a metadata attached to a Movie.
-# # Movie <-> MovieMetadata is a one-to-one relationship
-# type MovieMetadata @table {
-#   # @unique ensures each Movie can only one MovieMetadata.
-#   movie: Movie! @unique
-#   # The movie field adds the following foreign key field. Feel free to uncomment and customize it.
-#   #  movieId: UUID!
-#   rating: Float
-#   releaseYear: Int
-#   description: String
-# }
+"A background scan job and its final results"
+type ScanJob {
+  id: ID!
+  uid: ID!
+  status: String!
+  type: String!
+  createdAt: String!
+  startedAt: String
+  completedAt: String
+  progress: ScanProgress
+  results: ScanResults
+  error: String
+}
 
-# # Reviews is a join table between User and Movie.
-# # It has a composite primary keys `userUid` and `movieId`.
-# # A user can leave reviews for many movies. A movie can have reviews from many users.
-# # User  <-> Review is a one-to-many relationship
-# # Movie <-> Review is a one-to-many relationship
-# # Movie <-> User is a many-to-many relationship
-# type Review @table(name: "Reviews", key: ["movie", "user"]) {
-#   user: User!
-#   # The user field adds the following foreign key field. Feel free to uncomment and customize it.
-#   #  userUid: String!
-#   movie: Movie!
-#   # The movie field adds the following foreign key field. Feel free to uncomment and customize it.
-#   #  movieId: UUID!
-#   rating: Int
-#   reviewText: String
-#   reviewDate: Date! @default(expr: "request.time")
-# }
+type ScanProgress {
+  current: Int
+  total: Int
+  percentage: Int
+  currentStep: String
+  bytesProcessed: Int
+}
+
+type ScanResults {
+  scanId: ID!
+  filesFound: Int!
+  duplicatesDetected: Int!
+  totalSize: BigInt
+  insights: ScanInsights
+}
+
+scalar BigInt
+
+type ScanInsights {
+  totalFiles: Int
+  filesWithSize: Int
+  workspaceFiles: Int
+  duplicateGroups: Int
+  totalSize: BigInt
+  archiveCandidates: Int
+  qualityScore: Int
+}
+
+"A detected duplicate group"
+type DuplicateGroup {
+  id: ID!
+  uid: ID!
+  scanId: ID
+  sizeBytes: BigInt
+  fileIds: [ID!]!
+  count: Int!
+  algorithm: String
+  createdAt: String
+}
+
+type Query {
+  files(uid: ID!, limit: Int = 50, after: ID): [FileIndexEntry!]!
+  scans(uid: ID!, limit: Int = 20): [ScanJob!]!
+  duplicates(uid: ID!, scanId: ID, limit: Int = 50): [DuplicateGroup!]!
+}
+
+input FileIndexInput {
+  id: ID!
+  uid: ID!
+  name: String!
+  mimeType: String!
+  size: Int!
+  modifiedTime: String!
+  parentId: String
+  md5Checksum: String
+  version: Int
+  lastScanId: ID
+  isDeleted: Boolean!
+  createdAt: String
+  updatedAt: String
+}
+
+input DuplicateGroupInput {
+  id: ID!
+  uid: ID!
+  scanId: ID
+  sizeBytes: BigInt
+  fileIds: [ID!]!
+  count: Int!
+  algorithm: String
+  createdAt: String
+}
+
+input ScanResultsInput {
+  id: ID!
+  uid: ID!
+  scanId: ID!
+  filesFound: Int!
+  duplicatesDetected: Int!
+  totalSize: BigInt
+}
+
+type Mutation {
+  upsertFileIndex(entries: [FileIndexInput!]!): Int!
+  upsertDuplicateGroups(groups: [DuplicateGroupInput!]!): Int!
+  recordScanResults(input: ScanResultsInput!): Boolean!
+}
+

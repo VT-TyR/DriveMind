@@ -17,6 +17,22 @@ const ThrowErrorComponent = ({ shouldThrow }: { shouldThrow: boolean }) => {
 // Mock the logger
 jest.mock('@/lib/logger');
 
+// Mock UI components
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, ...props }: any) => (
+    <button onClick={onClick} {...props}>{children}</button>
+  ),
+}));
+
+jest.mock('@/components/ui/card', () => ({
+  Card: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  CardHeader: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  CardTitle: ({ children, ...props }: any) => <h2 {...props}>{children}</h2>,
+  CardDescription: ({ children, ...props }: any) => <p {...props}>{children}</p>,
+  CardContent: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  CardFooter: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+}));
+
 describe('ErrorBoundary', () => {
   // Suppress console.error during tests
   let originalError: typeof console.error;
@@ -133,25 +149,32 @@ describe('ErrorBoundary', () => {
 
   describe('Recovery Actions', () => {
     it('should reset error state when Try Again is clicked', () => {
+      // Component that can be controlled to throw or not
+      let shouldThrow = true;
+      const ControlledComponent = () => {
+        if (shouldThrow) {
+          throw new Error('Test error');
+        }
+        return <div>No error</div>;
+      };
+
       const { rerender } = render(
         <ErrorBoundary>
-          <ThrowErrorComponent shouldThrow={true} />
+          <ControlledComponent />
         </ErrorBoundary>
       );
 
       // Error UI should be visible
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
+      // Change the control variable so component won't throw on retry
+      shouldThrow = false;
+
       // Click Try Again
       fireEvent.click(screen.getByText('Try Again'));
 
-      // Re-render with no error
-      rerender(
-        <ErrorBoundary>
-          <ThrowErrorComponent shouldThrow={false} />
-        </ErrorBoundary>
-      );
-
+      // The ErrorBoundary should reset and try to render children again
+      // Since shouldThrow is now false, it should succeed
       expect(screen.getByText('No error')).toBeInTheDocument();
     });
 
@@ -169,6 +192,7 @@ describe('ErrorBoundary', () => {
       fireEvent.click(screen.getByText('Reload Page'));
       expect(window.location.reload).toHaveBeenCalled();
 
+      // Restore original reload
       window.location.reload = originalReload;
     });
   });
@@ -219,18 +243,32 @@ describe('withErrorBoundary HOC', () => {
   it('should catch errors in wrapped component', () => {
     const WrappedComponent = withErrorBoundary(TestComponent);
 
+    // Suppress console.error for this test since we expect an error
+    const originalError = console.error;
+    console.error = jest.fn();
+
     render(<WrappedComponent shouldThrow={true} />);
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+
+    // Restore console.error
+    console.error = originalError;
   });
 
   it('should use custom fallback when provided', () => {
     const customFallback = <div>Custom HOC fallback</div>;
     const WrappedComponent = withErrorBoundary(TestComponent, customFallback);
 
+    // Suppress console.error for this test since we expect an error
+    const originalError = console.error;
+    console.error = jest.fn();
+
     render(<WrappedComponent shouldThrow={true} />);
 
     expect(screen.getByText('Custom HOC fallback')).toBeInTheDocument();
+
+    // Restore console.error
+    console.error = originalError;
   });
 
   it('should preserve component display name', () => {

@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useFileOperations } from '@/contexts/file-operations-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Copy, ScanSearch, Check, Trash, Users, PlusCircle, Sparkles } from 'lucide-react';
+import { Copy, ScanSearch, Check, Trash, Users, PlusCircle, Sparkles, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { BatchOperationsPanel } from '@/components/shared/file-actions';
@@ -35,6 +35,7 @@ interface DuplicateGroup {
 export default function DuplicatesPage() {
   const [duplicateGroups, setDuplicateGroups] = React.useState<DuplicateGroup[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
   const [scanId, setScanId] = React.useState<string | null>(null);
   const { isAiEnabled } = useOperatingMode();
   const { toast } = useToast();
@@ -155,6 +156,78 @@ export default function DuplicatesPage() {
     }
   };
 
+  const handleExport = async (format: 'csv' | 'json' | 'pdf' = 'csv') => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Sign in Required', description: 'Please sign in to export reports.' });
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const token = await user.getIdToken();
+      const body: any = { format };
+      if (duplicateGroups.length > 0) {
+        // Normalize to API shape (keep minimal fields)
+        body.groups = duplicateGroups.map(g => ({
+          id: g.id,
+          similarity: Math.round((g.files.reduce((acc, f) => acc + (f.confidence || 0), 0) / Math.max(1, g.files.length)) * 100) || 100,
+          type: g.algorithm || 'exact',
+          files: g.files.map(f => ({ id: f.id, name: f.name, size: f.size || 0 }))
+        }));
+      } else {
+        // No groups yet – request detection-driven export on server
+        body.detection = { algorithm: 'thorough', includeContentHashing: true, includeFuzzyMatching: true, minFileSize: 1024, maxFiles: 2000 };
+      }
+
+      const res = await fetch('/api/exports/duplicates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to export duplicates');
+      }
+
+      const blob = await res.blob();
+      // Try to parse filename from Content-Disposition
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] || `duplicate-report.${format}`;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({ title: 'Export complete', description: `${filename} downloaded.` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Export failed', description: err?.message || 'Unable to export duplicates.' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Keyboard shortcuts: Ctrl+E for CSV, Ctrl+Shift+E for JSON
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!user || isExporting) return;
+      if (e.ctrlKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        if (e.shiftKey) handleExport('json');
+        else handleExport('csv');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [user, isExporting, duplicateGroups]);
+
 
   return (
     <MainLayout>
@@ -229,8 +302,23 @@ export default function DuplicatesPage() {
         {duplicateGroups.length > 0 && (
             <Card>
                 <CardHeader>
-                    <CardTitle>Review Duplicates</CardTitle>
-                    <CardDescription>The AI found {duplicateGroups.length} groups of files that appear to be duplicates. Review each group and decide which files to keep or delete.</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Review Duplicates</CardTitle>
+                        <CardDescription>The AI found {duplicateGroups.length} groups of files that appear to be duplicates. Review each group and decide which files to keep or delete.</CardDescription>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Button size="sm" variant="outline" onClick={() => handleExport('csv')} disabled={isExporting || !user}>
+                          <Download className="h-4 w-4 mr-1"/>
+                          Export CSV
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleExport('json')} disabled={isExporting || !user}>
+                          <Download className="h-4 w-4 mr-1"/>
+                          Export JSON
+                        </Button>
+                        <span className="text-xs text-muted-foreground hidden md:inline">(Ctrl+E CSV, Ctrl+Shift+E JSON)</span>
+                      </div>
+                    </div>
                 </CardHeader>
                 <CardContent className="grid gap-6">
                     {duplicateGroups.map((group, index) => (

@@ -163,7 +163,7 @@ export class VaultExportService {
     });
   }
 
-  private async exportToJSON(files: FileExportData[], options: ExportOptions): Promise<ExportResult> {
+  private exportToJSON(files: FileExportData[], options: ExportOptions): ExportResult {
     const exportData = {
       generatedAt: new Date().toISOString(),
       userId: this.userId,
@@ -179,7 +179,7 @@ export class VaultExportService {
     );
   }
 
-  private async exportToCSV(files: FileExportData[], options: ExportOptions): Promise<ExportResult> {
+  private exportToCSV(files: FileExportData[], options: ExportOptions): ExportResult {
     const headers = ['Name', 'Type', 'Size', 'Modified'];
     if (options.includePaths) headers.push('Path');
     if (options.includeAnalysis) headers.push('Analysis');
@@ -212,10 +212,10 @@ export class VaultExportService {
     );
   }
 
-  private async exportToExcel(files: FileExportData[], options: ExportOptions): Promise<ExportResult> {
+  private exportToExcel(files: FileExportData[], options: ExportOptions): ExportResult {
     // For now, we'll use CSV format as a placeholder
     // In a real implementation, you'd use a library like xlsx
-    const csvResult = await this.exportToCSV(files, options);
+    const csvResult = this.exportToCSV(files, options);
     
     return {
       ...csvResult,
@@ -224,7 +224,7 @@ export class VaultExportService {
     };
   }
 
-  private async exportToPDF(files: FileExportData[], options: ExportOptions): Promise<ExportResult> {
+  private exportToPDF(files: FileExportData[], options: ExportOptions): ExportResult {
     // For now, we'll create a simple text-based PDF content
     // In a real implementation, you'd use a PDF library like jsPDF or pdfkit
     const content = this.generatePDFContent(files, options);

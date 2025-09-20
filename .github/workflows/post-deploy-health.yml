@@ -1,0 +1,59 @@
+name: Post-Deploy Health Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseUrl:
+        description: "Base URL of the deployed app"
+        required: false
+        default: "https://studio--drivemind-q69b7.us-central1.hosted.app"
+  push:
+    branches: [ "main" ]
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ github.event.inputs.baseUrl || vars.BASE_URL || 'https://studio--drivemind-q69b7.us-central1.hosted.app' }}
+    steps:
+      - name: Checkout (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Show target URL
+        run: echo "Checking health at $BASE_URL"
+
+      - name: Wait for deployment warm-up
+        run: |
+          sleep 10
+
+      - name: Fetch health
+        id: health
+        run: |
+          set -e
+          echo "Requesting $BASE_URL/api/health"
+          code=$(curl -sS -o health.json -w "%{http_code}" "$BASE_URL/api/health")
+          echo "HTTP $code"
+          cat health.json || true
+          if [ "$code" -ne 200 ] && [ "$code" -ne 503 ]; then
+            echo "Unexpected status code: $code" >&2
+            exit 1
+          fi
+
+      - name: Validate health payload
+        run: |
+          set -e
+          node -e '
+            const fs = require("fs");
+            const p = JSON.parse(fs.readFileSync("health.json", "utf8"));
+            const ok = ["healthy","degraded"].includes(p.status);
+            if (!ok) { console.error("Health status not acceptable:", p.status); process.exit(1); }
+            console.log("Health status:", p.status);
+          '
+
+      - name: Summary
+        run: |
+          echo "✅ Health check passed for $BASE_URL" >> $GITHUB_STEP_SUMMARY
+

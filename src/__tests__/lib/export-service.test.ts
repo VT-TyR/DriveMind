@@ -5,7 +5,16 @@
 import { VaultExportService, ExportFormat, FileExportData } from '@/lib/export-service';
 
 // Mock the logger
-jest.mock('@/lib/logger');
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    performanceLog: jest.fn()
+  },
+  withTiming: jest.fn((operation, fn, context) => fn())
+}));
 
 describe('VaultExportService', () => {
   let exportService: VaultExportService;

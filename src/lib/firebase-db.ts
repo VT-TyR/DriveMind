@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { getAdminFirestore } from '@/lib/admin';
 import type { Firestore } from 'firebase-admin/firestore';
+import { publishFileIndex } from '@/lib/dataconnect';
 import { ActionBatchSchema, ProposeRulesOutputSchema } from '@/lib/ai-types';
 import { logger } from '@/lib/logger';
 
@@ -957,6 +958,28 @@ export async function updateFileIndex(
     }
 
     await batch.commit();
+
+    // Fire-and-forget: push index entries to DataConnect if enabled
+    const entriesForDc = files.map(file => ({
+      id: file.id,
+      uid,
+      name: file.name,
+      mimeType: file.mimeType || 'unknown',
+      size: parseInt(file.size || '0'),
+      modifiedTime: file.modifiedTime || new Date().toISOString(),
+      parentId: file.parents?.[0],
+      md5Checksum: file.md5Checksum,
+      version: parseInt(file.version || '1'),
+      lastScanId: scanId,
+      isDeleted: false,
+      updatedAt: new Date().toISOString(),
+    }));
+    publishFileIndex(entriesForDc).catch(e => {
+      logger.warn('DataConnect file index publish failed', { 
+        uid, 
+        scanId
+      }, e as Error);
+    });
     
     logger.info('File index updated', { 
       uid, 
