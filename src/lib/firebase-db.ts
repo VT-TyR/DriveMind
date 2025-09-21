@@ -495,7 +495,7 @@ export async function getDashboardStats(uid: string): Promise<any> {
     const db = getDb();
     
     // Parallel fetch for better performance
-    const [latestScan, recentSnapshot] = await Promise.all([
+    const [latestScan, recentSnapshot, activeScanJob] = await Promise.all([
       // Get the latest drive scan
       getLatestAnalytics(uid, 'drive_scan'),
       
@@ -509,6 +509,16 @@ export async function getDashboardStats(uid: string): Promise<any> {
           .where('createdAt', '>=', weekAgo.getTime())
           .orderBy('createdAt', 'desc')
           .limit(100) // Add limit for performance
+          .get();
+      })(),
+      
+      // Get active scan job if any
+      (() => {
+        return db.collection(COLLECTIONS.SCAN_JOBS)
+          .where('uid', '==', uid)
+          .where('status', 'in', ['pending', 'running'])
+          .orderBy('createdAt', 'desc')
+          .limit(1)
           .get();
       })()
     ]);
@@ -525,7 +535,26 @@ export async function getDashboardStats(uid: string): Promise<any> {
       lastScanTime: null as Date | null,
     };
     
-    if (latestScan && latestScan.data) {
+    // Check for active scan job first
+    if (!activeScanJob.empty) {
+      const activeJob = activeScanJob.docs[0].data() as ScanJob;
+      if (activeJob.results?.filesFound) {
+        stats.totalFiles = activeJob.results.filesFound;
+        stats.totalSize = activeJob.results.totalSize || 0;
+        stats.duplicateFiles = activeJob.results.duplicatesDetected || 0;
+        stats.scanStatus = activeJob.status as any;
+        
+        // Calculate quality score based on active scan results
+        const duplicateRatio = stats.totalFiles > 0 ? (stats.duplicateFiles / stats.totalFiles) : 0;
+        stats.qualityScore = Math.round(30 + (duplicateRatio < 0.1 ? 50 : duplicateRatio < 0.2 ? 30 : 10));
+        
+        // Estimate vault candidates and cleanup suggestions
+        stats.vaultCandidates = Math.floor(stats.totalFiles * 0.05);
+        stats.cleanupSuggestions = stats.duplicateFiles + Math.floor(stats.totalFiles * 0.02);
+      }
+    }
+    // Fallback to latest completed scan if no active scan
+    else if (latestScan && latestScan.data) {
       const scanData = latestScan.data;
       stats.totalFiles = scanData.totalFiles || 0;
       stats.totalSize = scanData.totalSize || 0;

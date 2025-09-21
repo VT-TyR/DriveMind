@@ -118,7 +118,7 @@ export default function InventoryPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [toast, user]);
+  }, [user]);
 
   React.useEffect(() => {
     fetchFiles();
