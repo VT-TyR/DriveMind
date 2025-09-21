@@ -538,11 +538,17 @@ export async function getDashboardStats(uid: string): Promise<any> {
     // Check for active scan job first
     if (!activeScanJob.empty) {
       const activeJob = activeScanJob.docs[0].data() as ScanJob;
-      if (activeJob.results?.filesFound) {
-        stats.totalFiles = activeJob.results.filesFound;
-        stats.totalSize = activeJob.results.totalSize || 0;
-        stats.duplicateFiles = activeJob.results.duplicatesDetected || 0;
-        stats.scanStatus = activeJob.status as any;
+      stats.scanStatus = activeJob.status as any;
+      
+      // Use results if available, otherwise use progress data for running scans
+      const filesFound = activeJob.results?.filesFound || activeJob.progress?.current || 0;
+      const totalSize = activeJob.results?.totalSize || activeJob.progress?.bytesProcessed || 0;
+      const duplicatesFound = activeJob.results?.duplicatesDetected || 0;
+      
+      if (filesFound > 0) {
+        stats.totalFiles = filesFound;
+        stats.totalSize = totalSize;
+        stats.duplicateFiles = duplicatesFound;
         
         // Calculate quality score based on active scan results
         const duplicateRatio = stats.totalFiles > 0 ? (stats.duplicateFiles / stats.totalFiles) : 0;
