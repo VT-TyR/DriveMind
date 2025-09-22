@@ -218,6 +218,23 @@ const nextConfig = {
       '@': new URL('./src', import.meta.url).pathname,
     };
     
+    // Handle server-side packages in client builds
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+        stream: false,
+        buffer: false,
+        util: false,
+        os: false,
+        net: false,
+        tls: false,
+        child_process: false,
+      };
+    }
+    
     return config;
   },
   
