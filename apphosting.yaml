@@ -10,16 +10,15 @@ runConfig:
 
 # Environment variables and secrets.
 env:
-  # Firebase Configuration
+  # Firebase Configuration - using direct values instead of secrets
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: drivemind-q69b7
     availability:
       - BUILD
       - RUNTIME
   
-  # Firebase configuration (use environment-specific values)
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: FIREBASE_API_KEY
+    value: AIzaSyBKRxLm4yiCcJVTCPsUPqSVJOjIW0ROkBI
     availability:
       - BUILD
       - RUNTIME
@@ -37,13 +36,13 @@ env:
       - RUNTIME
   
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    secret: FIREBASE_MESSAGING_SENDER_ID
+    value: "687330755440"
     availability:
       - BUILD
       - RUNTIME
   
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    secret: FIREBASE_APP_ID
+    value: 1:687330755440:web:53b62b2a28f4e66e3d9cee
     availability:
       - BUILD
       - RUNTIME
@@ -95,13 +94,5 @@ env:
       - RUNTIME
   - variable: FEATURE_DATACONNECT_ENABLED
     value: "false"
-    availability:
-      - RUNTIME
-  - variable: DATACONNECT_URL
-    secret: DATACONNECT_URL
-    availability:
-      - RUNTIME
-  - variable: DATACONNECT_API_KEY
-    secret: DATACONNECT_API_KEY
     availability:
       - RUNTIME
