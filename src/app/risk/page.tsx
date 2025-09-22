@@ -224,7 +224,7 @@ export default function RiskPage() {
                   </p>
                   {sensitiveCount > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Review these files to ensure they don't contain passwords, API keys, or personal information.
+                      Review these files to ensure they don&apos;t contain passwords, API keys, or personal information.
                     </p>
                   )}
                 </CardContent>

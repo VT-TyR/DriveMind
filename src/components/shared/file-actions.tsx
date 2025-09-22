@@ -39,9 +39,7 @@ interface FileActionsProps {
 }
 
 export function FileActions({ file, onRefresh }: FileActionsProps) {
-  if (!isFileOpsEnabledClient()) {
-    return null;
-  }
+  // All hooks must be called at the top level before any conditional logic
   const {
     moveFileOperation,
     deleteFileOperation,
@@ -56,6 +54,11 @@ export function FileActions({ file, onRefresh }: FileActionsProps) {
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [newName, setNewName] = useState(file.name);
   const [targetFolderId, setTargetFolderId] = useState('');
+
+  // Feature flag check after hooks
+  if (!isFileOpsEnabledClient()) {
+    return null;
+  }
 
   const handleRename = async () => {
     if (!newName.trim() || newName === file.name) return;
@@ -174,7 +177,7 @@ export function FileActions({ file, onRefresh }: FileActionsProps) {
           <DialogHeader>
             <DialogTitle>Rename file</DialogTitle>
             <DialogDescription>
-              Enter a new name for "{file.name}"
+              Enter a new name for &quot;{file.name}&quot;
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -207,7 +210,7 @@ export function FileActions({ file, onRefresh }: FileActionsProps) {
           <DialogHeader>
             <DialogTitle>Move to trash</DialogTitle>
             <DialogDescription>
-              Are you sure you want to move "{file.name}" to trash? You can restore it later if needed.
+              Are you sure you want to move &quot;{file.name}&quot; to trash? You can restore it later if needed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -227,7 +230,7 @@ export function FileActions({ file, onRefresh }: FileActionsProps) {
           <DialogHeader>
             <DialogTitle>Move file</DialogTitle>
             <DialogDescription>
-              Enter the folder ID where you want to move "{file.name}"
+              Enter the folder ID where you want to move &quot;{file.name}&quot;
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -308,7 +311,7 @@ export function BatchOperationsPanel({ onRefresh }: BatchOperationsPanelProps) {
           {operations.map((op) => (
             <div key={op.id} className="flex items-center justify-between py-1 text-sm">
               <span className="truncate">
-                {op.type} "{op.fileName}"
+                {op.type} &quot;{op.fileName}&quot;
               </span>
               <span className={`px-2 py-1 rounded text-xs ${
                 op.status === 'completed' ? 'bg-green-100 text-green-800' :

@@ -512,7 +512,7 @@ export default function VaultPage() {
                   
                   {fileInventory.length === 0 && (
                     <div className="text-center text-sm text-muted-foreground py-8">
-                      No files loaded. Click "Load File Inventory" to begin.
+                      No files loaded. Click &quot;Load File Inventory&quot; to begin.
                     </div>
                   )}
                 </div>

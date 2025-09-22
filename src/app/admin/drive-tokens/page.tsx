@@ -323,7 +323,7 @@ export default function DriveTokensAdminPage() {
                         Clear Drive Token
                       </Button>
                       <p className="text-xs text-muted-foreground mt-2">
-                        This will revoke the user's Google Drive access and require them to reconnect.
+                        This will revoke the user&apos;s Google Drive access and require them to reconnect.
                       </p>
                     </div>
                   )}

@@ -219,7 +219,7 @@ export default function GraphPage() {
               <div>
                 <p className="font-semibold flex items-center gap-2"><GitCommit/> Link Version Chains</p>
                 <p className="text-sm text-muted-foreground">
-                  Find files that look like different versions of each other (e.g., "report.docx", "report (1).docx").
+                  Find files that look like different versions of each other (e.g., &quot;report.docx&quot;, &quot;report (1).docx&quot;).
                 </p>
               </div>
               <Button onClick={handleLinkVersions} disabled={isLoading || !user || !isAiEnabled}>

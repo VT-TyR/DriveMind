@@ -13,6 +13,7 @@ import { ScanProgress } from '@/components/dashboard/scan-progress';
 import { LoadingState } from '@/components/ui/loading-state';
 import { db as clientDb } from '@/lib/firebase';
 import { collection, query as fsQuery, where, orderBy, limit as fsLimit, onSnapshot } from 'firebase/firestore';
+import { dashboardRealtimeService } from '@/lib/dashboard-realtime-service';
 
 // Client-safe ScanJob interface 
 interface ScanJob {
@@ -301,10 +302,35 @@ export default function DashboardPage() {
     fetchDashboardData();
     if (user) {
       subscribeActiveScan();
+      
+      // Subscribe to real-time dashboard updates
+      const unsubscribeDashboard = dashboardRealtimeService.subscribeToDashboardStats(
+        user.uid,
+        (realtimeStats) => {
+          setStats(prev => ({
+            ...prev,
+            totalFiles: realtimeStats.totalFiles,
+            duplicateFiles: realtimeStats.duplicateFiles,
+            totalSize: realtimeStats.totalSize,
+            recentActivity: realtimeStats.recentActivity,
+            vaultCandidates: realtimeStats.vaultCandidates,
+            cleanupSuggestions: realtimeStats.cleanupSuggestions,
+            qualityScore: realtimeStats.qualityScore,
+            scanStatus: realtimeStats.scanStatus,
+            lastScanMode: realtimeStats.lastScanMode
+          }));
+        }
+      );
+      
+      return () => {
+        unsubscribeDashboard();
+        if (scanSubRef.current) scanSubRef.current();
+      };
+    } else {
+      return () => {
+        if (scanSubRef.current) scanSubRef.current();
+      };
     }
-    return () => {
-      if (scanSubRef.current) scanSubRef.current();
-    };
   }, [fetchDashboardData, user, subscribeActiveScan]);
 
   const formatFileSize = (bytes: number) => {

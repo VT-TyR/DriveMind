@@ -69,7 +69,7 @@ export function DeploymentStatus() {
         </Alert>
         
         <div className="space-y-2 text-sm text-muted-foreground">
-          <p><strong>What's working:</strong></p>
+          <p><strong>What&apos;s working:</strong></p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Google Drive authentication and file access</li>
             <li>File browsing and basic management</li>

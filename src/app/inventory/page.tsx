@@ -342,7 +342,7 @@ export default function InventoryPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              AI Cleanup Suggestion for "{suggestion?.fileName}"
+              AI Cleanup Suggestion for &quot;{suggestion?.fileName}&quot;
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4 pt-4">

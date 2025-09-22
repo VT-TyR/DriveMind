@@ -41,7 +41,7 @@ describe('DriveMind User Journey E2E Tests', () => {
       // Mock components for testing
       const MockLandingPage = () => (
         <div>
-          <h1>DriveMind - Clean your Google Drive</h1>
+          <h1>DriveMind Dashboard</h1>
           <button onClick={() => mockPush('/auth/signin')}>Sign in with Google</button>
         </div>
       );
@@ -63,7 +63,7 @@ describe('DriveMind User Journey E2E Tests', () => {
 
       // Step 1: Landing page
       const { rerender } = render(<MockLandingPage />);
-      expect(screen.getByText(/Clean up your Google Drive/)).toBeInTheDocument();
+      expect(screen.getByText(/DriveMind Dashboard/)).toBeInTheDocument();
 
       // Step 2: Sign in with Google
       const signInButton = screen.getByText('Sign in with Google');
